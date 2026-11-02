@@ -113,6 +113,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (typeof input.text === "string" && input.text.trim() && input.text.length <= 2000 && kind in DRAFT_LABEL) agent.offerDraft(kind, input.text.trim());
       return;
     }
+    if (p.name === "propose_action") {
+      // Shows exactly what will change; runs only after Approve (validated and role-checked again there).
+      const { actionId, ...rest } = input;
+      if (typeof actionId === "string") agent.proposeAction(actionId, rest);
+      return;
+    }
     if (p.name === "highlight_element") {
       // Points at something already on screen; changes nothing.
       if (typeof input.target === "string" && onScreenTargets().includes(input.target)) a.highlight(input.target);

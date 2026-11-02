@@ -28,6 +28,7 @@ import {
   backStep,
   cancelTask,
   getWorkflow,
+  markAssistantNavigation,
   onProgress,
   optionalLeft,
   pauseTask,
@@ -76,6 +77,7 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     });
 
   const go = (url: string, target?: string) => {
+    markAssistantNavigation();
     live.current.navigate(url);
     if (target) setTimeout(() => live.current.a.highlight(target), 450);
   };
@@ -111,6 +113,12 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     if (blocked(def.need)) {
       noAccess(def.label);
       return false;
+    }
+    const dup = ex.exists?.(getData(), valid);
+    if (dup) {
+      live.current.a.say({ text: dup, plain: dup });
+      go(urlFor(featureById(def.featureId)!.routeId, getData()));
+      return true;
     }
     const rows = ex.describe(valid);
     live.current.a.say({
@@ -356,6 +364,8 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
   /* ---------------- demo-mode entry ---------------- */
 
   const handle = useCallback((text: string) => {
+    const named = namedCreate(text);
+    if (named) return proposeActionRef.current(named.actionId, { name: named.name }) || true;
     const w = getWorkflow();
     const intent = classify(text, { hasActiveTask: !!w.active });
     const { a } = live.current;
@@ -438,6 +448,13 @@ export function usePlatformAgent() {
   return c;
 }
 
+/** "create a group called Inner Circle", "add a topic tag named Backcountry": a named, approvable request. */
+function namedCreate(text: string): { actionId: string; name: string } | null {
+  const m = text.match(/\b(?:create|make|add|set up|start)\b.*?\b(group|topic tag|tag)\b.*?\b(?:called|named)\s+["“']?([^"”'.!?]{1,40}?)["”']?[.!?]*\s*$/i);
+  if (!m) return null;
+  return { actionId: /group/i.test(m[1]) ? "group.add" : "tag.add", name: m[2].trim() };
+}
+
 /* ---------------- executors for execute-with-approval actions ---------------- */
 
 type Input = Record<string, unknown>;
@@ -446,6 +463,8 @@ interface Executor {
   describe: (i: Input) => [string, string][];
   run: (d: ReturnType<typeof getData>, i: Input) => void;
   done: (i: Input) => string;
+  /** A reason not to propose it (e.g. it already exists), said instead of the approval card. */
+  exists?: (d: ReturnType<typeof getData>, i: Input) => string | null;
   target?: string;
 }
 const str = (v: unknown, max: number) => (typeof v === "string" && v.trim() && v.trim().length <= max ? v.trim() : null);
@@ -456,12 +475,14 @@ const EXECUTORS: Record<string, Executor> = {
     describe: (i) => [["Group", String(i.name)], ...(i.description ? [["Description", String(i.description)] as [string, string]] : [])],
     run: (d, i) => void addGroup(d, { name: String(i.name), description: String(i.description || "") }),
     done: (i) => `Created the ${i.name} group. Next, add fans to it in Insights & Fans.`,
+    exists: (d, i) => (d.prefsB.groups.some((g) => g.name.toLowerCase() === String(i.name).toLowerCase()) ? `You already have a group called ${i.name}. Here it is.` : null),
   },
   "tag.add": {
     validate: (i) => (str(i.name, 30) ? { name: str(i.name, 30), description: str(i.description, 200) ?? "" } : null),
     describe: (i) => [["Topic Tag", String(i.name)]],
     run: (d, i) => void addTopicTag(d, { name: String(i.name), description: String(i.description || "") }),
     done: (i) => `Added the ${i.name} tag.`,
+    exists: (d, i) => (d.prefsB.topicTags.some((t) => t.name.toLowerCase() === String(i.name).toLowerCase()) ? `You already have a ${i.name} tag. Here it is.` : null),
   },
   "automated.add": {
     validate: (i) => (AUTOMATED_EVENT_TYPES.includes(String(i.event)) && str(i.text, 1000) ? { event: String(i.event), text: str(i.text, 1000) } : null),

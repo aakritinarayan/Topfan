@@ -158,14 +158,22 @@ function check(manual: boolean) {
   }
 }
 
+/** The assistant is about to open a screen itself: the visit that follows isn't the creator's doing. */
+let assistantNav = false;
+export function markAssistantNavigation() {
+  assistantNav = true;
+}
+
 /* Wire up once: navigation records visits; store writes re-check progress. */
 if (typeof window !== "undefined") {
   onNavigate((loc) => {
+    const byAssistant = assistantNav;
+    assistantNav = false;
     const a = state.active;
     if (!a) return;
     const id = resolve(loc.path).route.id;
     if (!a.visited.includes(id)) set({ ...state, active: { ...a, visited: [...a.visited, id] } });
-    check(true);
+    check(!byAssistant);
   });
   onStoreEvent((e) => {
     if (e.ok) check(!e.label.startsWith("assistant:"));

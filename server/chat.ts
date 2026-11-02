@@ -64,6 +64,10 @@ const AUTOPILOT_SYSTEM = `You revise one social post draft for a creator on TopF
 
 const FEATURE_IDS = FEATURES.map((f) => f.id);
 const TASK_IDS = TASKS.map((t) => t.id);
+/** execute-with-approval actions (src/app/agent-context/actions.ts): the panel shows exactly what will change; it runs only after Approve. */
+const APPROVAL_ACTIONS = ["group.add", "tag.add", "automated.add"];
+// Same list as AUTOMATED_EVENT_TYPES in src/store/slices/comms.ts (not imported: that module pulls in browser media).
+const AUTOMATED_EVENTS = ["Fan Registers", "Fan Purchases Subscription", "Fan Purchases Content Post", "Fan's Birthday"];
 const DRAFT_KINDS = ["plan-benefits", "post-idea", "welcome-message", "event-promo", "newsletter", "course-outline", "group-welcome", "fan-segment"];
 
 const PLATFORM_SYSTEM = `You are TopFan AI, the creator's companion inside the TopFan creator platform. You help one creator (or their delegate) get things done in TopFan's existing screens: find features, explain them, guide multi-step goals, prepare drafts, and point out what needs attention.
@@ -92,6 +96,7 @@ Actions (tools): the app validates every action; you can only propose.
 - show_attention shows what needs attention (for "what should I focus on?").
 - prepare_draft writes a short Draft (post, plan benefits, welcome message…). Use [placeholders] for anything the creator hasn't told you. Drafts are never published by you.
 - highlight_element points at something in currentPage.highlightable.
+- propose_action asks the creator to approve one small change, shown exactly before it runs: create a group (group.add), add a Topic Tag (tag.add) or add an automated message (automated.add). Use it when the creator asks for one of these by name ("create a group called Inner Circle"); if they didn't give a name, ask for it in one short question. Don't use start_task for these when the creator already gave the details.
 - You never publish, send, change prices, approve refunds, grant access, withdraw money, change passwords or DNS, or pause/delete accounts. For those, open the screen; the creator confirms on the page itself.`;
 
 const platformTools: Anthropic.Beta.Messages.BetaTool[] = [
@@ -134,6 +139,23 @@ const platformTools: Anthropic.Beta.Messages.BetaTool[] = [
       type: "object",
       properties: { kind: { type: "string", enum: DRAFT_KINDS }, text: { type: "string", description: "the draft, under 1200 characters; [placeholders] for unknown facts" } },
       required: ["kind", "text"],
+      additionalProperties: false,
+    },
+    eager_input_streaming: true,
+  },
+  {
+    name: "propose_action",
+    description: "Ask the creator to approve one small change (shown exactly; runs only after they click Approve).",
+    input_schema: {
+      type: "object",
+      properties: {
+        actionId: { type: "string", enum: APPROVAL_ACTIONS },
+        name: { type: "string", description: "group.add / tag.add: the name the creator gave" },
+        description: { type: "string", description: "optional short description" },
+        event: { type: "string", enum: AUTOMATED_EVENTS, description: "automated.add only" },
+        text: { type: "string", description: "automated.add only: the message, [placeholders] for unknown facts" },
+      },
+      required: ["actionId"],
       additionalProperties: false,
     },
     eager_input_streaming: true,
@@ -269,6 +291,14 @@ export function validateAction(name: string, input: unknown, mode: ChatRequest["
         return {};
       case "prepare_draft":
         return typeof i.kind === "string" && DRAFT_KINDS.includes(i.kind) && typeof i.text === "string" && i.text.trim() && i.text.length <= 2000 ? { kind: i.kind, text: i.text.trim() } : null;
+      case "propose_action": {
+        const s = (v: unknown, max: number) => (typeof v === "string" && v.trim() && v.trim().length <= max ? v.trim() : undefined);
+        if (typeof i.actionId !== "string" || !APPROVAL_ACTIONS.includes(i.actionId)) return null;
+        if (i.actionId === "automated.add")
+          return typeof i.event === "string" && AUTOMATED_EVENTS.includes(i.event) && s(i.text, 1000) ? { actionId: i.actionId, event: i.event, text: s(i.text, 1000) } : null;
+        const name = s(i.name, i.actionId === "group.add" ? 40 : 30);
+        return name ? { actionId: i.actionId, name, ...(s(i.description, 200) ? { description: s(i.description, 200) } : {}) } : null;
+      }
       case "highlight_element":
         return typeof i.target === "string" && /^[\w-]{1,80}$/.test(i.target) ? { target: i.target } : null;
     }
