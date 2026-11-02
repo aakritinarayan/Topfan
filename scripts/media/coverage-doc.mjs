@@ -146,7 +146,6 @@ w("- Livestream content is labeled “Recorded preview”. The demo has no live 
 w("- The default seed has no events, which is the spec default. For the event-detail route the audit adds the same sample event that the in-app Bandsintown import creates. Images on event cards appear once an event exists.");
 w("- E-book covers (3:4) are center-cropped in the square store cards. The full cover shows on the product page.");
 w("- Posts and chat media created during the demo through New Post or the message composer show the existing placeholder, because the mock upload stores only the file name. Nothing real is uploaded.");
-w("- The Newsletter band on Home keeps its CSS gradient (the reference shows a stage photo there, and the demo has no suitable licensed photo).");
 w("- The Monetize Single Video uses the vertical park reel, because that player is portrait. The episode and single clips are 5–8 s, and their listed durations match the files.");
 w("- The audit covers each route's default state. Nested states are checked separately and aren't in the table above:");
 w("  - `tests/e2e/media-nested.mjs`: Messages thread, tabs and modals; Insights lists; Wallet categories; refund detail; Fulfillment; Activity; Delegation.");

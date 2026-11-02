@@ -31,6 +31,7 @@ const HOME_MEDIA = {
   experience: ["creators/ajwhite/about-curiosity", "creators/ajwhite/about-content", "creators/ajwhite/about-community", "creators/ajwhite/about-style"],
   videoCall: "experiences/video-call",
   collaborateBg: "backgrounds/snow-texture",
+  newsletterBg: "backgrounds/curtain-red",
   culture: "creators/ajwhite/slope-tall",
   eventsBg: "events/banner",
   series: "videos/competition-run",
@@ -718,11 +719,16 @@ function Newsletter() {
   return (
     <section data-testid="home-newsletter" className="bg-accent py-[40px]">
       <div className={WRAP}>
-        <div className="relative overflow-hidden rounded-[20px] bg-[radial-gradient(ellipse_at_center,#7a0b0b_0%,#3a0404_55%,#140101_100%)] px-[40px] pb-[48px] pt-[54px]">
-          <h2 className={H2}>Get the Latest Drops, Sessions, and Stories</h2>
-          <p className="mt-[12px] text-[16px]">Stay updated with new videos, trick breakdowns, park sessions, collaborations, events, and event updates.</p>
+        <div className="relative overflow-hidden rounded-[20px] bg-black px-[40px] pb-[48px] pt-[54px]">
+          {/* Reference: black on the left, a red stage curtain coming in from the right. */}
+          <span aria-hidden className="absolute inset-0">
+            <ImageSlot src={HOME_MEDIA.newsletterBg} label="" className="h-full w-full" />
+          </span>
+          <span aria-hidden className="absolute inset-0 bg-[linear-gradient(90deg,#000_0%,#000_30%,rgba(0,0,0,0.55)_55%,rgba(0,0,0,0.15)_80%,rgba(0,0,0,0.3)_100%)]" />
+          <h2 className={`${H2} relative`}>Get the Latest Drops, Sessions, and Stories</h2>
+          <p className="relative mt-[12px] text-[16px]">Stay updated with new videos, trick breakdowns, park sessions, collaborations, events, and event updates.</p>
           <form
-            className="mt-[24px] flex items-center gap-[12px]"
+            className="relative mt-[24px] flex items-center gap-[12px]"
             onSubmit={(e) => {
               e.preventDefault();
               if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErr("Please enter a valid email address."); // inferred copy
@@ -744,7 +750,7 @@ function Newsletter() {
               Join Newsletter
             </ArrowPill>
           </form>
-          {err && <p className="mt-[8px] pl-[20px] text-[13px] text-white">{err}</p>}
+          {err && <p className="relative mt-[8px] pl-[20px] text-[13px] text-white">{err}</p>}
         </div>
       </div>
     </section>

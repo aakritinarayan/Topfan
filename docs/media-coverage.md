@@ -17,7 +17,7 @@ node tests/e2e/media-nested.mjs 1512           # nested tabs, threads and modals
 |---|---|---|---|
 | Routes audited | 102 | 102 | 102 |
 | Routes with no media issues | 0 | 102 | 102 |
-| Visible images | 1 | 422 | 422 |
+| Visible images | 1 | 423 | 423 |
 | Video players | 0 | 8 | 8 |
 | Empty media frames | 119 | 0 | 0 |
 | Generic avatar placeholders | 272 | 0 | 0 |
@@ -136,7 +136,7 @@ Media per route at 1512×805. Slot is the nearest `data-testid`. Avatars and fan
 | help-faq | `/help-faq` | 1 | 0 | header-avatar → `creators/ajwhite/avatar.webp` | Populated |
 | terms | `/terms-of-service` | 1 | 0 | header-avatar → `creators/ajwhite/avatar.webp` | Populated |
 | privacy-policy | `/privacy-policy` | 1 | 0 | header-avatar → `creators/ajwhite/avatar.webp` | Populated |
-| home | `/` | 33 | 2 | header-avatar → `creators/ajwhite/avatar.webp`<br>home-hero → `creators/ajwhite/hero-1.webp`<br>home-experience → `creators/ajwhite/about-curiosity.webp`<br>home-experience → `creators/ajwhite/about-content.webp`<br>home-experience → `creators/ajwhite/about-community.webp`<br>home-experience → `creators/ajwhite/about-style.webp`<br>home-exclusive → `experiences/video-call.webp`<br>home-collaborate → `backgrounds/snow-texture.webp`<br>▶ `videos/event-highlights-poster.webp` (video)<br>▶ `videos/welcome-poster.webp` (video)<br>…+24 more | Populated |
+| home | `/` | 34 | 2 | header-avatar → `creators/ajwhite/avatar.webp`<br>home-hero → `creators/ajwhite/hero-1.webp`<br>home-experience → `creators/ajwhite/about-curiosity.webp`<br>home-experience → `creators/ajwhite/about-content.webp`<br>home-experience → `creators/ajwhite/about-community.webp`<br>home-experience → `creators/ajwhite/about-style.webp`<br>home-exclusive → `experiences/video-call.webp`<br>home-collaborate → `backgrounds/snow-texture.webp`<br>▶ `videos/event-highlights-poster.webp` (video)<br>▶ `videos/welcome-poster.webp` (video)<br>…+25 more | Populated |
 | newpost | `/dashboard/newpost` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
 | post-detail | `/ajwhite/post/p-welcome` | 3 | 1 | sidebar → `creators/ajwhite/avatar.webp`<br>feed-post-p-welcome → `videos/welcome-poster.webp`<br>▶ `videos/welcome-poster.webp` (video) | Populated |
 | chat-room | `/ajwhite/chat-room` | 5 | 0 | chat-room-messages → `creators/ajwhite/avatar.webp` | Populated |
@@ -149,6 +149,7 @@ Every file is local under `public/assets/` and referenced by key through `src/me
 
 | Key | File | Type | Source | Author | License | Resolution | Ratio |
 |---|---|---|---|---|---|---|---|
+| `backgrounds/curtain-red` | `backgrounds/curtain-red.webp` | generated image | original (scripts/media/generate.mjs) | TopFan POC | Original demo artwork | 1600×520 | 40:13 |
 | `backgrounds/snow-texture` | `backgrounds/snow-texture.webp` | photo | [Commons](https://commons.wikimedia.org/wiki/File:Snow_surface_and_texture,_Beinn_an_D%C3%B2thaidh_-_geograph.org.uk_-_6702244.jpg) | Richard Webb | CC BY-SA 2.0 | 1600×900 | 16:9 |
 | `courses/learn-to-snowboard` | `courses/learn-to-snowboard.webp` | photo | [Commons](https://commons.wikimedia.org/wiki/File:Canyon_Lodge_(20131221-0644).JPG) | Nandaro | CC BY-SA 3.0 | 800×640 | 5:4 |
 | `creators/ajwhite/about-community` | `creators/ajwhite/about-community.webp` | photo | [Commons](https://commons.wikimedia.org/wiki/File:Skiers_on_chairlift.JPG) | MarkBuckawicki | CC0 | 800×640 | 5:4 |
@@ -328,7 +329,6 @@ None. Every video slot in the default demo has a playable file.
 - The default seed has no events, which is the spec default. For the event-detail route the audit adds the same sample event that the in-app Bandsintown import creates. Images on event cards appear once an event exists.
 - E-book covers (3:4) are center-cropped in the square store cards. The full cover shows on the product page.
 - Posts and chat media created during the demo through New Post or the message composer show the existing placeholder, because the mock upload stores only the file name. Nothing real is uploaded.
-- The Newsletter band on Home keeps its CSS gradient (the reference shows a stage photo there, and the demo has no suitable licensed photo).
 - The Monetize Single Video uses the vertical park reel, because that player is portrait. The episode and single clips are 5–8 s, and their listed durations match the files.
 - The audit covers each route's default state. Nested states are checked separately and aren't in the table above:
   - `tests/e2e/media-nested.mjs`: Messages thread, tabs and modals; Insights lists; Wallet categories; refund detail; Fulfillment; Activity; Delegation.

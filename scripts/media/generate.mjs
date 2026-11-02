@@ -207,6 +207,24 @@ const tee = (color, long, print) =>
     <path d="M -70,-230 C -40,-200 40,-200 70,-230 L 170,-190 ${long ? "L 290,150 L 230,175 L 160,-40" : "L 250,-80 L 190,-20 L 160,-60"} L 160,240 L -160,240 L -160,${long ? "-40 L -230,175 L -290,150" : "-60 L -190,-20 L -250,-80"} L -170,-190 Z" fill="${color}" stroke="#00000033" stroke-width="3"/>
     <path d="M -70,-230 C -40,-200 40,-200 70,-230 C 50,-190 -50,-190 -70,-230 Z" fill="#00000030"/>
     ${print}</g>`);
+// Stage curtain for the Home newsletter band: vertical velvet folds, darker toward the top and bottom.
+const curtain = (() => {
+  const W = 1600, H = 520;
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const folds = [];
+  for (let x = -10; x < W; ) {
+    const w = 26 + rnd() * 30, peak = 0.35 + rnd() * 0.3, hi = ["#8f120d", "#a3160f", "#7c0e0a", "#b01a12"][Math.floor(rnd() * 4)];
+    const id = `f${folds.length}`;
+    folds.push(`<linearGradient id="${id}" x1="0" x2="1"><stop offset="0" stop-color="#160101"/><stop offset="${peak}" stop-color="${hi}"/><stop offset="1" stop-color="#1d0201"/></linearGradient>
+      <rect x="${x.toFixed(1)}" y="0" width="${(w + 1).toFixed(1)}" height="${H}" fill="url(#${id})"/>`);
+    x += w;
+  }
+  const defs = folds.map((f) => f.split("\n")[0]).join("");
+  const rects = folds.map((f) => f.split("\n")[1]).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><defs>${defs}<linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset=".35" stop-color="#000" stop-opacity="0"/><stop offset=".75" stop-color="#000" stop-opacity=".1"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></linearGradient></defs>${rects}<rect width="${W}" height="${H}" fill="url(#v)"/></svg>`;
+})();
+await webp("backgrounds/curtain-red", curtain, 1600, 520, "Red stage curtain (illustration)");
 await webp("merchandise/tee-open-road", tee("#2d3a4a", true, `<text x="0" y="-60" font-family="${FONT}" font-weight="900" font-size="40" letter-spacing="4" text-anchor="middle" fill="#f2e6c9">OPEN ROAD</text><text x="0" y="-20" font-family="${FONT}" font-weight="600" font-size="20" letter-spacing="8" text-anchor="middle" fill="#f2e6c9">TOUR 2024</text><path d="M -60,60 L 0,0 L 60,60 Z" fill="none" stroke="#f2e6c9" stroke-width="5"/>`), 800, 640, "Navy long-sleeve tour tee (illustration)");
 await webp("merchandise/tee-late-night", tee("#1c1c1c", false, `<circle cx="0" cy="-50" r="48" fill="#f2c94c"/><circle cx="18" cy="-62" r="44" fill="#1c1c1c"/><text x="0" y="40" font-family="${FONT}" font-weight="900" font-size="34" letter-spacing="3" text-anchor="middle" fill="#fff">LATE NIGHT</text><text x="0" y="74" font-family="${FONT}" font-weight="600" font-size="20" letter-spacing="8" text-anchor="middle" fill="#f2c94c">ENCORE</text>`), 800, 640, "Black Late Night Encore T-shirt (illustration)");
 await webp("merchandise/beanie-red", studio(800, 640, `<g transform="translate(400 360)"><ellipse cx="0" cy="150" rx="200" ry="16" fill="#000" opacity=".15" filter="url(#blur)"/><path d="M -170,120 C -170,-120 170,-120 170,120 Z" fill="#c8102e"/>${Array.from({ length: 13 }, (_, i) => `<line x1="${-150 + i * 25}" y1="-60" x2="${-150 + i * 25}" y2="120" stroke="#a00d25" stroke-width="5"/>`).join("")}<rect x="-180" y="70" width="360" height="80" rx="14" fill="#a00d25"/><circle cx="0" cy="-130" r="40" fill="#f2f2f2"/><text x="0" y="125" font-family="${FONT}" font-weight="900" font-size="34" letter-spacing="6" text-anchor="middle" fill="#fff">AJ</text></g>`), 800, 640, "Red AJ beanie");

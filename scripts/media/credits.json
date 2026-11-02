@@ -1348,5 +1348,14 @@
   "width": 800,
   "height": 640,
   "alt": "Black Late Night Encore T-shirt (illustration)"
+ },
+ "backgrounds/curtain-red": {
+  "file": "assets/backgrounds/curtain-red.webp",
+  "source": "original (scripts/media/generate.mjs)",
+  "author": "TopFan POC",
+  "license": "Original demo artwork",
+  "width": 1600,
+  "height": 520,
+  "alt": "Red stage curtain (illustration)"
  }
 }

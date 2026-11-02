@@ -1,4 +1,10 @@
 {
+ "backgrounds/curtain-red": {
+  "src": "/assets/backgrounds/curtain-red.webp",
+  "alt": "Red stage curtain (illustration)",
+  "w": 1600,
+  "h": 520
+ },
  "backgrounds/snow-texture": {
   "src": "/assets/backgrounds/snow-texture.webp",
   "alt": "",
