@@ -2,7 +2,7 @@
  * Assistant overlay layer: right-hand panel (expanded) or an edge launcher (collapsed).
  * Built only from platform parts (DESIGN_NOTES §8). Collapsing never resets anything.
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, Bell, BellOff, Check, ChevronDown, ChevronRight, CircleAlert, Loader2, Mic, PanelRightClose, RotateCcw, Square, X } from "lucide-react";
 import { useAssistant, type Msg, type MsgStatus } from "../state/assistantStore";
@@ -84,6 +84,12 @@ export function AssistantPanel() {
     requestAnimationFrame(() => input.current?.focus());
   }, [voice.state]);
 
+  // Only an open from the floating mascot slides in; the intro landing and restores appear in place.
+  const slideIn = useMemo(() => open && openedFromLauncher && !reducedMotion(), [open]);
+  useEffect(() => {
+    if (open) openedFromLauncher = false;
+  }, [open]);
+
   // Collapsing the panel never leaves the microphone on.
   useEffect(() => {
     if (!open) voice.cancel();
@@ -102,10 +108,13 @@ export function AssistantPanel() {
   };
 
   return (
-    <aside
+    <motion.aside
       aria-label="TopFan AI"
       data-testid="ai-panel"
       className="sticky top-0 flex h-screen w-[clamp(340px,27vw,420px)] shrink-0 flex-col border-l border-line bg-bg"
+      initial={slideIn ? { opacity: 0, x: 24 } : false}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
     >
       {/* Header — same height as the page header */}
       <div className="flex h-[75px] shrink-0 items-center gap-3 border-b border-line px-5">
@@ -266,7 +275,7 @@ export function AssistantPanel() {
           <ArrowUp size={18} />
         </button>
       </motion.form>
-    </aside>
+    </motion.aside>
   );
 }
 
@@ -375,27 +384,97 @@ function VoiceStatus({
   );
 }
 
-/** Collapsed state: a compact edge tab. No empty right column remains. */
+/** Launcher sizes by viewport: mascot body size and its distance from the right/bottom edges. */
+function launcherMetrics(w: number) {
+  return w < 768 ? { body: 58, gap: 18 } : w < 1280 ? { body: 66, gap: 24 } : { body: 72, gap: 28 };
+}
+function useViewportWidth() {
+  const [w, setW] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const on = () => setW(window.innerWidth);
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return w;
+}
+/** Set when the creator opens the panel from the mascot, so only that open slides in (not the intro landing). */
+let openedFromLauncher = false;
+
+/**
+ * Collapsed state: the red jelly mascot floating at the bottom-right corner. No tab, text or card.
+ * The SVG body is 86% of its viewBox, so the SVG is sized up to make the visible body `body` px,
+ * and the button adds padding for a 44px+ target and room for the glow.
+ */
 function Launcher() {
-  const { setOpen, unread, working } = useAssistant();
+  const { setOpen, unread, mood } = useAssistant();
+  const { body, gap } = launcherMetrics(useViewportWidth());
+  const still = reducedMotion();
+  const svg = Math.round(body / 0.86);
+  const pad = 10;
+  // Distance from the SVG edge to the visible body edge.
+  const inset = Math.round(svg * 0.07);
+  const offset = gap - inset - pad;
+  const [squash, setSquash] = useState(false);
+  const open = () => {
+    if (squash) return;
+    openedFromLauncher = true;
+    if (still) return setOpen(true);
+    setSquash(true);
+    setTimeout(() => setOpen(true), 170);
+  };
   return (
-    <button
-      onClick={() => setOpen(true)}
-      aria-label="Open TopFan AI"
+    <motion.button
+      type="button"
+      onClick={open}
+      aria-label={unread > 0 ? `Open TopFan AI Assistant (${unread} new)` : "Open TopFan AI Assistant"}
       data-testid="ai-launcher"
-      className="fixed right-0 top-1/2 z-50 flex -translate-y-1/2 flex-col items-center gap-3 rounded-l-[20px] border border-r-0 border-accent bg-surface px-2.5 py-4 shadow-lg hover:brightness-125"
+      className="group fixed z-50 grid cursor-pointer place-items-center rounded-[26px] outline-none focus-visible:ring-2 focus-visible:ring-white"
+      style={{
+        right: `calc(${offset}px + env(safe-area-inset-right, 0px))`,
+        bottom: `calc(${offset}px + env(safe-area-inset-bottom, 0px))`,
+        width: svg + pad * 2,
+        height: svg + pad * 2,
+      }}
+      initial={still ? false : { opacity: 0, scale: 0.7, y: 10 }}
+      animate={squash ? { scaleX: [1, 1.12, 0.96], scaleY: [1, 0.86, 1.04], opacity: 1, y: 0 } : { opacity: 1, scale: 1, y: 0 }}
+      transition={squash ? { duration: 0.17, ease: "easeOut" } : { type: "spring", stiffness: 380, damping: 20 }}
+      whileHover={still ? undefined : { scale: 1.05, rotate: -3, transition: { type: "spring", stiffness: 300, damping: 12 } }}
     >
-      <span className="relative">
-        <Mascot size={34} />
+      {/* Ambient halo: wide, low-opacity red that fades into the page; a little brighter on hover/focus. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-80 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100"
+        style={{ width: body * 1.9, height: body * 1.9, background: "radial-gradient(circle, rgba(255,30,30,0.30) 0%, rgba(255,30,30,0.12) 38%, rgba(255,30,30,0) 68%)" }}
+      />
+      {/* Floor shadow, which tightens as the mascot rises. */}
+      <motion.span
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 rounded-full bg-black/50 blur-[5px]"
+        style={{ width: body * 0.7, height: 8, bottom: pad - 6, x: "-50%" }}
+        animate={still ? undefined : { scaleX: [1, 0.86, 1], opacity: [0.55, 0.35, 0.55] }}
+        transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut" }}
+      />
+      {/* Idle float (about 5px over 3.6s), breathing squash/stretch and a slight sway. */}
+      <motion.span
+        className="relative inline-flex"
+        style={{ transformOrigin: "50% 100%" }}
+        animate={still ? undefined : { y: [0, -5, 0], scaleY: [1, 1.025, 1], scaleX: [1, 0.985, 1], rotate: [-1, 1, -1] }}
+        transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <span style={{ filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.45))" }}>
+          <LiveMascot size={svg} mood={mood} />
+        </span>
         {unread > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-danger px-1 text-[11px] text-white">
+          <span
+            data-testid="ai-launcher-unread"
+            className="absolute flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-danger px-1 text-[11px] font-bold leading-none text-white ring-2 ring-[var(--bg)]"
+            style={{ right: inset - 5, top: inset - 5 }}
+          >
             {unread}
           </span>
         )}
-      </span>
-      <span className="text-xs font-bold uppercase tracking-caps [writing-mode:vertical-rl]">TopFan AI</span>
-      {working && <Loader2 size={14} className="animate-spin text-accent" />}
-    </button>
+      </motion.span>
+    </motion.button>
   );
 }
 
