@@ -10,6 +10,7 @@
     "export:agent-context": "node scripts/export-agent-context.mjs",
     "media:photos": "node scripts/media/fetch-photos.mjs",
     "media:generate": "node scripts/media/generate.mjs",
+    "media:supplied": "node scripts/media/supplied.mjs",
     "media:videos": "node scripts/media/fetch-videos.mjs",
     "media:catalog": "node scripts/media/build-catalog.mjs",
     "media:audit": "node tests/e2e/media-audit.mjs",

@@ -559,14 +559,12 @@
  },
  "creators/ajwhite/avatar": {
   "file": "assets/creators/ajwhite/avatar.webp",
-  "source": "https://commons.wikimedia.org/wiki/File:Snowboard_powder_day.jpg",
-  "title": "Snowboard powder day.jpg",
-  "author": "Sawa-love",
-  "license": "CC BY-SA 4.0",
+  "source": "supplied by the designer (scripts/media/supplied/ajwhite-profile.png)",
+  "author": "Supplied by the designer",
+  "license": "Supplied for this prototype; usage confirmed by the designer",
   "width": 800,
   "height": 800,
-  "alt": "AJ White in helmet and goggles",
-  "query": "snowboarder helmet goggles portrait"
+  "alt": "AJ White"
  },
  "creators/ajwhite/cover": {
   "file": "assets/creators/ajwhite/cover.webp",

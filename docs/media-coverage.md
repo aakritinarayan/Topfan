@@ -155,7 +155,7 @@ Every file is local under `public/assets/` and referenced by key through `src/me
 | `creators/ajwhite/about-content` | `creators/ajwhite/about-content.webp` | photo | [Commons](https://commons.wikimedia.org/wiki/File:Trees_in_ICM_on_Myrstigen_hiking_trail,_Brastad_2.jpg) | W.carter | CC BY-SA 4.0 | 800×640 | 5:4 |
 | `creators/ajwhite/about-curiosity` | `creators/ajwhite/about-curiosity.webp` | photo | [Commons](https://commons.wikimedia.org/wiki/File:Arizona_Snowbowl_Grand_Canyon_Express_Ski_Lift_Opening_Celebration_(31458531742).jpg) | Coconino National Forest | CC0 | 800×640 | 5:4 |
 | `creators/ajwhite/about-style` | `creators/ajwhite/about-style.webp` | photo | [Commons](https://commons.wikimedia.org/wiki/File:Snowboarder_during_turn_while_in_deep_powder-ColorTemp.jpeg) | Pittigrilli~commonswiki derivative work: Mussklprozz | CC BY-SA 4.0 | 800×640 | 5:4 |
-| `creators/ajwhite/avatar` | `creators/ajwhite/avatar.webp` | photo | [Commons](https://commons.wikimedia.org/wiki/File:Snowboard_powder_day.jpg) | Sawa-love | CC BY-SA 4.0 | 800×800 | 1:1 |
+| `creators/ajwhite/avatar` | `creators/ajwhite/avatar.webp` | supplied photo | supplied by the designer (scripts/media/supplied/ajwhite-profile.png) | Supplied by the designer | Supplied for this prototype; usage confirmed by the designer | 800×800 | 1:1 |
 | `creators/ajwhite/cover` | `creators/ajwhite/cover.webp` | photo | [Commons](https://commons.wikimedia.org/wiki/File:SnowboarderPowder.jpg) | Fusaki Iida | CC BY-SA 4.0 | 1800×600 | 3:1 |
 | `creators/ajwhite/hero-1` | `creators/ajwhite/hero-1.webp` | photo | [Commons](https://commons.wikimedia.org/wiki/File:Big_air_Qu%C3%A9bec_2011.jpg) | Letartean | CC BY 3.0 | 1800×800 | 9:4 |
 | `creators/ajwhite/hero-2` | `creators/ajwhite/hero-2.webp` | photo | [Commons](https://commons.wikimedia.org/wiki/File:USMC-15337.jpg) |  | Public domain | 1800×800 | 9:4 |
@@ -319,7 +319,7 @@ None. Every video slot in the default demo has a playable file.
 ## Known limitations
 
 - Photos come from Wikimedia Commons under CC0, public domain, CC BY or CC BY-SA. Attribution is in the inventory above. Before any public or commercial use, a person should review the licenses (CC BY-SA adaptations, crops in this case, carry share-alike terms).
-- No real, identifiable person stands in for a fictional creator or fan. Creator imagery is action/landscape photography or objects, and fans have original illustrated avatars.
+- AJ White's profile picture is a portrait supplied by the designer (`scripts/media/supplied/`, placed by `scripts/media/supplied.mjs`), and its use was confirmed by them. The original shirt shows a real sportswear logo, so the avatar crop stops above it. Fetched Commons photos never use an identifiable person for a creator or fan. Other creators use action, landscape or object photography, and fans have original illustrated avatars.
 - Brands are fictional: Ridgeline, Northpeak, Summit Soda, Glacier Hydration and Corner Mart, with original SVG art. A few photos still show small incidental marks:
   - An avalanche airbag pack shows the manufacturer's label (`posts/airbag-pack`).
   - A helmet sticker reads a resort name (`posts/goggles`).

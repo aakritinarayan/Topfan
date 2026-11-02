@@ -102,7 +102,7 @@ w();
 w("| Key | File | Type | Source | Author | License | Resolution | Ratio |");
 w("|---|---|---|---|---|---|---|---|");
 for (const [k, c] of Object.entries(credits).sort(([a], [b]) => a.localeCompare(b))) {
-  const type = /\.mp4$/.test(c.file) ? "video" : /\.svg$/.test(c.file) ? "SVG illustration" : c.source?.startsWith("original") ? "generated image" : "photo";
+  const type = /\.mp4$/.test(c.file) ? "video" : /\.svg$/.test(c.file) ? "SVG illustration" : c.source?.startsWith("original") ? "generated image" : c.source?.startsWith("supplied") ? "supplied photo" : "photo";
   const src = c.source?.startsWith("http") ? `[Commons](${c.source})` : esc(c.source);
   w(`| \`${k}\` | \`${c.file.replace(/^assets\//, "")}\` | ${type} | ${src} | ${esc(c.author)} | ${esc(c.license)} | ${c.width}×${c.height} | ${ratio(c.width, c.height)} |`);
 }
@@ -137,7 +137,7 @@ w();
 w("## Known limitations");
 w();
 w("- Photos come from Wikimedia Commons under CC0, public domain, CC BY or CC BY-SA. Attribution is in the inventory above. Before any public or commercial use, a person should review the licenses (CC BY-SA adaptations, crops in this case, carry share-alike terms).");
-w("- No real, identifiable person stands in for a fictional creator or fan. Creator imagery is action/landscape photography or objects, and fans have original illustrated avatars.");
+w("- AJ White's profile picture is a portrait supplied by the designer (`scripts/media/supplied/`, placed by `scripts/media/supplied.mjs`), and its use was confirmed by them. The original shirt shows a real sportswear logo, so the avatar crop stops above it. Fetched Commons photos never use an identifiable person for a creator or fan. Other creators use action, landscape or object photography, and fans have original illustrated avatars.");
 w("- Brands are fictional: Ridgeline, Northpeak, Summit Soda, Glacier Hydration and Corner Mart, with original SVG art. A few photos still show small incidental marks:");
 w("  - An avalanche airbag pack shows the manufacturer's label (`posts/airbag-pack`).");
 w("  - A helmet sticker reads a resort name (`posts/goggles`).");

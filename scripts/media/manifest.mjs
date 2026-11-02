@@ -14,7 +14,6 @@ const POR = W(720, 960); // 3:4 portrait
 
 export const PHOTOS = [
   /* AJ White · athlete (snowboarder) */
-  { key: "creators/ajwhite/avatar", q: "snowboarder helmet goggles portrait", ...SQ, alt: "AJ White in helmet and goggles" },
   { key: "creators/ajwhite/cover", q: "snowboarder powder mountain ridge", ...W(1800, 600), alt: "Snowboarder riding a mountain ridge" },
   { key: "creators/ajwhite/hero-1", q: "snowboard big air jump", ...W(1800, 800), alt: "Snowboarder in the air above a jump" },
   { key: "creators/ajwhite/hero-2", q: "snowboard halfpipe", ...W(1800, 800), alt: "Halfpipe run" },
