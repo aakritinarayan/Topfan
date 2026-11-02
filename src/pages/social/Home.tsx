@@ -311,7 +311,7 @@ function Collaborate() {
           Partner with a snowboarding creator who brings together visual storytelling, authentic mountain culture, and an engaged audience. From brand campaigns and
           product showcases to event coverage and community activations, every collaboration is shaped around real movement and credible creator-led content.
         </p>
-        <div className="mt-[46px] grid grid-cols-2 gap-[16px]">
+        <div className="mt-[46px] grid grid-cols-4 gap-[16px]">
           {cards.map(([Icon, t, b]) => (
             <div key={t} className="min-h-[183px] rounded-tile bg-accent p-[24px]">
               <span className="flex h-[44px] w-[44px] items-center justify-center rounded-popover border border-white/40 bg-black">
