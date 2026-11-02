@@ -145,7 +145,7 @@ function Hero() {
   }, [reduce]);
   const arrow = "absolute top-1/2 z-10 flex h-[40px] w-[40px] -translate-y-1/2 items-center justify-center rounded-full border border-accent text-accent hover:bg-accent hover:text-white";
   return (
-    <section data-testid="home-hero" className="relative h-[594px] overflow-hidden" aria-roledescription="carousel">
+    <section data-testid="home-hero" className="relative h-[calc(100svh-78px)] min-h-[480px] overflow-hidden" aria-roledescription="carousel">
       <div aria-label={`Hero slide ${i + 1}`} className="absolute inset-0">
         <ImageSlot src={HOME_MEDIA.hero[i]} label={`Hero slide ${i + 1}`} className="h-full w-full" eager />
       </div>
