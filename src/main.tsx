@@ -1,0 +1,35 @@
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import "@fontsource/roboto/300.css";
+import "@fontsource/roboto/400.css";
+import "@fontsource/roboto/500.css";
+import "@fontsource/roboto/700.css";
+import "@fontsource/roboto/900.css";
+import "@fontsource/rubik-dirt/400.css";
+import "./styles/tokens.css";
+import "./styles/index.css";
+import App from "./App";
+import { PlatformProvider } from "./state/platformStore";
+import { ToastProvider } from "./platform/ui/toast";
+import { AssistantProvider } from "./state/assistantStore";
+import { DomainFinderProvider } from "./state/domainFinderStore";
+import { ChatProvider } from "./assistant/chat/ChatEngine";
+import { QuestProvider } from "./state/questStore";
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <PlatformProvider>
+      <AssistantProvider>
+        <DomainFinderProvider>
+          <QuestProvider>
+            <ChatProvider>
+              <ToastProvider>
+                <App />
+              </ToastProvider>
+            </ChatProvider>
+          </QuestProvider>
+        </DomainFinderProvider>
+      </AssistantProvider>
+    </PlatformProvider>
+  </StrictMode>,
+);

@@ -1,0 +1,74 @@
+/*
+ * Design tokens. Source: References/topfan-reference (see DESIGN_NOTES.md).
+ * The --config* vars are the white-label theme; Scene 5 "looks" swap only these.
+ * Tailwind reads everything via var(--…) so a theme swap restyles the whole app.
+ */
+:root {
+  /* White-label theme (AJ White) — REF tokens */
+  --configBgColor: #191a1c;
+  --configSecondaryBgColor: #272a2b;
+  --configThemeColor: #bc1111;
+  --configThemeColorRgb: 188 17 17;
+  --configBgTextColor: #ffffff;
+  --configPostTextColor: #ffffff;
+  --configButtonTextColor: #ffffff;
+
+  /* Semantic aliases */
+  --bg: var(--configBgColor);
+  --surface: var(--configSecondaryBgColor);
+  --surface-2: #3a3c3e;            /* P50f table dividers / handles */
+  --search: #3a3d3f;               /* 13-messages search pill */
+  --placeholder-img: #434344;      /* P30 cover placeholder */
+  --accent: var(--configThemeColor);
+  --accent-tint: rgb(var(--configThemeColorRgb) / 0.13);
+  --accent-tint-strong: rgb(var(--configThemeColorRgb) / 0.2);
+  --text: var(--configBgTextColor);
+  --text-muted: #9f9f9f;
+  --text-soft: #e0e0e0;
+  --text-date: #b0b0b0;
+  --danger: #d2006b;               /* badges + errors */
+  --toggle-off: #9198ab;
+  --border: rgba(255, 255, 255, 0.16);
+  --backdrop: rgba(0, 0, 0, 0.75);
+
+  /* Typography */
+  --font-sans: "Roboto", system-ui, sans-serif;
+  --font-display: "Satoshi", "Roboto", sans-serif;      /* fan-site previews only */
+  --font-logo: "Rubik Dirt", "Roboto", sans-serif; /* closest Google Font (approved) */
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --text-xs: 12px;
+  --text-chip: 13px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-section: 27.5px;
+  --tracking-caps: 0.4px;
+
+  /* Radius */
+  --radius-pill: 28px;
+  --radius-card: 30px;
+  --radius-panel: 20px;
+  --radius-inner: 16px;
+  --radius-tile: 12px;
+  --radius-popover: 8px;
+  --radius-full: 999px;
+
+  /* Sizes / spacing */
+  --header-h: 75px;
+  --sidebar-w: 268px;
+  --content-x: 317px;
+  --control-h: 55px;
+  --button-h: 40px;
+  --chip-h: 42px;
+  --card-pad: 30px;
+  --card-pad-wls: 24px;
+  --assistant-w: 360px;
+  --modal-w: 620px;
+}
+
+@media (max-width: 1360px) {
+  :root { --assistant-w: 340px; }
+}

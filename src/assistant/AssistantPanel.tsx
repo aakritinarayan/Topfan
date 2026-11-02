@@ -1,0 +1,621 @@
+/**
+ * Assistant overlay layer: right-hand panel (expanded) or an edge launcher (collapsed).
+ * Built only from platform parts (DESIGN_NOTES §8). Collapsing never resets anything.
+ */
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowUp, Bell, BellOff, Check, ChevronDown, ChevronRight, CircleAlert, Loader2, Mic, PanelRightClose, RotateCcw, Square, X } from "lucide-react";
+import { useAssistant, type Msg, type MsgStatus } from "../state/assistantStore";
+import { isOnboarding, usePlatform, type PlatformState } from "../state/platformStore";
+import { LiveMascot } from "./LiveMascot";
+import { useChat } from "./chat/ChatEngine";
+import { useVoice, type VoiceState } from "./chat/useVoice";
+import { Answer, ListenButton } from "./chat/Answer";
+
+/** Mascot avatar: the live red jelly (blinks, glances) with mood expressions; a small bob while working. */
+export function Mascot({ size = 32 }: { size?: number }) {
+  const { working, mood } = useAssistant();
+  const busy = working || mood === "checking" || mood === "generating" || mood === "transcribing";
+  return (
+    <motion.span
+      key={mood === "happy" ? "happy" : "base"}
+      animate={
+        mood === "happy"
+          ? { y: [0, -4, 0, -1.5, 0], scaleY: [1, 1.05, 0.95, 1.02, 1] }
+          : busy
+            ? { y: [0, -1.5, 0] }
+            : { y: 0, scaleY: 1 }
+      }
+      transition={mood === "happy" ? { duration: 0.75, ease: "easeOut" } : busy ? { repeat: Infinity, duration: 0.9, ease: "easeInOut" } : { duration: 0.2 }}
+      className="inline-flex shrink-0 items-center justify-center"
+      style={{ width: size, height: size, transformOrigin: "50% 100%" }}
+    >
+      <LiveMascot size={size} mood={mood} />
+    </motion.span>
+  );
+}
+
+const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+export function AssistantPanel() {
+  const { state } = usePlatform();
+  const { open, setOpen, messages, working, stop, muted, setMuted, intro, setMood } = useAssistant();
+  const chat = useChat();
+  const voice = useVoice();
+  const input = useRef<HTMLInputElement>(null);
+  // During the first-time intro the panel keeps its place but stays quiet until the mascot lands.
+  const waiting = intro === "pending" && state.screen === "step1";
+  const reveal = (delay: number) => ({
+    initial: false as const,
+    animate: { opacity: waiting ? 0 : 1, y: waiting ? 6 : 0 },
+    transition: { duration: 0.35, delay: waiting ? 0 : delay },
+  });
+  const scroller = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState("");
+
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    // Chrome can cancel a smooth scroll when another one starts elsewhere; settle at the bottom regardless.
+    const t = setTimeout(() => {
+      if (el.scrollHeight - el.scrollTop - el.clientHeight > 4) el.scrollTo({ top: el.scrollHeight });
+    }, 700);
+    return () => clearTimeout(t);
+  }, [messages.length, working, open, chat.status]);
+
+  // Mascot follows the voice input; the chat engine sets the answering moods.
+  useEffect(() => {
+    if (voice.state === "recording" || voice.state === "permission") setMood("listening");
+    else if (voice.state === "transcribing") setMood("transcribing");
+    else if (voice.state === "failed") setMood("error");
+    else if (voice.state === "ready") setMood("idle");
+  }, [voice.state, setMood]);
+
+  // Transcript ready: put it in the input to review and edit. Nothing is sent automatically.
+  useEffect(() => {
+    if (voice.state !== "ready") return;
+    setDraft((d) => (d.trim() ? `${d.trim()} ${voice.transcript}` : voice.transcript));
+    requestAnimationFrame(() => input.current?.focus());
+  }, [voice.state]);
+
+  // Collapsing the panel never leaves the microphone on.
+  useEffect(() => {
+    if (!open) voice.cancel();
+  }, [open]);
+
+  if (!open) return <Launcher />;
+
+  const listening = voice.state === "permission" || voice.state === "recording" || voice.state === "transcribing";
+  const answering = chat.status !== "idle";
+  const send = () => {
+    const t = draft.trim();
+    if (!t || answering || listening) return;
+    setDraft("");
+    voice.clear();
+    chat.ask(t);
+  };
+
+  return (
+    <aside
+      aria-label="TopFan Assistant"
+      className="sticky top-0 flex h-screen w-[clamp(340px,27vw,420px)] shrink-0 flex-col border-l border-line bg-bg"
+    >
+      {/* Header — same height as the page header */}
+      <div className="flex h-[75px] shrink-0 items-center gap-3 border-b border-line px-5">
+        {/* Landing spot for the intro mascot (the flight itself does the settle). */}
+        <motion.span
+          data-assistant-avatar
+          className="inline-flex"
+          style={{ transformOrigin: "50% 100%" }}
+          initial={false}
+          animate={{ opacity: waiting ? 0 : 1 }}
+          // Instant after the flight (the travelling mascot is exactly on top); a short fade otherwise.
+          transition={{ duration: intro === "played" && !reducedMotion() ? 0 : 0.3 }}
+        >
+          <Mascot size={36} />
+        </motion.span>
+        <motion.div {...reveal(0.05)} className="flex flex-1 items-center gap-3" inert={waiting}>
+          <span className="flex-1 text-base font-bold">TopFan Assistant</span>
+        <button
+          onClick={() => setMuted(!muted)}
+          aria-label={muted ? "Resume suggestions" : "Pause suggestions"}
+          title={muted ? "Resume suggestions" : "Pause suggestions"}
+          className={`flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface ${muted ? "text-accent" : "text-white"}`}
+        >
+          {muted ? <BellOff size={18} /> : <Bell size={18} />}
+        </button>
+        <button
+          onClick={() => setOpen(false)}
+          aria-label="Collapse assistant"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-white hover:bg-surface"
+        >
+          <PanelRightClose size={20} />
+        </button>
+        </motion.div>
+      </div>
+
+      {muted && (
+        <div className="mx-5 mt-4 flex shrink-0 items-center gap-3 rounded-inner border border-line px-4 py-2.5 text-[12px] text-soft">
+          <span className="flex-1">Suggestions paused. I'll still help if something goes wrong.</span>
+          <button onClick={() => setMuted(false)} className="shrink-0 font-bold text-accent">
+            Resume
+          </button>
+        </div>
+      )}
+
+      <motion.div {...reveal(0.15)} className="shrink-0 px-5 pb-1 pt-3" inert={waiting}>
+        <Checklist state={state} />
+      </motion.div>
+
+      {/* Conversation */}
+      <motion.div {...reveal(0.25)} ref={scroller} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 pb-4 pt-5 [mask-image:linear-gradient(to_bottom,transparent_0,#000_20px)]" inert={waiting}>
+        {messages.map((m) => (
+          <MessageView key={m.id} m={m} />
+        ))}
+      </motion.div>
+
+      <AnimatePresence>
+        {working && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="mx-5 mb-3 flex shrink-0 items-center gap-3 rounded-pill bg-surface py-2 pl-4 pr-2"
+          >
+            <Loader2 size={16} className="shrink-0 animate-spin text-accent" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-bold">Assistant is working…</span>
+              <span className="block truncate text-xs text-soft">{working.label}</span>
+            </span>
+            <button
+              onClick={stop}
+              className="h-8 shrink-0 rounded-full border border-accent px-4 text-xs font-black uppercase tracking-caps text-accent hover:bg-accent-tint"
+            >
+              Stop
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {answering && !working && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="mx-5 mb-3 flex shrink-0 items-center gap-3 rounded-pill bg-surface py-2 pl-4 pr-2"
+            role="status"
+          >
+            <Loader2 size={16} className="shrink-0 animate-spin text-accent" />
+            <span className="min-w-0 flex-1 text-[13px] font-bold">{chat.status === "sending" ? "Thinking…" : "Answering…"}</span>
+            <button
+              onClick={chat.cancel}
+              className="h-8 shrink-0 rounded-full border border-accent px-4 text-xs font-black uppercase tracking-caps text-accent hover:bg-accent-tint"
+            >
+              Stop
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <VoiceStatus state={voice.state} error={voice.error} onCancel={voice.cancel} onRetry={voice.start} onStop={voice.stop} />
+
+      {/* Chat input */}
+      <motion.form
+        {...reveal(0.3)}
+        inert={waiting}
+        onSubmit={(e) => {
+          e.preventDefault();
+          send();
+        }}
+        className="flex shrink-0 items-center gap-2 border-t border-line px-5 py-4"
+      >
+        <input
+          ref={input}
+          value={listening ? voice.transcript : draft}
+          readOnly={listening}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={listening ? "Listening…" : "Ask the assistant…"}
+          aria-label="Message the assistant"
+          maxLength={2000}
+          className="h-11 min-w-0 flex-1 rounded-pill bg-surface px-5 text-sm text-white outline-none placeholder:text-muted focus:ring-1 focus:ring-accent"
+        />
+        <MicButton
+          supported={voice.supported}
+          state={voice.state}
+          onStart={voice.start}
+          onStop={voice.stop}
+        />
+        <button
+          aria-label="Send"
+          disabled={answering || listening || !draft.trim()}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent hover:brightness-110 disabled:opacity-65 disabled:hover:brightness-100"
+        >
+          <ArrowUp size={18} />
+        </button>
+      </motion.form>
+    </aside>
+  );
+}
+
+/* ---------- Voice input ---------- */
+
+const VOICE_NOTICE =
+  "Voice uses your browser's speech recognition. In Chrome, your audio is processed by Google to turn it into text. Nothing is recorded until you tap the mic, and TopFan doesn't keep the audio.";
+
+function MicButton({ supported, state, onStart, onStop }: { supported: boolean; state: VoiceState; onStart: () => void; onStop: () => void }) {
+  if (!supported)
+    return (
+      <button
+        type="button"
+        disabled
+        aria-label="Voice input isn't supported in this browser"
+        title="Voice input isn't supported in this browser. You can type instead."
+        className="flex h-11 w-11 shrink-0 cursor-not-allowed items-center justify-center rounded-full border border-line text-muted"
+      >
+        <Mic size={18} />
+      </button>
+    );
+  const live = state === "recording" || state === "permission";
+  if (live || state === "transcribing")
+    return (
+      <button
+        type="button"
+        onClick={onStop}
+        disabled={state === "transcribing"}
+        aria-label="Stop and review"
+        title="Stop and review"
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent text-white ${state === "recording" ? "mic-live" : ""}`}
+      >
+        {state === "transcribing" ? <Loader2 size={18} className="animate-spin" /> : <Square size={15} fill="currentColor" />}
+      </button>
+    );
+  return (
+    <button
+      type="button"
+      onClick={onStart}
+      aria-label="Speak your question"
+      aria-description={VOICE_NOTICE}
+      title="Speak your question"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-accent text-white hover:bg-accent-tint"
+    >
+      <Mic size={18} />
+    </button>
+  );
+}
+
+function VoiceStatus({
+  state,
+  error,
+  onCancel,
+  onRetry,
+  onStop,
+}: {
+  state: VoiceState;
+  error: string | null;
+  onCancel: () => void;
+  onRetry: () => void;
+  onStop: () => void;
+}) {
+  if (state === "idle") return null;
+  const row = "mx-5 mb-3 shrink-0 rounded-inner bg-surface px-4 py-3 text-[12px] leading-[17px]";
+  if (state === "failed")
+    return (
+      <div className={row} role="alert">
+        <p className="text-danger">{error}</p>
+        <div className="mt-2 flex gap-4">
+          <button type="button" onClick={onRetry} className="inline-flex items-center gap-1 font-bold text-accent">
+            <RotateCcw size={13} /> Try again
+          </button>
+          <button type="button" onClick={onCancel} className="font-bold text-soft hover:text-white">
+            Type instead
+          </button>
+        </div>
+      </div>
+    );
+  if (state === "ready")
+    return (
+      <div className={`${row} flex items-center gap-3`} role="status">
+        <span className="flex-1 text-soft">Here's what I heard. Edit it if needed, then send.</span>
+        <button type="button" onClick={onRetry} className="inline-flex shrink-0 items-center gap-1 font-bold text-accent">
+          <RotateCcw size={13} /> Re-record
+        </button>
+      </div>
+    );
+  return (
+    <div className={row} role="status">
+      <div className="flex items-center gap-3">
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full bg-accent ${state === "recording" ? "mic-dot" : "opacity-50"}`} />
+        <span className="flex-1 font-bold text-white">
+          {state === "permission" ? "Waiting for microphone access…" : state === "recording" ? "Listening… tap stop when you're done" : "Transcribing…"}
+        </span>
+        {state === "recording" && (
+          <button type="button" onClick={onStop} className="shrink-0 font-bold text-accent">
+            Done
+          </button>
+        )}
+        <button type="button" onClick={onCancel} className="shrink-0 font-bold text-soft hover:text-white">
+          Cancel
+        </button>
+      </div>
+      <p className="mt-2 text-[11px] text-muted">{VOICE_NOTICE}</p>
+    </div>
+  );
+}
+
+/** Collapsed state: a compact edge tab. No empty right column remains. */
+function Launcher() {
+  const { setOpen, unread, working } = useAssistant();
+  return (
+    <button
+      onClick={() => setOpen(true)}
+      aria-label="Open TopFan Assistant"
+      className="fixed right-0 top-1/2 z-50 flex -translate-y-1/2 flex-col items-center gap-3 rounded-l-[20px] border border-r-0 border-accent bg-surface px-2.5 py-4 shadow-lg hover:brightness-125"
+    >
+      <span className="relative">
+        <Mascot size={34} />
+        {unread > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-danger px-1 text-[11px] text-white">
+            {unread}
+          </span>
+        )}
+      </span>
+      <span className="text-xs font-bold uppercase tracking-caps [writing-mode:vertical-rl]">Assistant</span>
+      {working && <Loader2 size={14} className="animate-spin text-accent" />}
+    </button>
+  );
+}
+
+/* ---------- Checklist: onboarding-only steps, then a separate dashboard list ---------- */
+
+type StepStatus = "done" | "now" | "next";
+
+function onboardingSteps(s: PlatformState) {
+  const order = ["step1", "step2", "provisioning", "complete"];
+  // Provisioning can finish while the creator stays on the page (e.g. finishing a Creator Quest mission).
+  const at = s.screen === "provisioning" && s.provisionDone ? 3 : order.indexOf(s.screen);
+  const status = (i: number, doneAt: number): StepStatus => (at >= doneAt ? "done" : at === i ? "now" : "next");
+  return [
+    { label: "Add your domain details", owner: "You", status: status(0, 1) },
+    { label: "Connect your domain", owner: "You", status: status(1, 2) },
+    { label: "TopFan sets up your site", owner: "TopFan", status: status(2, 3) },
+    { label: "Your site address is ready", owner: "TopFan", status: at >= 3 ? ("done" as const) : ("next" as const) },
+  ];
+}
+
+const dashboardSteps = [
+  { label: "Brand your site", owner: "You", status: "now" as StepStatus },
+  { label: "Create your first post", owner: "You", status: "next" as StepStatus },
+  { label: "Set up payouts", owner: "You", status: "next" as StepStatus },
+  { label: "Share your link", owner: "You", status: "next" as StepStatus },
+];
+
+function Checklist({ state }: { state: PlatformState }) {
+  const [expanded, setExpanded] = useState(true);
+  const onboarding = isOnboarding(state.screen);
+  const steps = onboarding ? onboardingSteps(state) : dashboardSteps;
+  const done = steps.filter((s) => s.status === "done").length;
+  return (
+    <div className="rounded-inner bg-surface px-4 py-3">
+      <button onClick={() => setExpanded((e) => !e)} className="flex w-full items-center gap-2 text-left">
+        {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        <span className="flex-1 text-[13px] font-bold uppercase tracking-caps">{onboarding ? "Account setup" : "Get ready for fans"}</span>
+        <span className="text-xs text-soft">
+          {done} of {steps.length} done
+        </span>
+      </button>
+      {expanded && (
+        <ol className="mt-3 flex flex-col gap-2.5">
+          {steps.map((s) => (
+            <li key={s.label} className="flex items-center gap-3">
+              <StepDot status={s.status} />
+              <span className={`flex-1 text-[13px] ${s.status === "next" ? "text-soft" : "text-white"} ${s.status === "now" ? "font-bold" : ""}`}>
+                {s.label}
+              </span>
+              <span className="rounded-full bg-bg px-2 py-0.5 text-[11px] font-bold text-soft">{s.owner}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {!onboarding && expanded && <p className="mt-3 text-[11px] text-muted">Account setup: done</p>}
+    </div>
+  );
+}
+
+function StepDot({ status }: { status: StepStatus }) {
+  if (status === "done")
+    return (
+      <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-accent">
+        <Check size={11} strokeWidth={3.5} />
+      </span>
+    );
+  if (status === "now") return <span className="h-[18px] w-[18px] shrink-0 rounded-full border-2 border-accent" />;
+  return <span className="h-[18px] w-[18px] shrink-0 rounded-full border border-line" />;
+}
+
+/* ---------- Messages ---------- */
+
+export function StatusTag({ status }: { status: MsgStatus }) {
+  if (status === "done")
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-white">
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-accent">
+          <Check size={10} strokeWidth={3.5} />
+        </span>
+        Done
+      </span>
+    );
+  if (status === "confirm")
+    return (
+      <span className="inline-flex h-6 items-center rounded-full border border-accent px-2.5 text-[11px] font-bold uppercase tracking-caps">
+        Please confirm
+      </span>
+    );
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-danger">
+      <CircleAlert size={15} /> Needs attention
+    </span>
+  );
+}
+
+function MessageView({ m }: { m: Msg }) {
+  const { resolve, userSays, dismiss } = useAssistant();
+  if (m.from === "user")
+    return (
+      <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
+        <span className="max-w-[85%] rounded-[20px] rounded-br-md bg-accent px-4 py-2.5 text-sm">{m.text}</span>
+      </motion.div>
+    );
+  return (
+    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="relative min-w-0 break-words rounded-[20px] bg-surface p-4 text-sm leading-5">
+      {m.dismissible && !m.resolved && (
+        <button
+          onClick={() => dismiss(m.id)}
+          aria-label="Dismiss suggestion"
+          className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full text-soft hover:bg-bg hover:text-white"
+        >
+          <X size={15} />
+        </button>
+      )}
+      {m.status && (
+        <div className="mb-2">
+          <StatusTag status={m.status} />
+        </div>
+      )}
+      {m.llm ? (
+        <>
+          <Answer text={typeof m.text === "string" ? m.text : ""} streaming={m.streaming} />
+          {!m.streaming && typeof m.text === "string" && <ListenButton text={m.text} />}
+        </>
+      ) : (
+        m.text && <div className={`whitespace-pre-line ${m.dismissible && !m.resolved ? "pr-6" : ""}`}>{m.text}</div>
+      )}
+      {m.body && <div className="mt-3">{m.body}</div>}
+      {m.details && <Details>{m.details}</Details>}
+      {m.choice && !m.resolved && (
+        <Choice
+          choice={m.choice}
+          onConfirm={(v, label) => {
+            resolve(m.id, label);
+            userSays(label);
+            m.choice!.onPick(v, label);
+          }}
+        />
+      )}
+      {m.actions && !m.resolved && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {m.actions.map((a) => (
+            <button
+              key={a.label}
+              onClick={() => {
+                resolve(m.id, a.label);
+                a.onClick();
+              }}
+              className={
+                a.variant === "primary"
+                  ? "h-9 rounded-pill bg-accent px-4 text-[13px] font-black uppercase tracking-caps hover:brightness-110"
+                  : a.variant === "outline"
+                    ? "h-9 rounded-full border border-accent px-4 text-[13px] font-black uppercase tracking-caps text-accent hover:bg-accent-tint"
+                    : "h-9 px-2 text-[13px] font-bold text-soft underline-offset-2 hover:text-white hover:underline"
+              }
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function Details({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-3">
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1 text-[12px] font-bold text-soft hover:text-white">
+        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        {open ? "Hide details" : "Show details"}
+      </button>
+      {open && <div className="mt-2 rounded-tile bg-bg p-3 text-[12px] leading-[18px] text-soft">{children}</div>}
+    </div>
+  );
+}
+
+function Choice({ choice, onConfirm }: { choice: NonNullable<Msg["choice"]>; onConfirm: (v: string, label: string) => void }) {
+  const rec = choice.options.find((o) => o.recommended) ?? choice.options[0];
+  const [sel, setSel] = useState(rec.value);
+  const picked = choice.options.find((o) => o.value === sel)!;
+  if (choice.instant)
+    return (
+      <div className="mt-3 flex flex-wrap gap-2">
+        {choice.options.map((o) => (
+          <button
+            key={o.value}
+            onClick={() => onConfirm(o.value, o.label)}
+            className={`h-9 rounded-pill border border-accent px-4 text-[13px] font-bold ${o.recommended ? "bg-accent" : "hover:bg-accent-tint"}`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    );
+  return (
+    <div className="mt-3">
+      <div className="flex flex-col gap-2">
+        {choice.options.map((o) => (
+          <button
+            key={o.value}
+            onClick={() => setSel(o.value)}
+            aria-pressed={sel === o.value}
+            className={`flex min-h-9 items-center justify-between gap-2 rounded-pill border border-accent px-4 py-1.5 text-left text-[13px] font-bold ${
+              sel === o.value ? "bg-accent" : "hover:bg-accent-tint"
+            }`}
+          >
+            <span>{o.label}</span>
+            {o.recommended && <span className="shrink-0 rounded-full bg-bg px-2 py-0.5 text-[10px] font-bold uppercase tracking-caps">Recommended</span>}
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={() => onConfirm(picked.value, picked.label)}
+        className="mt-3 h-9 rounded-pill bg-accent px-4 text-[13px] font-black uppercase tracking-caps hover:brightness-110"
+      >
+        {choice.confirmLabel ?? "Continue"}
+      </button>
+    </div>
+  );
+}
+
+/** "Detected" tag next to a field the assistant filled (overlay on the existing label row). */
+export function DetectedTag({ field }: { field: string }) {
+  const { detected } = useAssistant();
+  if (!detected.includes(field)) return null;
+  return (
+    <span className="mb-4 ml-3 inline-flex h-6 items-center gap-1 rounded-full bg-bg px-2.5 text-[11px] font-bold uppercase tracking-caps">
+      <span className="text-accent">✦</span> Detected
+    </span>
+  );
+}
+
+/** Small copy row used inside assistant messages. */
+export function CopyLine({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="mt-1.5 flex items-center gap-2 rounded-pill bg-bg py-1.5 pl-3 pr-1.5">
+      <span className="shrink-0 text-[11px] text-soft">{label}</span>
+      <span className="min-w-0 flex-1 truncate font-mono text-[12px] font-bold">{value}</span>
+      <button
+        onClick={() => {
+          navigator.clipboard?.writeText(value).catch(() => {});
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1200);
+        }}
+        className="shrink-0 rounded-full px-2 text-[12px] font-semibold text-accent"
+      >
+        {copied ? "Copied" : "Copy"}
+      </button>
+    </div>
+  );
+}
+

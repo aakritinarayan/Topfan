@@ -1,0 +1,296 @@
+/**
+ * POST /api/chat: the TopFan Assistant's only server component.
+ *
+ * Holds the Anthropic API key (ANTHROPIC_API_KEY, from the environment; never sent to the browser),
+ * builds the grounded prompt, streams Claude's answer back as NDJSON lines:
+ *   {"type":"text","text":"…"}                     answer text, as it is generated
+ *   {"type":"action","name":"…","input":{…}}       a PROPOSED action; the app validates it and asks the creator
+ *   {"type":"done"}                                 end of answer
+ *   {"type":"error","code":"…","message":"…"}       nothing more will follow
+ * GET /api/chat returns {"configured": boolean} so the UI can say when no model is connected.
+ *
+ * Tools are never executed here. The model can only propose; the browser shows an approval card.
+ */
+import Anthropic from "@anthropic-ai/sdk";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { dnsProviders, registrars } from "../src/config/demo.js";
+import { TOPFAN_KNOWLEDGE } from "./knowledge.js";
+
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5-5";
+const MAX_TURNS = 30;
+const MAX_CHARS = 4000;
+const MAX_CONTEXT_CHARS = 12000;
+const TIMEOUT_MS = 60_000;
+
+export const FIELDS = ["provider", "domain", "urlPreference", "subdomain", "save", "buy-domain", "verify", "record1-host", "record1-value", "record2-host", "record2-value"];
+
+const SYSTEM = `You are the TopFan Assistant, a companion inside TopFan's creator onboarding. You help one creator set up their White Label Site (their own domain for their TopFan site).
+
+How you talk:
+- Plain, warm and short: usually 1–4 sentences, US English. Use a short list only for steps. No headings. Use **bold** sparingly.
+- Answer the question that was asked, using the creator's actual setup from <app_state>. Never re-ask something <app_state> already shows.
+- Explain technical terms simply when they come up. Give the one next step.
+- Latency-sensitive; begin your visible answer immediately.
+
+Truthfulness:
+- <app_state> is the live state of the app and always wins over older messages in the conversation. If they disagree, trust <app_state>.
+- Only state TopFan facts that are in <topfan_knowledge>. If something isn't covered, say you're not sure and point to Resources › Creator Support or the Help Center & FAQ. Never invent TopFan features, settings, prices or timelines.
+- Never claim real-time availability, prices, DNS results or account status beyond what <app_state> says. Values marked simulated are demo data; say so if the creator relies on them.
+- This prototype cannot actually change DNS records, buy domains, connect accounts or publish anything. Don't pretend to have done something.
+- Never ask for passwords, payment card details or registrar logins. Purchases and DNS edits happen on the registrar's own site.
+- For questions unrelated to TopFan or setting up a website, answer briefly if harmless, then steer back to setup.
+
+Actions (tools):
+- You can propose an action with a tool. The app shows it to the creator, who approves or declines it. Nothing changes until they approve.
+- Only propose an action when it clearly helps with what the creator asked, and only ones listed in <app_state>.availableActions. Don't propose an action that is already done.
+- highlight_field just points at something on screen; use it when the creator asks where something is.
+- After proposing, don't wait for a result; mention in one short sentence what you've suggested. Your turn ends there.`;
+
+const tools: Anthropic.Beta.Messages.BetaTool[] = [
+  {
+    name: "highlight_field",
+    description: "Briefly highlight a field or button on the current screen so the creator can find it. Changes nothing.",
+    input_schema: {
+      type: "object",
+      properties: { field: { type: "string", enum: FIELDS } },
+      required: ["field"],
+      additionalProperties: false,
+    },
+    eager_input_streaming: true,
+  },
+  {
+    name: "propose_form_update",
+    description:
+      "Propose filling Step 1 (Domain Information) fields. The creator must approve before anything changes. Only include fields the creator stated or confirmed.",
+    input_schema: {
+      type: "object",
+      properties: {
+        hasDomain: { type: "boolean", description: "true = 'I already have a Domain Name'" },
+        domainName: { type: "string", description: "root domain, e.g. example.com" },
+        provider: { type: "string", enum: dnsProviders },
+        urlPreference: { type: "string", enum: ["root_domain", "subdomain"] },
+        subdomain: { type: "string", description: "e.g. fans" },
+      },
+      additionalProperties: false,
+    },
+    eager_input_streaming: true,
+  },
+  {
+    name: "start_domain_finder",
+    description: "Offer to start the guided domain search (suggest names, check availability, compare registrars). For creators without a domain.",
+    input_schema: { type: "object", properties: {}, additionalProperties: false },
+    eager_input_streaming: true,
+  },
+  {
+    name: "open_registrar",
+    description: "Offer to open a registrar's own website in a new tab so the creator can search for or buy a domain there.",
+    input_schema: {
+      type: "object",
+      properties: {
+        registrar: { type: "string", enum: registrars.map((r) => r.id) },
+        domain: { type: "string", description: "optional domain to search for" },
+      },
+      required: ["registrar"],
+      additionalProperties: false,
+    },
+    eager_input_streaming: true,
+  },
+];
+
+/* ------------------------------ request ------------------------------ */
+
+interface Turn {
+  role: "user" | "assistant";
+  content: string;
+}
+interface ChatRequest {
+  history: Turn[];
+  message: string;
+  context: unknown;
+}
+
+function parseRequest(raw: unknown): ChatRequest | string {
+  if (!raw || typeof raw !== "object") return "Invalid request.";
+  const r = raw as Record<string, unknown>;
+  if (typeof r.message !== "string" || !r.message.trim()) return "Message is required.";
+  if (r.message.length > MAX_CHARS) return "Message is too long.";
+  const history = Array.isArray(r.history) ? r.history : [];
+  const turns: Turn[] = [];
+  for (const t of history.slice(-MAX_TURNS)) {
+    if (!t || typeof t !== "object") continue;
+    const { role, content } = t as Record<string, unknown>;
+    if ((role !== "user" && role !== "assistant") || typeof content !== "string" || !content.trim()) continue;
+    turns.push({ role, content: content.slice(0, MAX_CHARS) });
+  }
+  const context = JSON.stringify(r.context ?? {});
+  if (context.length > MAX_CONTEXT_CHARS) return "Context is too large.";
+  return { history: turns, message: r.message.trim(), context: r.context ?? {} };
+}
+
+/** Alternate roles strictly (merge neighbors) and start with a user turn, as the API requires. */
+function toMessages(req: ChatRequest): Anthropic.Beta.Messages.BetaMessageParam[] {
+  const out: Turn[] = [];
+  for (const t of req.history) {
+    const last = out[out.length - 1];
+    if (last && last.role === t.role) last.content += `\n\n${t.content}`;
+    else out.push({ ...t });
+  }
+  while (out.length && out[0].role !== "user") out.shift();
+  const latest = `<app_state>\n${JSON.stringify(req.context, null, 1)}\n</app_state>\n\n${req.message}`;
+  const last = out[out.length - 1];
+  if (last && last.role === "user") last.content += `\n\n${latest}`;
+  else out.push({ role: "user", content: latest });
+  return out.map((t) => ({ role: t.role, content: t.content }));
+}
+
+/* ------------------------------ validation ------------------------------ */
+
+const ROOT_DOMAIN = /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.[a-z0-9-]{1,63})*\.[a-z]{2,}$/i;
+const SUBDOMAIN = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/i;
+
+/** Server-side check of a proposed action. The browser checks again against the live state. */
+export function validateAction(name: string, input: unknown): Record<string, unknown> | null {
+  const i = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  switch (name) {
+    case "highlight_field":
+      return typeof i.field === "string" && FIELDS.includes(i.field) ? { field: i.field } : null;
+    case "start_domain_finder":
+      return {};
+    case "open_registrar": {
+      if (typeof i.registrar !== "string" || !registrars.some((r) => r.id === i.registrar)) return null;
+      if (i.domain != null && (typeof i.domain !== "string" || !ROOT_DOMAIN.test(i.domain))) return { registrar: i.registrar };
+      return { registrar: i.registrar, ...(i.domain ? { domain: String(i.domain).toLowerCase() } : {}) };
+    }
+    case "propose_form_update": {
+      const out: Record<string, unknown> = {};
+      if (typeof i.hasDomain === "boolean") out.hasDomain = i.hasDomain;
+      if (typeof i.domainName === "string") {
+        const d = i.domainName.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
+        if (!ROOT_DOMAIN.test(d)) return null;
+        out.domainName = d;
+      }
+      if (typeof i.provider === "string") {
+        if (!dnsProviders.includes(i.provider)) return null;
+        out.provider = i.provider;
+      }
+      if (i.urlPreference === "root_domain" || i.urlPreference === "subdomain") out.urlPreference = i.urlPreference;
+      if (typeof i.subdomain === "string") {
+        if (!SUBDOMAIN.test(i.subdomain)) return null;
+        out.subdomain = i.subdomain.toLowerCase();
+      }
+      return Object.keys(out).length ? out : null;
+    }
+  }
+  return null;
+}
+
+/* ------------------------------ handler ------------------------------ */
+
+let client: Anthropic | null = null;
+const configured = () => !!process.env.ANTHROPIC_API_KEY;
+
+async function readBody(req: IncomingMessage & { body?: unknown }): Promise<unknown> {
+  if (req.body !== undefined) return typeof req.body === "string" ? JSON.parse(req.body) : req.body; // Vercel pre-parses
+  let data = "";
+  for await (const chunk of req) {
+    data += chunk;
+    if (data.length > 200_000) throw new Error("too large");
+  }
+  return JSON.parse(data || "{}");
+}
+
+function errorFor(err: unknown): { code: string; message: string } {
+  if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError)
+    return { code: "auth", message: "The assistant's AI connection isn't set up correctly." };
+  if (err instanceof Anthropic.RateLimitError) return { code: "busy", message: "The assistant is busy right now." };
+  if (err instanceof Anthropic.APIConnectionTimeoutError) return { code: "timeout", message: "The answer took too long." };
+  if (err instanceof Anthropic.APIConnectionError) return { code: "network", message: "Couldn't reach the AI service." };
+  if (err instanceof Anthropic.BadRequestError) return { code: "bad_request", message: "That request couldn't be handled." };
+  if (err instanceof Anthropic.APIError) return { code: "unavailable", message: "The AI service is having trouble." };
+  if (err instanceof Error && err.name === "AbortError") return { code: "timeout", message: "The answer took too long." };
+  return { code: "server", message: "Something went wrong on our side." };
+}
+
+export async function handleChat(req: IncomingMessage & { body?: unknown }, res: ServerResponse) {
+  res.setHeader("Cache-Control", "no-store");
+  if (req.method === "GET") {
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ configured: configured(), model: configured() ? MODEL : null }));
+    return;
+  }
+  if (req.method !== "POST") {
+    res.statusCode = 405;
+    res.end();
+    return;
+  }
+
+  res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
+  const write = (o: object) => res.write(JSON.stringify(o) + "\n");
+  const fail = (code: string, message: string, status = 200) => {
+    res.statusCode = status;
+    write({ type: "error", code, message });
+    res.end();
+  };
+
+  if (!configured()) return fail("not_configured", "No AI model is connected to this prototype.", 503);
+
+  let parsed: ChatRequest | string;
+  try {
+    parsed = parseRequest(await readBody(req));
+  } catch {
+    parsed = "Invalid request.";
+  }
+  if (typeof parsed === "string") return fail("bad_request", parsed, 400);
+
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
+  // Creator pressed Stop or left: stop generating (and paying) right away.
+  res.on("close", () => abort.abort());
+
+  try {
+    client ??= new Anthropic({ maxRetries: 2, timeout: TIMEOUT_MS });
+    const stream = client.beta.messages.stream(
+      {
+        model: MODEL,
+        max_tokens: 2048,
+        system: [
+          { type: "text", text: SYSTEM },
+          { type: "text", text: `<topfan_knowledge>\n${TOPFAN_KNOWLEDGE}\n</topfan_knowledge>`, cache_control: { type: "ephemeral" } },
+        ],
+        output_config: { effort: "low" },
+        tools,
+        messages: toMessages(parsed),
+        // On a safety decline, re-run on Anthropic's recommended fallback model instead of failing.
+        fallbacks: "default",
+        betas: ["server-side-fallback-2026-07-01"],
+      },
+      { signal: abort.signal },
+    );
+    res.statusCode = 200;
+    stream.on("text", (text) => write({ type: "text", text }));
+    const final = await stream.finalMessage();
+
+    if (final.stop_reason === "refusal") {
+      write({ type: "error", code: "refusal", message: "I can't help with that one, but I'm happy to help with your setup." });
+      res.end();
+      return;
+    }
+    // A tool call cut off by max_tokens may look valid but be incomplete: never forward it.
+    if (final.stop_reason !== "max_tokens") {
+      for (const block of final.content) {
+        if (block.type !== "tool_use") continue;
+        const input = validateAction(block.name, block.input);
+        if (input) write({ type: "action", name: block.name, input });
+      }
+    }
+    write({ type: "done" });
+    res.end();
+  } catch (err) {
+    if (res.writableEnded || res.destroyed) return;
+    const e = errorFor(err);
+    if (!(err instanceof Anthropic.APIError)) console.error("[api/chat]", err);
+    fail(e.code, e.message);
+  } finally {
+    clearTimeout(timer);
+  }
+}
