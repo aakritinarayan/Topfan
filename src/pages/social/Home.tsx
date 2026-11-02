@@ -383,7 +383,7 @@ function Merchandise() {
           View All
         </ArrowPill>
       </div>
-      <div className="mt-[35px] grid grid-cols-3 gap-[24px]">
+      <div className="mt-[35px] grid grid-cols-4 gap-[24px]">
         {items.map((it) => (
           <div key={it.id} data-testid={`home-product-${it.id}`} className="overflow-hidden rounded-[20px] border border-transparent bg-surface">
             <ImageSlot src={it.image} kind="product" label={it.title} className="aspect-square w-full !bg-[#efefef] !text-black/25" />
