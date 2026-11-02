@@ -45,6 +45,36 @@ export const initialData = (): AppData =>
 
 const KEY = "topfan-mock-v1";
 
+/** Bump when seed media changes so browsers holding older saved data get the new media fields once. */
+const MEDIA_SEED = 1;
+const MEDIA_FIELDS = new Set(["avatar", "fromAvatar", "creatorAvatar", "cover", "hero", "banner", "eventsCover", "image", "src", "video", "logo", "previewMedia"]);
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+
+/**
+ * Copy seed values into media fields that are empty (null/undefined) in saved data. Only media fields are touched;
+ * records are matched by id (or by position for id-less lists such as a post's media items), and records the
+ * creator added or removed are left alone.
+ */
+function backfillMedia(seed: unknown, saved: unknown): unknown {
+  if (Array.isArray(seed) && Array.isArray(saved)) {
+    const withIds = seed.some((x) => isObj(x) && "id" in x);
+    const byId = new Map(seed.filter(isObj).map((x) => [x.id, x]));
+    return saved.map((item, i) => {
+      const match = withIds ? (isObj(item) ? byId.get(item.id) : undefined) : seed[i];
+      return match === undefined ? item : backfillMedia(match, item);
+    });
+  }
+  if (isObj(seed) && isObj(saved)) {
+    const out: Record<string, unknown> = { ...saved };
+    for (const [k, v] of Object.entries(seed)) {
+      if (MEDIA_FIELDS.has(k) && (saved[k] === null || saved[k] === undefined) && v != null) out[k] = v;
+      else if (k in saved && (Array.isArray(v) || isObj(v))) out[k] = backfillMedia(v, saved[k]);
+    }
+    return out;
+  }
+  return saved;
+}
+
 function load(): AppData {
   const fresh = initialData();
   try {
@@ -54,10 +84,14 @@ function load(): AppData {
     }
     const raw = localStorage.getItem(KEY);
     if (!raw) return fresh;
-    const saved = JSON.parse(raw) as Partial<AppData>;
+    const saved = JSON.parse(raw) as Partial<AppData> & { mediaSeed?: number };
     // Shallow-merge per slice so new fields added during development get their defaults.
     const out = { ...fresh } as Record<string, unknown>;
     for (const k of Object.keys(fresh) as (keyof AppData)[]) out[k] = { ...fresh[k], ...(saved[k] ?? {}) };
+    // Data saved before demo media existed: fill empty media fields once from the seed (records matched by id).
+    if ((saved.mediaSeed ?? 0) < MEDIA_SEED) {
+      for (const k of Object.keys(fresh) as (keyof AppData)[]) out[k] = backfillMedia(fresh[k], out[k]);
+    }
     return out as unknown as AppData;
   } catch {
     return fresh;
@@ -79,7 +113,7 @@ const subs = new Set<() => void>();
 const eventSubs = new Set<(e: StoreEvent) => void>();
 const persist = () => {
   try {
-    localStorage.setItem(KEY, JSON.stringify(data));
+    localStorage.setItem(KEY, JSON.stringify({ ...data, mediaSeed: MEDIA_SEED }));
   } catch {
     /* storage full / private mode: keep working in memory */
   }

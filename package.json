@@ -14,7 +14,7 @@
     "media:videos": "node scripts/media/fetch-videos.mjs",
     "media:catalog": "node scripts/media/build-catalog.mjs",
     "media:audit": "node tests/e2e/media-audit.mjs",
-    "media:test": "node tests/e2e/media-fallback.mjs && node tests/e2e/media-nested.mjs 1512",
+    "media:test": "node tests/e2e/media-fallback.mjs && node tests/e2e/media-nested.mjs 1512 && node tests/e2e/media-migration.mjs",
     "media:doc": "node scripts/media/coverage-doc.mjs"
   },
   "dependencies": {
