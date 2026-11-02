@@ -122,9 +122,25 @@ The test script is `tests/e2e/autopilot.mjs` (run it with `node tests/e2e/autopi
 
 It passes at 1512×805 and 1126×797.
 
+## Media states
+
+Each draft that needs media shows a preview with one of four states:
+
+- **Attached:** the creator's own media is on the draft.
+- **Suggested:** an approved library item matches what the draft asked for. The creator still approves the draft.
+- **Missing:** the requested item isn't in the library. The draft shows "No photo yet" and is held. Nothing is substituted.
+- **Unapproved:** the item exists but isn't approved for posting yet. The draft is held.
+
+By default every requested item is in the library and approved, so the batch is complete: 4 ready and 0 on hold. Two URL fixtures show the other states:
+
+- `?apFixture=missing-asset` (scenario C)
+- `?apFixture=unapproved-asset` (scenario C2)
+
+Add `&resetMock=1` so the fixture applies to a fresh batch. Approved media goes into the published post. The library uses the same files as the rest of the demo (see `docs/media-coverage.md`).
+
 ## Known limits
 
 - Candidates come from a fixed demo library. A real system would generate them from the same approved sources.
 - Engagement history comes from the mock posts' likes, comments and views. Timing is a suggestion, never a reach promise.
-- "I've added the photo (demo)" stands in for approving an asset in a real media library.
+- "I've added the photo (demo)" and "Approve this photo (demo)" stand in for adding or approving an asset in a real media library.
 - Every pack role, including both delegate types, has Content access, so any role can approve. The no-access note only appears if a future role lacks `content.write`.

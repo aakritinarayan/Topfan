@@ -1,9 +1,10 @@
 /**
  * Cards, badges, modal, image placeholders (see DESIGN_NOTES §5).
  */
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BadgeCheck, CircleCheck, ImageIcon, TriangleAlert, User, X } from "lucide-react";
+import { FALLBACK, mediaAlt, mediaSrc, reportMediaError, type MediaKind } from "../../media";
 
 /** #272a2b, r30, padding 30 (REF). */
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -54,9 +55,28 @@ export function NoticeBox({ children, className = "" }: { children: ReactNode; c
   );
 }
 
-/** Neutral image placeholder; swap by setting a path in config/demo.ts → assets. */
-export function ImageSlot({ src, label, className = "", rounded = "" }: { src?: string | null; label: string; className?: string; rounded?: string }) {
-  if (src) return <img src={src} alt={label} className={`object-cover ${rounded} ${className}`} />;
+/**
+ * Image slot. `src` is a media key (src/media) or a path; it keeps the slot's size and crops with
+ * object-cover. No src = the intended empty placeholder (e.g. an upload field). A file that fails to
+ * load is replaced by the content-type fallback and recorded (never an unrelated photo).
+ */
+export function ImageSlot({ src, label, className = "", rounded = "", kind = "image", fit = "cover", eager }: { src?: string | null; label: string; className?: string; rounded?: string; kind?: MediaKind; fit?: "cover" | "contain"; eager?: boolean }) {
+  const url = mediaSrc(src);
+  const [failed, setFailed] = useState<string | null>(null);
+  if (url) {
+    const bad = failed === url;
+    return (
+      <img
+        src={bad ? FALLBACK[kind] : url}
+        alt={mediaAlt(src, label)}
+        loading={eager ? "eager" : "lazy"}
+        decoding="async"
+        data-media={bad ? "fallback" : "ok"}
+        onError={() => !bad && (reportMediaError(url, kind), setFailed(url))}
+        className={`bg-placeholder-img ${fit === "contain" ? "object-contain" : "object-cover"} ${rounded} ${className}`}
+      />
+    );
+  }
   return (
     <div aria-label={`${label} placeholder`} className={`flex items-center justify-center bg-placeholder-img text-white/35 ${rounded} ${className}`}>
       <ImageIcon size={28} strokeWidth={1.5} />
@@ -64,12 +84,19 @@ export function ImageSlot({ src, label, className = "", rounded = "" }: { src?: 
   );
 }
 
-/** Circular avatar with red ring. */
-export function Avatar({ src, size, ring = 3 }: { src?: string | null; size: number; ring?: number }) {
+/** Circular avatar with red ring. `src` is a media key or path; failures fall back to the avatar illustration. */
+export function Avatar({ src, size, ring = 3, alt = "" }: { src?: string | null; size: number; ring?: number; alt?: string }) {
+  const url = mediaSrc(src);
+  const [failed, setFailed] = useState<string | null>(null);
+  const bad = !!url && failed === url;
   return (
     <div className="shrink-0 rounded-full bg-accent" style={{ width: size, height: size, padding: ring }}>
       <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-placeholder-img">
-        {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : <User size={size * 0.45} className="text-white/40" strokeWidth={1.5} />}
+        {url ? (
+          <img src={bad ? FALLBACK.avatar : url} alt={alt} loading="lazy" decoding="async" onError={() => !bad && (reportMediaError(url, "avatar"), setFailed(url))} className="h-full w-full object-cover" />
+        ) : (
+          <User size={size * 0.45} className="text-white/40" strokeWidth={1.5} />
+        )}
       </div>
     </div>
   );

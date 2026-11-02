@@ -105,7 +105,7 @@ export function PublicVipDealsPage({ route, params }: PageProps) {
           <ul className="flex flex-col gap-[16px]">
             {m.offers.map((o) => (
               <li key={o.id} data-testid={`public-vip-${o.id}`} className="flex items-center gap-[20px] rounded-inner bg-bg p-[16px]">
-                {o.logo ? <img src={o.logo} alt="" className="h-[88px] w-[88px] rounded-[8px] object-cover" /> : <ImageSlot label={o.title} className="h-[88px] w-[88px] shrink-0" rounded="rounded-[8px]" />}
+                <ImageSlot src={o.logo} fit="contain" label={`${o.title} logo`} className="h-[88px] w-[88px] shrink-0" rounded="rounded-[8px]" />
                 <div className="min-w-0 flex-1">
                   <h3 className="font-display text-[16px] font-bold">{o.title}</h3>
                   <p className="mt-[6px] line-clamp-2 text-[12px] text-[#b0b0b0]">{o.description}</p>
@@ -148,7 +148,7 @@ function Deal({ routeId, o, name, label, listPath }: { routeId: string; o: VipOf
       <div className="mt-[16px] flex items-start gap-[16px]">
         <section className="w-1/2 rounded-[24px] bg-surface p-[24px]">
           <div className="flex items-start justify-between">
-            {o.logo ? <img src={o.logo} alt="" className="h-[300px] w-[300px] rounded-inner object-cover" /> : <ImageSlot label={o.title} className="h-[300px] w-[300px]" rounded="rounded-inner" />}
+            <ImageSlot src={o.image ?? o.logo} fit={o.image ? "cover" : "contain"} label={o.title} className="h-[300px] w-[300px]" rounded="rounded-inner" eager />
             <ShareButton testid="public-vip-share" />
           </div>
           <h2 className="mt-[30px] text-[24px] font-bold">{o.title}</h2>

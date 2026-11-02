@@ -16,6 +16,8 @@ import { useToast } from "../../platform/ui/toast";
 import { CONTENT_FILTERS, PostCard, SocialModal, money, useGo } from "./shared";
 
 const PAGE = 6;
+/** Static rail tiles that are not store items (media keys, src/media). */
+const RAIL_MEDIA = { social: "experiences/social", event: "events/banner" };
 
 export function FeedPage({ route, params }: PageProps) {
   const account = useData((d) => d.account);
@@ -114,7 +116,7 @@ function ProfileCard({ canManage }: { canManage: boolean }) {
   return (
     <section data-testid="feed-profile-card" className="overflow-hidden rounded-card bg-surface">
       <div className="relative h-[316px]">
-        <ImageSlot label="Cover photo" className="absolute inset-x-0 top-[0px] h-[290px] w-full" />
+        <ImageSlot src={account.cover} label="Cover photo" className="absolute inset-x-0 top-[0px] h-[290px] w-full" eager />
         <div className="absolute inset-x-0 top-[150px] h-[166px] bg-gradient-to-b from-transparent via-surface/70 to-surface" />
         {canManage && (
           <button
@@ -273,10 +275,12 @@ function useCountdown(target: string | null) {
   return [d, h, m, s - m * 60].map((n) => String(n).padStart(2, "0"));
 }
 
-function RailTile({ title, sub, onClick, testid }: { title: string; sub?: string; onClick: () => void; testid: string }) {
+function RailTile({ title, sub, image, onClick, testid }: { title: string; sub?: string; image?: string | null; onClick: () => void; testid: string }) {
   return (
     <button data-testid={testid} onClick={onClick} className="relative block h-[100px] w-[267px] overflow-hidden rounded-inner text-center">
-      <span aria-hidden className="absolute inset-0 bg-placeholder-img" />
+      <span aria-hidden className="absolute inset-0">
+        <ImageSlot src={image} label={title} className="h-full w-full" />
+      </span>
       <span className="absolute inset-0 bg-black/45" />
       <span className="relative flex h-full flex-col items-center justify-center px-[12px]">
         <span className="text-[18px] font-medium leading-[22px]">{title}</span>
@@ -299,7 +303,9 @@ function RightRail() {
     <aside data-testid="feed-right-rail" className="w-[267px] shrink-0 space-y-[12px]">
       {next && cd && (
         <div data-testid="feed-rail-countdown" className="relative h-[162px] overflow-hidden rounded-inner">
-          <span aria-hidden className="absolute inset-0 bg-placeholder-img" />
+          <span aria-hidden className="absolute inset-0">
+            <ImageSlot src={next.image ?? RAIL_MEDIA.event} kind="event" label={next.title} className="h-full w-full" />
+          </span>
           <span className="absolute inset-0 bg-black/55" />
           <div className="relative px-[14px] pt-[16px]">
             <p className="text-[12px] font-bold">Upcoming Event In</p>
@@ -322,9 +328,9 @@ function RightRail() {
         </div>
       )}
       {/* inferred target: the social-media tile's destination was not captured */}
-      <RailTile testid="feed-rail-social" title="Comment or Follow on Social Media" onClick={() => go("public-store", { handle })} />
+      <RailTile testid="feed-rail-social" title="Comment or Follow on Social Media" image={RAIL_MEDIA.social} onClick={() => go("public-store", { handle })} />
       {items.map((it) => (
-        <RailTile key={it.id} testid={`feed-rail-item-${it.id}`} title={it.title} sub={it.price != null ? money(it.price) : undefined} onClick={() => go("public-product", { handle, productId: it.id })} />
+        <RailTile key={it.id} testid={`feed-rail-item-${it.id}`} title={it.title} image={it.image} sub={it.price != null ? money(it.price) : undefined} onClick={() => go("public-product", { handle, productId: it.id })} />
       ))}
       <button
         data-testid="feed-more-store-items"

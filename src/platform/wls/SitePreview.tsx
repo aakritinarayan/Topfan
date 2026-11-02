@@ -3,7 +3,8 @@
  * Fan-site headings use Satoshi (falls back to Roboto until the font file is added).
  */
 import { ArrowRight, ChevronLeft, ChevronRight, Globe, Menu, Share2 } from "lucide-react";
-import { assets, creator, siteCopy } from "../../config/demo";
+import { creator, siteCopy } from "../../config/demo";
+import { useData } from "../../store/store";
 import { Logo } from "../Shell";
 import { Avatar, ImageSlot, VerifiedBadge } from "../ui/surfaces";
 
@@ -16,6 +17,7 @@ export function SitePreview({ tab }: { tab: "cover" | "feed" }) {
 }
 
 function CoverPreview() {
+  const hero = useData((d) => d.account.hero);
   return (
     <div>
       <div className="flex h-12 items-center justify-between px-4">
@@ -23,7 +25,7 @@ function CoverPreview() {
         <Menu size={22} />
       </div>
       <div className="relative h-[300px]">
-        <ImageSlot src={assets.hero} label="Hero image" className="absolute inset-0 h-full w-full" />
+        <ImageSlot src={hero} label="Hero image" className="absolute inset-0 h-full w-full" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
         <button className="absolute left-2 top-[120px] flex h-6 w-6 items-center justify-center rounded-full border border-accent text-accent">
           <ChevronLeft size={14} />
@@ -60,6 +62,7 @@ function CoverPreview() {
 }
 
 function FeedPreview() {
+  const media = useData((d) => ({ avatar: d.account.avatar, cover: d.account.cover }));
   return (
     <div className="px-2.5 pb-4">
       <div className="flex h-12 items-center justify-between px-1.5">
@@ -70,9 +73,9 @@ function FeedPreview() {
         </div>
       </div>
       <div className="relative">
-        <ImageSlot src={assets.cover} label="Cover photo" className="h-[150px] w-full" rounded="rounded-t-tile" />
+        <ImageSlot src={media.cover} label="Cover photo" className="h-[150px] w-full" rounded="rounded-t-tile" />
         <div className="absolute -bottom-8 left-3">
-          <Avatar src={assets.avatar} size={60} ring={2} />
+          <Avatar src={media.avatar} size={60} ring={2} />
         </div>
         <span className="absolute -bottom-4 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-accent">
           <Share2 size={15} />

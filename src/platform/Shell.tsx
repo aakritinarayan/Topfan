@@ -198,6 +198,7 @@ function TopFanEmblem({ size }: { size: number }) {
 
 /** Header used during account setup: TopFan brand, no creator features. */
 function SetupHeader({ overBackdrop = false }: { overBackdrop?: boolean }) {
+  const avatar = useData((d) => d.account.avatar);
   return (
     <header className={overBackdrop ? "relative z-40" : "sticky top-0 z-40 bg-bg"}>
       <div className="flex h-[75px] items-center justify-between px-[26px]">
@@ -207,7 +208,7 @@ function SetupHeader({ overBackdrop = false }: { overBackdrop?: boolean }) {
             <Globe size={22} />
           </IconCircle>
           <button aria-label="Account menu">
-            <Avatar src={assets.avatar} size={42} ring={2} />
+            <Avatar src={avatar} size={42} ring={2} />
           </button>
         </div>
       </div>

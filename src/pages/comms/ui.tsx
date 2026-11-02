@@ -6,6 +6,10 @@ import { useEffect, useRef, useState, type ReactNode, type TextareaHTMLAttribute
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Loader, Minus, Plus, Search, X } from "lucide-react";
 import { Button, TextButton } from "../../platform/ui/controls";
+import { posterOf } from "../../media";
+
+/** Thumbnail source for a media key: a video key shows its poster still, anything else passes through. */
+export const thumbOf = (key: string | null | undefined) => posterOf(key) ?? key ?? null;
 
 /** Magenta count badge (#d2006b, 24px circle, 12px/700). */
 export function CountBadge({ n, className = "" }: { n: number; className?: string }) {

@@ -2,13 +2,14 @@
  * Preferences › Welcome Message (/edit-preference/edit-welcome-message) — spec 31, shots 31-*, 31a.
  */
 import { useEffect, useRef, useState } from "react";
-import { Play, Upload, X } from "lucide-react";
+import { Upload, X } from "lucide-react";
 import type { PageProps } from "../types";
 import { PreferencesPage } from "../../platform/PreferencesPage";
 import { Button } from "../../platform/ui/controls";
-import { ImageSlot } from "../../platform/ui/surfaces";
+import { VideoPlayer } from "../../platform/ui/media";
 import { useData, useMockLoading } from "../../store/store";
 import { updateWelcomeMessage } from "../../store/slices/prefsA";
+import { welcomeVideoOf } from "../../store/slices/social";
 import { SegToggle, Skel, useRun } from "./ui";
 
 const MAX = 200;
@@ -17,6 +18,7 @@ export function WelcomeMessage({ route }: PageProps) {
   const loading = useMockLoading(1000);
   const saved = useData((d) => d.prefsA.welcomeMessage);
   const savedFile = useData((d) => d.prefsA.welcomeVideoFileName);
+  const welcomeVideo = useData(welcomeVideoOf);
   const run = useRun();
   const [enabled, setEnabled] = useState(saved.enabled);
   const [hasVideo, setHasVideo] = useState(saved.hasVideo);
@@ -69,12 +71,7 @@ export function WelcomeMessage({ route }: PageProps) {
                     <video src={videoUrl} controls className="aspect-[16/9] w-full rounded-[15px] bg-black object-cover" data-testid="pref-welcome-video" />
                   ) : (
                     <div className="relative" data-testid="pref-welcome-video">
-                      <ImageSlot label="Welcome video" rounded="rounded-[15px]" className="aspect-[16/9] w-full" />
-                      <span className="absolute inset-0 flex items-center justify-center">
-                        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/45">
-                          <Play size={28} fill="currentColor" />
-                        </span>
-                      </span>
+                      <VideoPlayer video={welcomeVideo} label="Welcome video" rounded="rounded-[15px]" className="aspect-[16/9] w-full" />
                     </div>
                   )}
                   <button

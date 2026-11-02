@@ -24,6 +24,7 @@ import {
   setSharing,
   setSignInMethod,
 } from "../../store/slices/prefsA";
+import { personAvatar } from "../../media";
 import { ConfirmModal, InfoPop, MiniAvatar, PasswordField, PrefCard, PrefRow, ProtectedModal, TToggle, useRun } from "./ui";
 
 type Method = "email" | "google" | "apple";
@@ -183,7 +184,7 @@ export function Privacy({ route }: PageProps) {
             {p.sharingCreators.slice(0, shown).map((c) => (
               <div key={c.id} className="flex h-[46px] items-center justify-between">
                 <span className="flex items-center gap-3">
-                  <MiniAvatar name={c.name} />
+                  <MiniAvatar name={c.name} src={personAvatar(c.id)} />
                   <p className="text-sm">{c.name}</p>
                 </span>
                 <TToggle

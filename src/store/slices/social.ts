@@ -4,7 +4,7 @@
  * Actions are plain functions that mutate a draft: act("label", (d) => myAction(d, …)).
  *
  * All seed data is fictional (creator: AJ White, US freestyle snowboarder). Captions are neutral and
- * written for this mock; media are placeholders rendered with ImageSlot.
+ * written for this mock; media are local demo assets referenced by key (src/media), rendered with ImageSlot / VideoPlayer.
  */
 import type { AppData } from "../store";
 import type { ID, Post, PostType } from "../model";
@@ -59,6 +59,8 @@ export interface ShowcaseItem {
   rail: boolean;
   /** Show in the Home "Merchandise" grid. */
   home: boolean;
+  /** Media key (src/media). */
+  image?: string | null;
 }
 
 export interface ChatMessage {
@@ -115,19 +117,19 @@ const post = (p: Partial<Post> & { id: string; type: PostType; text: string; cre
 });
 
 const seedPosts: Post[] = [
-  post({ id: "p-welcome", type: "video", text: "Hi everyone, welcome to my new fan community!", createdAt: "2026-01-04T17:00:00Z", likes: 2, comments: 3, views: 412, media: [{ kind: "video", placeholder: "Welcome video" }], extra: { variant: "welcome" } }),
-  post({ id: "p-1", type: "images", text: "Back home after a long travel week. Thanks for all the messages, team USA!", createdAt: "2026-10-28T15:00:00Z", comments: 10, views: 980, media: [{ kind: "image", placeholder: "Opening ceremony" }, { kind: "image", placeholder: "On the hill" }, { kind: "image", placeholder: "Halfpipe run" }], extra: { imageCount: 3 } }),
-  post({ id: "p-2", type: "images", text: "First turns of the season on a glacier trip. Snow was perfect.", createdAt: "2026-10-21T15:00:00Z", likes: 4, comments: 2, views: 640, media: [{ kind: "image", placeholder: "Glacier park" }] }),
-  post({ id: "p-3", type: "fundraiser", text: "I'm raising money to cover travel and coaching for next season's qualifier events. Every bit helps!", createdAt: "2026-10-14T15:00:00Z", comments: 2, views: 512, media: [{ kind: "image", placeholder: "Fundraiser cover" }], extra: { fundraiser: { raised: 1250, goal: 25000, allowBeyond: true, contributions: 4, levels: [{ title: "Bronze", amount: 100, gift: null }, { title: "Silver", amount: 250, gift: null }, { title: "Gold", amount: 500, gift: null }] } } }),
-  post({ id: "p-4", type: "images", text: "My quick guide to riding switch is ready #sports", createdAt: "2026-10-07T15:00:00Z", likes: 2, comments: 4, views: 377, locked: true, media: [{ kind: "image", placeholder: "Riding switch cover" }], extra: { variant: "downloadable", file: { title: "E-book: Riding Switch Basics" } } }),
-  post({ id: "p-5", type: "video", text: "Throwback to my favorite run of last winter. #sports #snowboarding", createdAt: "2026-09-30T15:00:00Z", likes: 2, comments: 8, views: 1290, media: [{ kind: "video", placeholder: "Competition run" }] }),
-  post({ id: "p-6", type: "images", text: "Getting BIG air in the park last weekend #snowboarding", createdAt: "2026-09-23T15:00:00Z", likes: 5, comments: 8, views: 860, media: [{ kind: "image", placeholder: "Big air" }] }),
-  post({ id: "p-7", type: "giveaway", text: "Giving away 10 beanies to fans. To enter, tell me your favorite mountain to ride! You must be a subscriber to enter.", createdAt: "2026-09-16T15:00:00Z", likes: 1, comments: 1, views: 302, media: [{ kind: "image", placeholder: "Beanie giveaway" }], extra: { giveaway: { cta: "Submit Answer", responses: 1 } } }),
-  post({ id: "p-8", type: "article", title: "Ready for new heights", text: "Ready for new heights: how I'm training this off-season #training #travel", createdAt: "2026-09-09T15:00:00Z", likes: 3, comments: 14, views: 744, media: [{ kind: "image", placeholder: "Article cover" }] }),
-  post({ id: "p-9", type: "audio", text: "Listen to my chat on a snowboarding podcast about training and travel", createdAt: "2026-09-02T15:00:00Z", likes: 2, comments: 12, views: 410, media: [{ kind: "audio", placeholder: "Podcast cover" }], extra: { audio: { duration: 1001 } } }),
-  post({ id: "p-10", type: "link", text: "Check out my new goggle collab", createdAt: "2026-08-26T15:00:00Z", likes: 1, comments: 2, views: 233, media: [{ kind: "image", placeholder: "Goggle collab" }], extra: { link: { url: "https://example.com/goggles" } } }),
-  post({ id: "p-11", type: "poll", text: "Which board should I ride at the next contest? #sports #contest", createdAt: "2026-08-19T15:00:00Z", comments: 2, views: 518, media: [{ kind: "image", placeholder: "Two boards" }], extra: { poll: { question: "Which board should I ride at the next contest?", endsAt: "2026-03-21T15:30:00", options: [{ label: "Summit Twin", votes: 4 }, { label: "Park Classic", votes: 1 }] } } }),
-  post({ id: "p-12", type: "images", text: "Some of my favorite photos from the #contest series!", createdAt: "2026-08-12T15:00:00Z", comments: 6, views: 655, media: [{ kind: "image", placeholder: "Photo 1" }, { kind: "image", placeholder: "Photo 2" }, { kind: "image", placeholder: "Photo 3" }, { kind: "image", placeholder: "Photo 4" }], extra: { imageCount: 4 } }),
+  post({ id: "p-welcome", type: "video", text: "Hi everyone, welcome to my new fan community!", createdAt: "2026-01-04T17:00:00Z", likes: 2, comments: 3, views: 412, media: [{ kind: "video", placeholder: "Welcome video", video: "videos/welcome" }], extra: { variant: "welcome" } }),
+  post({ id: "p-1", type: "images", text: "Back home after a long travel week. Thanks for all the messages, team USA!", createdAt: "2026-10-28T15:00:00Z", comments: 10, views: 980, media: [{ kind: "image", placeholder: "Opening ceremony", src: "posts/opening-ceremony" }, { kind: "image", placeholder: "On the hill", src: "posts/on-the-hill" }, { kind: "image", placeholder: "Halfpipe run", src: "posts/halfpipe-run" }], extra: { imageCount: 3 } }),
+  post({ id: "p-2", type: "images", text: "First turns of the season on a glacier trip. Snow was perfect.", createdAt: "2026-10-21T15:00:00Z", likes: 4, comments: 2, views: 640, media: [{ kind: "image", placeholder: "Glacier park", src: "posts/glacier-park" }] }),
+  post({ id: "p-3", type: "fundraiser", text: "I'm raising money to cover travel and coaching for next season's qualifier events. Every bit helps!", createdAt: "2026-10-14T15:00:00Z", comments: 2, views: 512, media: [{ kind: "image", placeholder: "Fundraiser cover", src: "posts/fundraiser" }], extra: { fundraiser: { raised: 1250, goal: 25000, allowBeyond: true, contributions: 4, levels: [{ title: "Bronze", amount: 100, gift: null }, { title: "Silver", amount: 250, gift: null }, { title: "Gold", amount: 500, gift: null }] } } }),
+  post({ id: "p-4", type: "images", text: "My quick guide to riding switch is ready #sports", createdAt: "2026-10-07T15:00:00Z", likes: 2, comments: 4, views: 377, locked: true, media: [{ kind: "image", placeholder: "Riding switch cover", src: "posts/riding-switch" }], extra: { variant: "downloadable", file: { title: "E-book: Riding Switch Basics" } } }),
+  post({ id: "p-5", type: "video", text: "Throwback to my favorite run of last winter. #sports #snowboarding", createdAt: "2026-09-30T15:00:00Z", likes: 2, comments: 8, views: 1290, media: [{ kind: "video", placeholder: "Competition run", video: "videos/competition-run" }] }),
+  post({ id: "p-6", type: "images", text: "Getting BIG air in the park last weekend #snowboarding", createdAt: "2026-09-23T15:00:00Z", likes: 5, comments: 8, views: 860, media: [{ kind: "image", placeholder: "Big air", src: "posts/big-air" }] }),
+  post({ id: "p-7", type: "giveaway", text: "Giving away 10 beanies to fans. To enter, tell me your favorite mountain to ride! You must be a subscriber to enter.", createdAt: "2026-09-16T15:00:00Z", likes: 1, comments: 1, views: 302, media: [{ kind: "image", placeholder: "Beanie giveaway", src: "posts/beanie" }], extra: { giveaway: { cta: "Submit Answer", responses: 1 } } }),
+  post({ id: "p-8", type: "article", title: "Ready for new heights", text: "Ready for new heights: how I'm training this off-season #training #travel", createdAt: "2026-09-09T15:00:00Z", likes: 3, comments: 14, views: 744, media: [{ kind: "image", placeholder: "Article cover", src: "posts/offseason-training" }] }),
+  post({ id: "p-9", type: "audio", text: "Listen to my chat on a snowboarding podcast about training and travel", createdAt: "2026-09-02T15:00:00Z", likes: 2, comments: 12, views: 410, media: [{ kind: "audio", placeholder: "Podcast cover", src: "posts/podcast-cover" }], extra: { audio: { duration: 1001 } } }),
+  post({ id: "p-10", type: "link", text: "Check out my new goggle collab", createdAt: "2026-08-26T15:00:00Z", likes: 1, comments: 2, views: 233, media: [{ kind: "image", placeholder: "Goggle collab", src: "posts/goggles" }], extra: { link: { url: "https://example.com/goggles" } } }),
+  post({ id: "p-11", type: "poll", text: "Which board should I ride at the next contest? #sports #contest", createdAt: "2026-08-19T15:00:00Z", comments: 2, views: 518, media: [{ kind: "image", placeholder: "Two boards", src: "posts/two-boards" }], extra: { poll: { question: "Which board should I ride at the next contest?", endsAt: "2026-03-21T15:30:00", options: [{ label: "Summit Twin", votes: 4 }, { label: "Park Classic", votes: 1 }] } } }),
+  post({ id: "p-12", type: "images", text: "Some of my favorite photos from the #contest series!", createdAt: "2026-08-12T15:00:00Z", comments: 6, views: 655, media: [{ kind: "image", placeholder: "Photo 1", src: "posts/contest-1" }, { kind: "image", placeholder: "Photo 2", src: "posts/contest-2" }, { kind: "image", placeholder: "Photo 3", src: "posts/contest-3" }, { kind: "image", placeholder: "Photo 4", src: "posts/contest-4" }], extra: { imageCount: 4 } }),
   post({ id: "p-13", type: "text", text: "Thanks for an amazing season, everyone. More sessions coming soon!", createdAt: "2026-08-05T15:00:00Z", likes: 1, views: 190 }),
 ];
 
@@ -138,13 +140,13 @@ export const initialSocial: SocialState = {
   articleDraft: { title: "", html: "", savedAt: "2026-08-18T09:22:00" },
   livestream: { status: "idle", startedAt: null },
   showcase: [
-    { id: "s-ebook-switch", title: "E-book: Riding Switch Basics", description: "A short guide to riding switch with confidence.", price: null, kind: "downloadable", rail: true, home: false },
-    { id: "s-pin", title: "Summit Collectible Pin", description: "Limited digital collectible.", price: 350, kind: "nft", rail: true, home: false },
-    { id: "s-ebook-tune", title: "E-Book: Tune Your Board", description: "Step-by-step board tuning at home.", price: null, kind: "downloadable", rail: true, home: false },
-    { id: "s-board-1", title: "Signature Series Board", description: "All Mountain / Powder Snowboard. A versatile board built for big days and deep snow.", price: 799.95, kind: "merchandise", rail: true, home: true },
-    { id: "s-board-2", title: "Park Twin Board", description: "All Mountain / Park Snowboard. A true twin with plenty of pop for the park.", price: 529.95, kind: "merchandise", rail: false, home: true },
-    { id: "s-board-3", title: "All-Mountain Classic", description: "All Mountain Snowboard. A poppy, versatile and fun board with twin flex.", price: 899.95, kind: "merchandise", rail: false, home: true },
-    { id: "s-pack", title: "Backcountry Airbag Pack", description: "A light, tech-forward airbag pack for backcountry days.", price: 1399, kind: "merchandise", rail: false, home: true },
+    { id: "s-ebook-switch", title: "E-book: Riding Switch Basics", description: "A short guide to riding switch with confidence.", price: null, kind: "downloadable", rail: true, home: false, image: "downloadables/ebook-switch" },
+    { id: "s-pin", title: "Summit Collectible Pin", description: "Limited digital collectible.", price: 350, kind: "nft", rail: true, home: false, image: "posts/nft-pin" },
+    { id: "s-ebook-tune", title: "E-Book: Tune Your Board", description: "Step-by-step board tuning at home.", price: null, kind: "downloadable", rail: true, home: false, image: "downloadables/ebook-tune" },
+    { id: "s-board-1", title: "Signature Series Board", description: "All Mountain / Powder Snowboard. A versatile board built for big days and deep snow.", price: 799.95, kind: "merchandise", rail: true, home: true, image: "merchandise/signature-series" },
+    { id: "s-board-2", title: "Park Twin Board", description: "All Mountain / Park Snowboard. A true twin with plenty of pop for the park.", price: 529.95, kind: "merchandise", rail: false, home: true, image: "merchandise/park-twin" },
+    { id: "s-board-3", title: "All-Mountain Classic", description: "All Mountain Snowboard. A poppy, versatile and fun board with twin flex.", price: 899.95, kind: "merchandise", rail: false, home: true, image: "merchandise/all-mountain-classic" },
+    { id: "s-pack", title: "Backcountry Airbag Pack", description: "A light, tech-forward airbag pack for backcountry days.", price: 1399, kind: "merchandise", rail: false, home: true, image: "merchandise/airbag-pack" },
   ],
   chatRoom: [
     { id: "c1", author: "Riley Snow", text: "Hey everyone! Who's riding this weekend?", at: "2026-11-01T16:02:00Z", mine: false },
@@ -167,6 +169,9 @@ export const initialSocial: SocialState = {
 /** Published posts, newest first. */
 export const publishedPosts = (d: AppData) =>
   d.social.posts.filter((p) => p.status === "published").sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+/** Media key of the creator's welcome video (the pinned welcome post), shared by Feed, Welcome modal, Preferences and Link in Bio. */
+export const welcomeVideoOf = (d: AppData) => d.social.posts.find((p) => extraOf(p).variant === "welcome")?.media?.[0]?.video ?? null;
 
 /* ---------------- actions (call inside act()) ---------------- */
 

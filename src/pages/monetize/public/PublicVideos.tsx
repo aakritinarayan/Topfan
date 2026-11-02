@@ -1,6 +1,7 @@
 /**
  * Public › Videos (81, skeleton 81a, single tab 81b, player 81c/81d) and Video Series + Episode player (90, 90a–c).
- * Playback is simulated (no media files): a timer advances the clock over a neutral placeholder.
+ * Episodes with a `video` key play the real local MP4 (poster first; the custom controls drive the <video>).
+ * Episodes without one fall back to the simulated timer over a placeholder.
  */
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Lock, Maximize, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
@@ -10,8 +11,9 @@ import { useData, useMockLoading } from "../../../store/store";
 import { money, placeOrder, type Episode, type Portfolio, type VideoSeries } from "../../../store/slices/monetize";
 import { useOutside } from "../../../platform/ui/controls";
 import { ImageSlot } from "../../../platform/ui/surfaces";
+import { asset, FALLBACK, posterOf, reportMediaError } from "../../../media";
 import type { PageProps } from "../../types";
-import { ConfirmModal, Pill, PublicHeader, PublicPage, RedCircle, ShareButton, Skel, useRun } from "../ui";
+import { ConfirmModal, Pill, PublicHeader, PublicPage, RedCircle, ShareButton, Skel, stillOf, useRun } from "../ui";
 
 const seriesParam = (portfolioId: string, seriesId: string) => `PORTFOLIO-${portfolioId}-${seriesId}`;
 const parseSeries = (p: string) => {
@@ -50,7 +52,7 @@ export function PublicVideosPage({ route, params }: PageProps) {
     <PublicPage routeId={route.id}>
       <PublicHeader crumbs={[{ label: name }, { label: p.title }]} />
       <div className="relative mt-[28px] h-[483px] overflow-hidden rounded-card bg-[#2e2f30]" data-testid="public-videos-banner">
-        {p.banner ? <img src={p.banner} alt="" className="h-full w-full object-cover" /> : <ImageSlot label={`${p.title} banner`} className="h-full w-full" />}
+        <ImageSlot src={stillOf(p.banner)} label={`${p.title} banner`} className="h-full w-full" eager />
         <div className="absolute inset-x-0 bottom-0 flex h-[110px] items-end bg-gradient-to-t from-surface to-transparent px-[20px] pb-[20px] pt-[40px]">
           <h2 className="text-[30px] font-bold">{p.title}</h2>
         </div>
@@ -86,7 +88,7 @@ export function PublicVideosPage({ route, params }: PageProps) {
                   onClick={() => navigate(pathFor("public-video-series", { handle: params.handle, seriesId: seriesParam(p.id, s.id) }))}
                   className="h-[230px] w-[280px] rounded-[20px] bg-bg p-[4px] text-left hover:ring-1 hover:ring-accent"
                 >
-                  {s.cover ? <img src={s.cover} alt="" className="h-[160px] w-full rounded-[20px] object-cover" /> : <ImageSlot label={s.title} className="h-[160px] w-full" rounded="rounded-[20px]" />}
+                  <ImageSlot src={stillOf(s.cover)} kind="video" label={s.title} className="h-[160px] w-full" rounded="rounded-[20px]" />
                   <h4 className="p-[12px] text-[16px] font-semibold">{s.title}</h4>
                 </button>
               ))}
@@ -149,7 +151,7 @@ function Series({ routeId, handle, name, p, s }: { routeId: string; handle: stri
       <PublicHeader crumbs={[{ label: name, to: `/${handle}` }, { label: p.title, to: pathFor("public-videos", { handle, portfolioId: p.id }) }, { label: s.title }]} />
       <section className="mt-[28px] rounded-[32px] bg-surface p-[24px]" data-testid="public-series-header">
         <div className="flex gap-[24px]">
-          {s.cover ? <img src={s.cover} alt="" className="h-[225px] w-[400px] rounded-tile object-cover" /> : <ImageSlot label={s.title} className="h-[225px] w-[400px] shrink-0" rounded="rounded-tile" />}
+          <ImageSlot src={stillOf(s.cover)} kind="video" label={s.title} className="h-[225px] w-[400px] shrink-0" rounded="rounded-tile" eager />
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex justify-end gap-[12px]">
               <Pill data-testid="public-series-buy" icon={<Lock size={18} strokeWidth={2.5} />} className="w-[150px]" onClick={() => setBuy(true)}>
@@ -173,7 +175,7 @@ function Series({ routeId, handle, name, p, s }: { routeId: string; handle: stri
           <div key={ep.id} data-testid={`public-episode-${ep.id}`} className="rounded-inner bg-bg px-[16px] pb-[20px] pt-[10px] transition-colors hover:bg-[#4a4b4d]">
             <div className="flex items-center">
               <span className="pr-[15px] text-[14px]">{i + 1}</span>
-              <ImageSlot label={ep.title} className="h-[100px] w-[200px] shrink-0" />
+              <ImageSlot src={posterOf(ep.video)} kind="video" label={ep.title} className="h-[100px] w-[200px] shrink-0" />
               <div className="min-w-0 flex-1 pl-[16px]">
                 <h3 className="text-[15px] font-medium">{ep.title}</h3>
                 <p className="mt-[4px] text-[14px] text-[#c8c8c8]">{ep.duration}</p>
@@ -257,6 +259,11 @@ function PlayerModal({ layout, list, index, series, onClose, autoplay }: { layou
   const [speed, setSpeed] = useState("1x");
   const [speedOpen, setSpeedOpen] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [dur, setDur] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const info = asset(ep.video);
+  const src = info && /\.mp4$/.test(info.src) ? info.src : null;
+  const vRef = useRef<HTMLVideoElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const speedRef = useRef<HTMLDivElement>(null);
   useOutside(speedRef, () => setSpeedOpen(false), speedOpen);
@@ -264,15 +271,37 @@ function PlayerModal({ layout, list, index, series, onClose, autoplay }: { layou
   useEffect(() => {
     setLoading(true);
     setT(0);
+    setDur(0);
+    setFailed(false);
     setPlaying(false);
+    if (src) return; // real video: loading ends on loadeddata / error
     const id = setTimeout(() => {
       setLoading(false);
       if (autoplay) setPlaying(true);
     }, 700);
     return () => clearTimeout(id);
-  }, [i, autoplay]);
+  }, [i, autoplay, src]);
+  // Real video: the custom controls drive the element.
   useEffect(() => {
-    if (!playing) return;
+    const v = vRef.current;
+    if (!src || !v || loading) return;
+    if (!playing) return void v.pause();
+    v.play().catch(() => {
+      // Autoplay with sound can be blocked: retry muted, else stay paused.
+      v.muted = true;
+      setMuted(true);
+      v.play().catch(() => setPlaying(false));
+    });
+  }, [playing, loading, src]);
+  useEffect(() => {
+    if (vRef.current) vRef.current.playbackRate = parseFloat(speed);
+  }, [speed, loading]);
+  const seek = (x: number) => {
+    setT(x);
+    if (vRef.current) vRef.current.currentTime = x;
+  };
+  useEffect(() => {
+    if (!playing || src) return;
     const rate = parseFloat(speed);
     const id = setInterval(() => setT((x) => (x + 0.25 * rate >= ep.seconds ? (setPlaying(false), ep.seconds) : x + 0.25 * rate)), 250);
     return () => clearInterval(id);
@@ -283,16 +312,16 @@ function PlayerModal({ layout, list, index, series, onClose, autoplay }: { layou
     return () => document.removeEventListener("keydown", k);
   }, [onClose, speedOpen]);
 
-  const total = loading ? 0 : ep.seconds;
+  const total = loading || failed ? 0 : src ? dur || ep.seconds : ep.seconds;
   const controls = (
     <div className="w-full">
       <div className="flex items-center justify-center gap-[18px]">
         <Glyph d="prev" label="Previous" disabled={i === 0} onClick={() => setI(i - 1)} testid="player-prev" />
-        <Glyph d="back15" label="Rewind 15 seconds" onClick={() => setT((x) => Math.max(0, x - 15))} testid="player-back15" />
-        <button type="button" aria-label={playing ? "Pause" : "Play"} data-testid="player-play" onClick={() => !loading && setPlaying((p) => !p)} className="flex h-[56px] w-[56px] items-center justify-center rounded-full bg-accent">
+        <Glyph d="back15" label="Rewind 15 seconds" onClick={() => seek(Math.max(0, t - 15))} testid="player-back15" />
+        <button type="button" aria-label={playing ? "Pause" : "Play"} data-testid="player-play" onClick={() => !loading && !failed && setPlaying((p) => !p)} className="flex h-[56px] w-[56px] items-center justify-center rounded-full bg-accent">
           {playing ? <Pause size={26} fill="currentColor" /> : <Play size={26} fill="currentColor" className="ml-[3px]" />}
         </button>
-        <Glyph d="fwd15" label="Forward 15 seconds" onClick={() => setT((x) => Math.min(ep.seconds, x + 15))} testid="player-fwd15" />
+        <Glyph d="fwd15" label="Forward 15 seconds" onClick={() => seek(Math.min(total, t + 15))} testid="player-fwd15" />
         <Glyph d="next" label="Next" disabled={i >= list.length - 1} onClick={() => setI(i + 1)} testid="player-next" />
       </div>
       <div className="mt-[20px] flex items-center gap-[14px]">
@@ -303,7 +332,7 @@ function PlayerModal({ layout, list, index, series, onClose, autoplay }: { layou
           max={total || 1}
           step={0.1}
           value={t}
-          onChange={(e) => setT(Number(e.target.value))}
+          onChange={(e) => seek(Number(e.target.value))}
           aria-label="Seek"
           data-testid="player-seek"
           className="h-[2px] flex-1 cursor-pointer appearance-none bg-[#555] accent-accent [&::-webkit-slider-thumb]:h-[12px] [&::-webkit-slider-thumb]:w-[12px] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent"
@@ -348,7 +377,45 @@ function PlayerModal({ layout, list, index, series, onClose, autoplay }: { layou
 
   const video = (cls: string) => (
     <div className={`relative overflow-hidden rounded-[20px] bg-[#303234] ${cls}`} data-testid="player-video">
-      {loading ? (
+      {src && !failed && (
+        <video
+          ref={vRef}
+          key={src}
+          src={src}
+          poster={posterOf(ep.video) ?? undefined}
+          muted={muted}
+          playsInline
+          preload="auto"
+          aria-label={ep.title}
+          data-media="video-playing"
+          onLoadedMetadata={(e) => setDur(e.currentTarget.duration || 0)}
+          onLoadedData={() => {
+            setLoading(false);
+            if (autoplay) setPlaying(true);
+          }}
+          onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
+          onEnded={() => setPlaying(false)}
+          onError={() => {
+            reportMediaError(src, "video");
+            setFailed(true);
+            setLoading(false);
+            setPlaying(false);
+          }}
+          className={`h-full w-full ${layout === "portrait" ? "object-contain" : "object-cover"}`}
+        />
+      )}
+      {failed ? (
+        <div className="absolute inset-0" data-media="video-error">
+          <img src={FALLBACK.video} alt="" className="h-full w-full object-cover" />
+          <span className="absolute inset-x-0 bottom-[12px] text-center text-[13px] text-white/80">This video couldn't load.</span>
+        </div>
+      ) : src ? (
+        loading && (
+          <div className="absolute inset-0 flex items-center justify-center" role="status" aria-label="Loading video">
+            <span className="h-[36px] w-[36px] animate-spin rounded-full border-[3px] border-white/20 border-t-white motion-reduce:animate-none" />
+          </div>
+        )
+      ) : loading ? (
         <div className="flex h-full w-full items-center justify-center" role="status" aria-label="Loading video">
           <span className="h-[36px] w-[36px] animate-spin rounded-full border-[3px] border-white/20 border-t-white motion-reduce:animate-none" />
         </div>

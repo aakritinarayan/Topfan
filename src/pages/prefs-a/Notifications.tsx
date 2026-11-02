@@ -7,6 +7,7 @@ import type { PageProps } from "../types";
 import { PreferencesPage } from "../../platform/PreferencesPage";
 import { useData, useMockLoading } from "../../store/store";
 import { setCreatorNotification, setPostNotification } from "../../store/slices/prefsA";
+import { personAvatar } from "../../media";
 import { InfoPop, MiniAvatar, PrefCard, RoundCheck, Skel, TToggle, useRun } from "./ui";
 
 /** Column widths so the header centres sit at −370/−270/−190/−130/−50px from the card's inner right edge (spec 35). */
@@ -99,7 +100,7 @@ export function Notifications({ route }: PageProps) {
                 {n.creators.slice(0, shown).map((c) => (
                   <div key={c.id} className="flex h-[46px] items-center justify-between" data-testid={`pref-notifications-row-${c.id}`}>
                     <span className="flex items-center gap-3">
-                      <MiniAvatar name={c.name} />
+                      <MiniAvatar name={c.name} src={personAvatar(c.id)} />
                       <p className="text-sm">{c.name}</p>
                     </span>
                     <span className="flex">

@@ -70,6 +70,8 @@ function FulfillmentRow({ f, onAction }: { f: FulfillmentItem; onAction: (k: "fu
   return (
     <article data-testid={`wallet-fulfillment-row-${f.id}`} className="flex gap-[35px] border-b border-surface-2 py-[30px] last:border-b-0">
       <ImageSlot
+        src={f.image}
+        kind={exp ? "image" : "product"}
         label={f.item}
         rounded="rounded-tile"
         className={`w-[130px] shrink-0 ${exp ? "h-[130px]" : "h-[175px] !bg-[#efefef] !text-black/25"}`}

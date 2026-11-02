@@ -120,7 +120,7 @@ function BubbleBody({ body, out, storeItems }: { body: ChatBody; out: boolean; s
     case "paid":
       return (
         <div className="flex gap-[10px]">
-          <PaidCard title="Free Preview" kind={body.preview} />
+          <PaidCard title="Free Preview" kind={body.preview} media={body.previewMedia} />
           <PaidCard title={`Locked ${money(body.price)}`} kind={body.locked} locked />
         </div>
       );
@@ -139,7 +139,7 @@ function BubbleBody({ body, out, storeItems }: { body: ChatBody; out: boolean; s
       return (
         <div className="w-[300px] max-w-full rounded-lg bg-accent p-[12px]">
           <div className="rounded-lg bg-surface p-[16px]">
-            <ImageSlot label={item.title} className="mb-[12px] h-[120px] w-full" rounded="rounded-lg" />
+            <StoreItemImage item={item} className="mb-[12px] h-[120px] w-full" />
             <p className="text-[16px] font-bold">{item.title}</p>
             <p className="mt-[8px] text-[12px] leading-[16px] text-soft">{item.description}</p>
             <button type="button" className="mt-[12px] h-[36px] w-full rounded-pill bg-accent text-[12px] font-black uppercase tracking-caps">
@@ -182,7 +182,7 @@ function BubbleBody({ body, out, storeItems }: { body: ChatBody; out: boolean; s
   }
 }
 
-function PaidCard({ title, kind, locked }: { title: string; kind: "image" | "audio"; locked?: boolean }) {
+function PaidCard({ title, kind, locked, media }: { title: string; kind: "image" | "audio"; locked?: boolean; media?: string | null }) {
   return (
     <div className="w-[115px] rounded-[3px] bg-accent px-[12px] pb-[10px] pt-[10px]">
       <p className="mb-[8px] whitespace-nowrap text-[14px] font-bold">{title}</p>
@@ -195,16 +195,26 @@ function PaidCard({ title, kind, locked }: { title: string; kind: "image" | "aud
           <Lock size={18} className="text-white/60" />
         </div>
       ) : (
-        <ImageSlot label="Free preview" className="h-[78px] w-[78px]" rounded="rounded-[14px]" />
+        <ImageSlot src={media} label="Free preview" className="h-[78px] w-[78px]" rounded="rounded-[14px]" />
       )}
     </div>
   );
 }
 
+/** Store item image: the linked Monetize product's image when it has one, else the seed key. */
+function useStoreItemImage(item: ChatStoreItem) {
+  const products = useData((d) => d.monetize.products);
+  return products.find((p) => p.id === item.productId)?.image ?? item.image ?? null;
+}
+
+function StoreItemImage({ item, className }: { item: ChatStoreItem; className: string }) {
+  return <ImageSlot src={useStoreItemImage(item)} kind={item.type === "course" ? "course" : "image"} label={item.title} className={className} rounded="rounded-lg" />;
+}
+
 export function StoreItemCard({ item }: { item: ChatStoreItem }) {
   return (
     <div className="flex gap-[24px] rounded-lg bg-bg p-[8px]">
-      <ImageSlot label={item.title} className="h-[131px] w-[134px] shrink-0" rounded="rounded-lg" />
+      <StoreItemImage item={item} className="h-[131px] w-[134px] shrink-0" />
       <div className="min-w-[0px] flex-1 rounded-lg bg-surface p-[20px]">
         <p className="text-[16px] font-bold leading-[20px]">{item.title}</p>
         <p className="mt-[12px] text-[14px] font-bold">{item.subtitle}</p>

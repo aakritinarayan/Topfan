@@ -96,7 +96,7 @@ function PlanCard({ plan: p, onAction }: { plan: PurchasedPlan; onAction: (k: "d
   return (
     <article data-testid={`wallet-plan-${p.id}`} className="rounded-card bg-surface">
       <header className="flex items-center gap-[16px] border-b border-surface-2 px-[24px] py-[22px]">
-        <Avatar size={48} ring={0} />
+        <Avatar src={useCreatorAvatar(p.creator, p.creatorAvatar)} size={48} ring={0} />
         <div className="min-w-0 flex-1">
           <h3 className="text-[24px] font-bold leading-[28px] text-accent">{p.creator}</h3>
           <span className="mt-[2px] inline-flex h-[26px] items-center rounded-pill border border-accent px-[10px] text-[14px] text-soft">{p.plan}</span>
@@ -325,8 +325,16 @@ function StatusPill({ s }: { s: string }) {
   return <span className="mt-[6px] inline-flex h-[28px] items-center rounded-[14px] bg-accent px-[16px] text-[14px] font-medium">{s}</span>;
 }
 
+/** Creator avatar for a purchase: the account's own avatar when bought from yourself, else the stored illustration key. */
+function useCreatorAvatar(name: string, key: string | null | undefined) {
+  const me = useData((d) => d.account);
+  return name === me.name ? me.avatar : (key ?? null);
+}
+
 function CategoryTable({ cat }: { cat: PurchaseCategory }) {
   const rows = useData((d) => d.money.purchases[cat]);
+  const me = useData((d) => d.account);
+  const fromAvatar = (r: PurchaseRow) => (r.from === me.name ? me.avatar : (r.fromAvatar ?? null));
   const [view, setView] = useState<PurchaseRow | null>(null);
   if (rows.length === 0) {
     const e = EMPTY[cat] ?? { text: "No Purchases Found", icon: Newspaper };
@@ -357,13 +365,13 @@ function CategoryTable({ cat }: { cat: PurchaseCategory }) {
               <Td className="!py-[20px]">
                 {isTips ? (
                   <div className="flex items-center gap-[12px]">
-                    <Avatar size={44} ring={2} />
+                    <Avatar src={fromAvatar(r)} size={44} ring={2} />
                     <span className="font-bold text-accent">{r.title}</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-[16px]">
                     {(cat === "merchandise" || cat === "experiences" || cat === "content" || cat === "courses") && (
-                      <ImageSlot label={r.title} className="h-[80px] w-[80px] shrink-0" rounded="rounded-tile" />
+                      <ImageSlot src={r.image} label={r.title} className="h-[80px] w-[80px] shrink-0" rounded="rounded-tile" />
                     )}
                     <div className="min-w-0">
                       <p className="font-bold leading-[20px]">{r.title}</p>
@@ -378,7 +386,7 @@ function CategoryTable({ cat }: { cat: PurchaseCategory }) {
                   r.subtitle
                 ) : (
                   <div className="flex items-center gap-[10px]">
-                    <Avatar size={44} ring={2} />
+                    <Avatar src={fromAvatar(r)} size={44} ring={2} />
                     <span className="text-[13px] font-bold leading-[16px] text-accent">{r.from}</span>
                   </div>
                 )}

@@ -15,10 +15,10 @@ const data = () => p.evaluate(() => JSON.parse(localStorage.getItem("topfan-mock
 const ap = async () => (await data()).autopilot ?? (await data()).data?.autopilot;
 const draft = async (idea) => (await ap()).batch.drafts.find((x) => x.idea === idea);
 const posts = async () => { const d = await data(); return (d.social ?? d.data?.social).posts; };
-const fresh = async (path = "/ajwhite") => {
-  await p.goto(`http://localhost:5173${path}?noDelay=1&resetMock=1`, { waitUntil: "networkidle0" });
+const fresh = async (path = "/ajwhite", extra = "") => {
+  await p.goto(`http://localhost:5173${path}?noDelay=1&resetMock=1${extra}`, { waitUntil: "networkidle0" });
   await p.evaluate(() => localStorage.removeItem("tf-fail-save"));
-  await sleep(700);
+  await sleep(1200);
   if (!(await $("ai-panel"))) await click("ai-launcher");
 };
 const shot = (n) => p.screenshot({ path: `/tmp/ap-${W}-${n}.png` });
@@ -26,8 +26,8 @@ const shot = (n) => p.screenshot({ path: `/tmp/ap-${W}-${n}.png` });
 /* ---------- notification: one per batch ---------- */
 await fresh();
 let t = await text("ap-notice");
-check("one batch notice", /3 posts are ready for review/.test(t) && (await p.$$('[data-testid="ap-notice"]')).length === 1, t);
-await p.goto("http://localhost:5173/ajwhite?noDelay=1", { waitUntil: "networkidle0" }); await sleep(600);
+check("one batch notice", /4 posts are ready for review/.test(t) && (await p.$$('[data-testid="ap-notice"]')).length === 1, t);
+await p.goto("http://localhost:5173/ajwhite?noDelay=1", { waitUntil: "networkidle0" }); await sleep(1200); // direct visits start collapsed
 if (!(await $("ai-panel"))) await click("ai-launcher");
 check("notice survives reload", !!(await $("ap-notice")));
 await click("ap-notice-review");
@@ -39,13 +39,13 @@ const startPosts = (await posts()).length;
 await ask("Approve the good ones");
 check("A: confirm screen", (await screen()) === "confirm");
 t = await text("ap-confirm");
-check("A: CTA names exact count", t.includes("APPROVE 3 DRAFTS") || t.includes("Approve 3 drafts"), t);
-check("A: held excluded with reason", (await text("ap-confirm-held")).includes("Northpeak") || (await text("ap-confirm-held")).length > 10, await text("ap-confirm-held"));
+check("A: CTA names exact count", /approve 4 drafts/i.test(t), t);
+check("A: nothing held in the default demo", !(await $("ap-confirm-held")));
 check("A: no publish button anywhere", !/publish now/i.test(await panel()));
 await shot("A-confirm");
 await click("ap-include-motivation"); // partial approval
 t = await text("ap-confirm");
-check("A: partial count updates", /approve 2 drafts/i.test(t), t);
+check("A: partial count updates", /approve 3 drafts/i.test(t), t);
 await click("ap-approve-batch");
 check("A: complete screen", (await screen()) === "complete");
 check("A: approved, not published", (await draft("training-update")).status === "approved" && (await draft("motivation")).status === "ready");
@@ -54,9 +54,9 @@ await click("ap-save");
 check("A: saved heading", (await text("ap-complete-heading")) === "Your approved drafts have been saved.", await text("ap-complete-heading"));
 const ps = await posts();
 const linked = ps.filter((x) => x.extra?.autopilotDraftId);
-check("A: saved as TopFan drafts", linked.length === 2 && linked.every((x) => x.status === "draft"), JSON.stringify(linked.map((x) => x.status)));
+check("A: saved as TopFan drafts", linked.length === 3 && linked.every((x) => x.status === "draft"), JSON.stringify(linked.map((x) => x.status)));
 await click("ap-save").catch(() => {}); // idempotent: no button, no duplicates
-check("A: no duplicates on repeat", (await posts()).filter((x) => x.extra?.autopilotDraftId).length === 2);
+check("A: no duplicates on repeat", (await posts()).filter((x) => x.extra?.autopilotDraftId).length === 3);
 await shot("A-complete");
 
 /* ---------- B + D: rejection, revision, preference ---------- */
@@ -64,7 +64,12 @@ await fresh();
 await ask("Review my posts");
 check("B: summary", (await screen()) === "summary");
 t = await text("ap-summary");
-check("B: summary heading + counts", t.includes("Your weekly content is prepared.") && (await text("ap-count-ready")) === "3" && (await text("ap-count-held")) === "1", t);
+check("B: summary heading + counts", t.includes("Your weekly content is prepared.") && (await text("ap-count-ready")) === "4" && (await text("ap-count-held")) === "0", t);
+await p.evaluate(() => document.querySelector('[data-testid="ap-row-northpeak-photos"]').click()); await sleep(600);
+const prev = await p.evaluate(() => { const e = document.querySelector('[data-testid="ap-media-preview"]'); const i = e?.querySelector("img"); return { state: e?.dataset.state, ok: !!i && i.complete && i.naturalWidth > 0 }; });
+check("media: default image draft shows its suggested library photo", prev.state === "suggested" && prev.ok, JSON.stringify(prev));
+check("media: state explained", /Suggested from your approved library/.test(await text("ap-media")));
+await click("ap-back");
 await shot("B-summary");
 await p.evaluate(() => document.querySelector('[data-testid="ap-row-motivation"]').click()); await sleep(300);
 check("B: detail", (await screen()) === "detail" && (await text("ap-detail")).includes("APPROVE") || (await text("ap-detail")).includes("Approve"));
@@ -84,8 +89,8 @@ check("B: revised to a specific idea", mot.status === "ready" && mot.revisions =
 await p.evaluate(() => document.querySelector('[data-testid="ap-close"]').click()); await sleep(200);
 await ask("Review my posts");
 await p.evaluate(() => document.querySelector('[data-testid="ap-row-motivation"]').click()); await sleep(300);
-await click("ap-not-right"); await click("ap-reason-not-me"); await sleep(300);
-check("B: second rejection stops", (await draft("motivation")).status === "on-hold" && !!(await $("ap-replace")), (await draft("motivation")).status);
+await click("ap-not-right"); await click("ap-reason-not-me"); await sleep(900);
+check("B: second rejection stops", (await draft("motivation")).status === "on-hold" && !!(await $("ap-replace")), JSON.stringify(await draft("motivation")) + " screen=" + (await screen()));
 await click("ap-skip");
 check("B: skipped, others unaffected", (await draft("trick-poll")).status === "ready");
 
@@ -109,17 +114,28 @@ const tp = await draft("trick-poll");
 check("B2: note captured as explanation", tp.rejections.length === 1 && tp.history.some((h) => h.includes("halfpipe")), JSON.stringify(tp.history));
 check("B2: no preference learned from one rejection", (await ap()).preferences.length === 0);
 
-/* ---------- C: missing media ---------- */
-await fresh();
+/* ---------- C: missing media (test fixture; the default demo is complete) ---------- */
+await fresh("/ajwhite", "&apFixture=missing-asset");
 await ask("Review my posts");
 await click("ap-view-held");
 check("C: held list explains", /photo/i.test(await text("ap-held")), await text("ap-held"));
 await p.evaluate(() => document.querySelector('[data-testid="ap-held"] li button').click()); await sleep(300);
-check("C: media status shown", /needs a photo/i.test(await text("ap-media")), await text("ap-media"));
+check("C: media status shown", /Missing: not in your media library/.test(await text("ap-media")), await text("ap-media"));
+check("C: no fabricated image", (await p.evaluate(() => document.querySelector('[data-testid="ap-media-preview"]')?.dataset.state)) === "missing" && !(await p.$('[data-testid="ap-media-preview"] img')));
 check("C: no approve while missing", !(await $("ap-approve")));
 await shot("C-missing");
 await click("ap-add-asset");
 check("C: ready once asset approved", (await draft("northpeak-photos")).status === "ready");
+
+/* ---------- C2: unapproved media (test fixture) ---------- */
+await fresh("/ajwhite", "&apFixture=unapproved-asset");
+await ask("Review my posts");
+await click("ap-view-held");
+await p.evaluate(() => document.querySelector('[data-testid="ap-held"] li button').click()); await sleep(300);
+check("C2: unapproved state distinct from missing", /not approved for posting yet/.test(await text("ap-media")) && (await p.evaluate(() => document.querySelector('[data-testid="ap-media-preview"]')?.dataset.state)) === "unapproved", await text("ap-media"));
+check("C2: approve button offered, no approve-post", /approve this photo/i.test(await text("ap-detail")) && !(await $("ap-approve")));
+await click("ap-add-asset");
+check("C2: ready once approved", (await draft("northpeak-photos")).status === "ready");
 
 /* ---------- E: Smart Timing ---------- */
 await fresh();
@@ -176,7 +192,7 @@ await p.goto("http://localhost:5173/ajwhite?noDelay=1", { waitUntil: "networkidl
 if (!(await $("ai-panel"))) await click("ai-launcher");
 check("view survives refresh", (await screen()) === "complete", String(await screen()));
 await click("ap-save");
-check("retry saves once", (await posts()).filter((x) => x.extra?.autopilotDraftId).length === 3, String((await posts()).filter((x) => x.extra?.autopilotDraftId).length));
+check("retry saves once", (await posts()).filter((x) => x.extra?.autopilotDraftId).length === 4, String((await posts()).filter((x) => x.extra?.autopilotDraftId).length));
 await ask("Pause content preparation");
 check("pause", (await ap()).paused === true);
 

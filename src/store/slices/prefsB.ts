@@ -6,6 +6,7 @@
  */
 import type { AppData } from "../store";
 import type { Delegate, Group, ID, OutboundEmail, TopicTag } from "../model";
+import { personAvatar } from "../../media";
 
 /* ------------------------------------------------------------------ types */
 
@@ -26,6 +27,8 @@ export interface BioAction {
   text?: string;
   price?: number;
   url?: string;
+  /** Media key (src/media) for store-item cards; same key as the product in Monetize. */
+  image?: string | null;
 }
 
 export interface LinkInBioState {
@@ -69,6 +72,8 @@ export interface PrefsBState {
   /* --- area-only --- */
   /** Delegate id → last session (ISO). Shown as "STATUS / LAST SESSION". */
   delegateLastSession: Record<ID, string>;
+  /** Delegate id → avatar media key (illustration from personAvatar(id)). */
+  delegateAvatars: Record<ID, string>;
   /** Chat Room / Direct Messaging restricted to Groups (inferred sub-settings, 55 popover). */
   groupRestrictions: { chatRoom: boolean; directMessages: boolean };
   linkInBio: LinkInBioState;
@@ -153,6 +158,7 @@ export const initialPrefsB: PrefsBState = {
     { id: "dl3", firstName: "Sam", lastName: "Okafor", email: "sam.okafor@example.com", access: ["Content"], revenueShare: {}, status: "Active", addedAt: "2025-03-08" },
     { id: "dl4", firstName: "Priya", lastName: "Shah", email: "priya.shah@example.com", access: ["Financial", "Content"], revenueShare: { Experiences: 8 }, status: "Active", addedAt: "2025-01-20" },
   ],
+  delegateAvatars: Object.fromEntries(["dl1", "dl2", "dl3", "dl4"].map((id) => [id, personAvatar(id)])),
   delegateLastSession: {
     dl1: "2026-01-02T18:22:00Z",
     dl2: "2026-03-24T10:23:00Z",
@@ -178,7 +184,7 @@ export const initialPrefsB: PrefsBState = {
     theme: null,
     actions: [
       { id: "ba1", kind: "welcome-video", title: "WELCOME VIDEO", text: "Hi everyone, welcome to my new fan community!" },
-      { id: "ba2", kind: "store-item", title: "Hometown Hero", text: "All Mountain / Powder Snowboard. Make an impact on the mountain with a Hometown Hero that radiates unity, love, and community!", price: 799.95 },
+      { id: "ba2", kind: "store-item", title: "Hometown Hero", text: "All Mountain / Powder Snowboard. Make an impact on the mountain with a Hometown Hero that radiates unity, love, and community!", price: 799.95, image: "merchandise/home-mountain-hero" },
       { id: "ba3", kind: "fundraiser", title: "Fundraiser", text: "Help me get to the next season of competitions! Every gift goes toward travel, coaching and gear.", price: 1250 },
     ],
   },
@@ -305,6 +311,7 @@ export function addDelegate(d: AppData, input: NewDelegate): ID {
     status: "Pending",
     addedAt: today(),
   });
+  (d.prefsB.delegateAvatars ??= {})[id] = personAvatar(id);
   return id;
 }
 /** Change a delegate's access and revenue share (Content-only delegates get no revenue share). */

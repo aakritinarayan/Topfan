@@ -10,7 +10,7 @@ import {
 import { Modal } from "../../../platform/ui/surfaces";
 import { useToast } from "../../../platform/ui/toast";
 import type { PageProps } from "../../types";
-import { AddTile, ConfirmModal, DarkPill, MediaCard, MiniSelect, MonetizeFrame, Pill, RedCircle, SectionHeader, TextInput, useRun } from "../ui";
+import { AddTile, ConfirmModal, DarkPill, MediaCard, MiniSelect, MonetizeFrame, Pill, productMediaKind, RedCircle, SectionHeader, TextInput, useRun } from "../ui";
 
 const META: Record<ProductKind, { tab: string; add: string; addRoute: string; editRoute: string; addLabel?: string }> = {
   experience: { tab: "monetize-experience", add: "Add Another Experience", addRoute: "monetize-experience-add", editRoute: "monetize-experience-edit" },
@@ -36,6 +36,8 @@ function ProductGrid({ kind, items, withAdd }: { kind: ProductKind; items: Produ
             key={p.id}
             testid={`monetize-card-${p.id}`}
             title={p.title}
+            image={p.image}
+            kind={productMediaKind(p.kind)}
             // Downloadables show no price in the capture (14e).
             price={kind === "downloadable" || p.price == null ? null : money(p.price)}
             external={p.external}

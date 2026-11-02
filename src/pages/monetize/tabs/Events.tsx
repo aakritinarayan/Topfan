@@ -15,7 +15,7 @@ import {
 } from "../ui";
 
 export function EventsTab({ route }: PageProps) {
-  const m = useData((d) => ({ label: d.monetize.eventsLabel, title: d.monetize.eventsBannerTitle, display: d.monetize.eventsDisplay, events: selectEvents(d) }));
+  const m = useData((d) => ({ label: d.monetize.eventsLabel, title: d.monetize.eventsBannerTitle, display: d.monetize.eventsDisplay, cover: d.monetize.eventsCover ?? null, events: selectEvents(d) }));
   const [tab, setTab] = useState<"active" | "past">("active");
   const [del, setDel] = useState<MEvent | null>(null);
   const [bit, setBit] = useState(false);
@@ -41,7 +41,7 @@ export function EventsTab({ route }: PageProps) {
 
       <section className="mt-[24px] overflow-hidden rounded-card bg-surface" data-testid="monetize-events-card">
         <div className="relative h-[470px]">
-          {cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : <ImageSlot label="Events cover" className="h-full w-full" />}
+          <ImageSlot src={cover ?? m.cover} kind="event" label="Events cover" className="h-full w-full" eager />
           <div className="absolute inset-x-0 bottom-0 h-[150px] bg-gradient-to-t from-surface to-transparent" />
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && setCover(URL.createObjectURL(e.target.files[0]))} />
           <RedCircle label="Change cover photo" className="absolute right-[24px] top-[30px]" data-testid="monetize-events-cover-edit" onClick={() => fileRef.current?.click()}>

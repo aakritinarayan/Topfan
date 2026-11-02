@@ -8,6 +8,7 @@ import type { PageProps } from "../types";
 import { act, useData } from "../../store/store";
 import { approveRefund, declineRefund, refundStatusLabel, type RefundItem } from "../../store/slices/money";
 import { Avatar, Modal } from "../../platform/ui/surfaces";
+import { personAvatar } from "../../media";
 import { useToast } from "../../platform/ui/toast";
 import { WalletLayout } from "./WalletLayout";
 import { Btn, DatePill, EmptyState, fmtDate, InlineError, PillSelect, SearchPill, TableCard, Td, TextBtn, Th, usd } from "./ui";
@@ -16,6 +17,9 @@ const STATUSES = ["All Status", "Pending", "Declined", "Accepted", "Admin Declin
 
 export function WalletRefunds({ route }: PageProps) {
   const all = useData((d) => d.money.refundRequests);
+  const fans = useData((d) => d.money.fans);
+  /** Same avatar as the fan has in Insights; deleted accounts show the neutral avatar illustration. */
+  const avatarOf = (r: RefundItem) => (r.fanDeleted ? "illustrations/fallback-avatar" : (fans.find((f) => f.name === r.fan)?.avatar ?? personAvatar(r.fan)));
   const [from, setFrom] = useState<string | null>(null);
   const [to, setTo] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -64,7 +68,7 @@ export function WalletRefunds({ route }: PageProps) {
               <tr key={r.id} className="h-[81px]" data-testid={`wallet-refund-row-${r.id}`}>
                 <Td>
                   <div className="flex items-center gap-[6px]">
-                    <Avatar size={44} ring={2} />
+                    <Avatar src={avatarOf(r)} size={44} ring={2} />
                     <span className="text-[14px] font-bold text-accent">{r.fan}</span>
                   </div>
                 </Td>

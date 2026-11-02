@@ -2,7 +2,7 @@
  * Home — public white-label landing page (spec 10-home.md, screenshots 10-home-part1…17, 80).
  * Marketing layout: no sidebar; this page renders its own 78px marketing header and footer.
  * Copy follows the spec; brand/person names in the captured cover content are replaced with
- * fictional ones, and media are neutral placeholders.
+ * fictional ones. Media are local demo assets (keys in HOME_MEDIA below; store items/posts carry their own keys).
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useReducedMotion } from "framer-motion";
@@ -17,11 +17,29 @@ import { openOverlay } from "../../app/ui";
 import { Link } from "../../app/router";
 import { Logo } from "../../platform/Shell";
 import { ImageSlot } from "../../platform/ui/surfaces";
+import { VideoPlayer } from "../../platform/ui/media";
+import { posterOf } from "../../media";
 import { useToast } from "../../platform/ui/toast";
 import { HeaderActions } from "./AuthHeader";
 import { Caption, Counts, badgeOf, money, useGo } from "./shared";
 
 const WRAP = "mx-auto max-w-[1280px] px-[24px]";
+
+/** Static marketing-section media (asset keys, src/media). Store items and posts carry their own keys. */
+const HOME_MEDIA = {
+  hero: ["creators/ajwhite/hero-1", "creators/ajwhite/hero-2", "creators/ajwhite/hero-3"],
+  experience: ["creators/ajwhite/about-curiosity", "creators/ajwhite/about-content", "creators/ajwhite/about-community", "creators/ajwhite/about-style"],
+  videoCall: "experiences/video-call",
+  collaborateBg: "backgrounds/snow-texture",
+  culture: "creators/ajwhite/slope-tall",
+  eventsBg: "events/banner",
+  series: "videos/competition-run",
+  episodes: ["videos/halfpipe", "videos/big-air", "videos/slopestyle"],
+  dealLogos: ["illustrations/brands/glacier-hydration", "illustrations/brands/northpeak"],
+  freeFormImage: "creators/ajwhite/mountain-wide",
+  freeFormVideo: "videos/event-highlights",
+  freeFormEmbed: "videos/welcome",
+};
 const H2 = "font-display text-[48px] font-extrabold leading-[58px]";
 const EYEBROW = "text-[24px] font-bold uppercase tracking-[2px] text-accent";
 
@@ -128,7 +146,9 @@ function Hero() {
   const arrow = "absolute top-1/2 z-10 flex h-[40px] w-[40px] -translate-y-1/2 items-center justify-center rounded-full border border-accent text-accent hover:bg-accent hover:text-white";
   return (
     <section data-testid="home-hero" className="relative h-[594px] overflow-hidden" aria-roledescription="carousel">
-      <div aria-label={`Hero slide ${i + 1} placeholder`} className="absolute inset-0 bg-placeholder-img" />
+      <div aria-label={`Hero slide ${i + 1}`} className="absolute inset-0">
+        <ImageSlot src={HOME_MEDIA.hero[i]} label={`Hero slide ${i + 1}`} className="h-full w-full" eager />
+      </div>
       <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
       <div className="relative mx-auto flex h-full max-w-[1280px] flex-col justify-center pl-[80px]">
         <h1 className="font-display text-[48px] font-bold leading-[58px]">
@@ -210,7 +230,7 @@ function Experience() {
       <div className="mt-[47px] grid grid-cols-4 gap-[32px]">
         {cards.map(([t, b], i) => (
           <div key={t} className="min-h-[362px] rounded-[18px] border border-accent p-[8px]">
-            <ImageSlot label={t} className="h-[170px] w-full" rounded="rounded-tile" />
+            <ImageSlot src={HOME_MEDIA.experience[i]} label={t} className="h-[170px] w-full" rounded="rounded-tile" />
             <h3 className="mt-[16px] font-display text-[18px] font-bold leading-[22px]">{t}</h3>
             <p className="mt-[12px] text-[16px] leading-[26px] text-soft">{b}</p>
             {i === 0 && (
@@ -248,7 +268,7 @@ function Exclusive() {
         </div>
       </div>
       <div className="flex w-[527px] gap-[24px] rounded-[20px] border-2 border-accent p-[16px]">
-        <ImageSlot label="Video call" className="h-[131px] w-[148px] shrink-0" rounded="rounded-popover" />
+        <ImageSlot src={HOME_MEDIA.videoCall} label="Video call" className="h-[131px] w-[148px] shrink-0" rounded="rounded-popover" />
         <div className="flex-1 rounded-tile bg-surface p-[20px]">
           <p className="text-[16px] font-bold">One to One Call / Video Conferencing</p>
           <p className="mt-[12px] text-[14px] font-bold">Live Video Call with Me</p>
@@ -281,7 +301,11 @@ function Collaborate() {
   ];
   return (
     <section data-testid="home-collaborate" className="relative bg-[linear-gradient(180deg,#e9eef3_0%,#f6f8fa_45%,#dfe5ea_100%)] pb-[40px] pt-[70px]">
-      <div className={WRAP}>
+      <span aria-hidden className="absolute inset-0">
+        <ImageSlot src={HOME_MEDIA.collaborateBg} label="" className="h-full w-full" />
+      </span>
+      <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,#e9eef3_0%,#f6f8fa_45%,#dfe5ea_100%)] opacity-75" />
+      <div className={`${WRAP} relative`}>
         <h2 className={`${H2} mx-auto max-w-[900px] text-center text-[#191a1c]`}>Collaborate With a Creator Built Around Movement and Culture</h2>
         <p className="mx-auto mt-[32px] max-w-[700px] text-center text-[18px] leading-[27px] text-[#191a1c]">
           Partner with a snowboarding creator who brings together visual storytelling, authentic mountain culture, and an engaged audience. From brand campaigns and
@@ -334,7 +358,7 @@ function Culture() {
             </li>
           ))}
         </ul>
-        <ImageSlot label="Riders on a snowy slope" className="h-[872px] w-[593px] shrink-0" rounded="rounded-tile" />
+        <ImageSlot src={HOME_MEDIA.culture} label="Riders on a snowy slope" className="h-[872px] w-[593px] shrink-0" rounded="rounded-tile" />
       </div>
     </section>
   );
@@ -362,7 +386,7 @@ function Merchandise() {
       <div className="mt-[35px] grid grid-cols-3 gap-[24px]">
         {items.map((it) => (
           <div key={it.id} data-testid={`home-product-${it.id}`} className="overflow-hidden rounded-[20px] border border-transparent bg-surface">
-            <ImageSlot label={it.title} className="aspect-square w-full !bg-[#efefef] !text-black/25" />
+            <ImageSlot src={it.image} kind="product" label={it.title} className="aspect-square w-full !bg-[#efefef] !text-black/25" />
             <div className="p-[16px]">
               <h3 className="font-display text-[18px] font-bold">{it.title}</h3>
               <p className="mt-[8px] line-clamp-2 text-[14px] leading-[20px] text-soft/80">{it.description}</p>
@@ -405,6 +429,7 @@ function GridPost({ post }: { post: Post }) {
           <div className="relative mt-[16px] overflow-hidden rounded-tile">
             {badge && <span className="absolute left-[10px] top-[10px] z-10 rounded-full bg-accent px-[10px] py-[4px] text-[11px] font-bold uppercase">{badge}</span>}
             <ImageSlot
+              src={media.src ?? posterOf(media.video)}
               label={media.placeholder}
               className={`w-full ${post.type === "poll" ? "h-[230px] !bg-[#efefef] !text-black/25" : post.type === "images" && post.id.endsWith("2") ? "h-[310px]" : "h-[174px]"}`}
             />
@@ -494,7 +519,9 @@ function Events() {
   const go = useGo();
   return (
     <section data-testid="home-events" className="relative py-[72px]">
-      <div aria-hidden className="absolute inset-0 bg-placeholder-img" />
+      <div aria-hidden className="absolute inset-0">
+        <ImageSlot src={HOME_MEDIA.eventsBg} kind="event" label="" className="h-full w-full" />
+      </div>
       <div className="absolute inset-0 bg-black/60" />
       <div className={`${WRAP} relative`}>
         <div className="flex justify-between gap-[40px] rounded-[20px] bg-[#2b2d2f]/80 p-[32px]">
@@ -609,7 +636,7 @@ function Videos() {
       </p>
       <div className="mt-[24px] rounded-[20px] bg-surface p-[20px]">
         <div className="flex gap-[16px]">
-          <ImageSlot label="Competition Videos" className="h-[180px] w-[320px] shrink-0" rounded="rounded-popover" />
+          <ImageSlot src={posterOf(HOME_MEDIA.series)} kind="video" label="Competition Videos" className="h-[180px] w-[320px] shrink-0" rounded="rounded-popover" />
           <div className="pt-[4px]">
             <p className="text-[11px] font-bold uppercase text-accent">Video/Series</p>
             <h3 className="mt-[8px] font-display text-[20px] font-bold">Competition Videos</h3>
@@ -621,7 +648,7 @@ function Videos() {
           {eps.map(([t, m], i) => (
             <div key={t} className="flex h-[100px] items-center gap-[20px] rounded-tile bg-bg px-[16px]">
               <span className="w-[16px] text-[14px] font-bold">{i + 1}</span>
-              <ImageSlot label={t} className="h-[72px] w-[90px] shrink-0" rounded="rounded-md" />
+              <ImageSlot src={posterOf(HOME_MEDIA.episodes[i])} kind="video" label={t} className="h-[72px] w-[90px] shrink-0" rounded="rounded-md" />
               <div className="flex-1">
                 <p className="text-[14px] font-bold">{t}</p>
                 <p className="mt-[4px] text-[12px] text-soft">{m}</p>
@@ -662,7 +689,7 @@ function VipDeals() {
           {deals.map(([t, b, e], i) => (
             <div key={t} className="rounded-inner bg-bg p-[16px]">
               <div className="flex gap-[16px]">
-                <ImageSlot label={`${t} logo`} className="h-[88px] w-[88px] shrink-0" rounded="rounded-popover" />
+                <ImageSlot src={HOME_MEDIA.dealLogos[i]} label={`${t} logo`} className="h-[88px] w-[88px] shrink-0" rounded="rounded-popover" />
                 <div>
                   <p className="font-display text-[16px] font-bold">{t}</p>
                   <p className="mt-[8px] text-[12px] leading-[16px] text-soft">{b}</p>
@@ -738,17 +765,17 @@ function FreeForm() {
         Halfpipe, slopestyle and big air are freestyle events, where tricks are scored by judges, while snowboard cross and parallel giant slalom are racing events
         where the first athlete across the line wins.
       </p>
-      <ImageSlot label="Riders on the mountain" className="mt-[32px] h-[600px] w-full" rounded="rounded-tile" />
+      <ImageSlot src={HOME_MEDIA.freeFormImage} label="Riders on the mountain" className="mt-[32px] h-[600px] w-full" rounded="rounded-tile" />
       <h2 className="mt-[48px] font-display text-[36px] font-bold">Olympic history of snowboard</h2>
       <p className="mt-[24px] text-[16px] leading-[23px]">
         Snowboarding joined the Winter Games in the late 1990s with halfpipe and giant slalom events. New formats such as snowboard cross, slopestyle, big air and a
         mixed team event were added over the following editions.
       </p>
-      <div className="mt-[32px] overflow-hidden rounded-tile" aria-label="Video player placeholder">
-        <ImageSlot label="Video" className="h-[606px] w-full" />
+      <div className="mt-[32px] overflow-hidden rounded-tile" aria-label="Video player">
+        <VideoPlayer video={HOME_MEDIA.freeFormVideo} label="Olympic history of snowboard" className="h-[606px] w-full" />
       </div>
-      <div className="mt-[32px] overflow-hidden rounded-tile" aria-label="Embedded video placeholder">
-        <ImageSlot label="Embedded video" className="h-[606px] w-full" />
+      <div className="mt-[32px] overflow-hidden rounded-tile" aria-label="Embedded video">
+        <VideoPlayer video={HOME_MEDIA.freeFormEmbed} label="Embedded video" className="h-[606px] w-full" />
       </div>
     </section>
   );

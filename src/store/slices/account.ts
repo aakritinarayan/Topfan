@@ -9,6 +9,10 @@ export interface AccountState {
   name: string;
   firstName: string;
   avatar: string | null;
+  /** Feed / fan-site cover photo (media key or path). */
+  cover: string | null;
+  /** Cover-page hero image on the white-label site (media key or path). */
+  hero: string | null;
   verified: boolean;
   creatorCategory: string; // e.g. "Athletes"
   /** White-label theme (per creator). Changing these restyles the app. */
@@ -22,7 +26,9 @@ export const initialAccount: AccountState = {
   handle: "ajwhite",
   name: "AJ White",
   firstName: "AJ",
-  avatar: null, // neutral placeholder (no screenshot crops)
+  avatar: "creators/ajwhite/avatar", // media key (src/media); fictional creator, rider not identifiable
+  cover: "creators/ajwhite/cover",
+  hero: "creators/ajwhite/hero-1",
   verified: true,
   creatorCategory: "Athletes",
   theme: { bg: "#191a1c", secondaryBg: "#272a2b", accent: "#bc1111", text: "#ffffff", buttonText: "#ffffff" },

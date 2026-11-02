@@ -116,7 +116,7 @@ function Inbox() {
             {conv && fan ? (
               <>
                 <div className="flex items-center gap-[16px]">
-                  <Avatar src={null} size={44} ring={2} />
+                  <Avatar src={fan.avatar} size={44} ring={2} />
                   <div>
                     <p className="flex items-center gap-[6px] text-[18px] font-bold leading-[22px]">
                       {fan.name}
@@ -213,7 +213,7 @@ function Inbox() {
             </div>
           ) : conv || list ? (
             <>
-              <Thread threadKey={sel!.id} messages={conv ? conv.messages : list!.messages} fanAvatar={null} />
+              <Thread threadKey={sel!.id} messages={conv ? conv.messages : list!.messages} fanAvatar={fan?.avatar ?? null} />
               <Composer onSend={send} onAttach={(k) => setModal(k)} />
             </>
           ) : (
@@ -320,7 +320,7 @@ function ConvRow({ fan, preview, ago, unread, active, onOpen, testid }: { fan: F
       onClick={onOpen}
       className={`flex h-[64px] w-full items-center gap-[9px] px-[12px] text-left hover:bg-white/[.04] ${active ? "bg-white/[.03]" : ""}`}
     >
-      <Avatar src={null} size={46} ring={2} />
+      <Avatar src={fan.avatar} size={46} ring={2} />
       <span className="min-w-[0px] flex-1">
         <span className={`flex items-center gap-[4px] text-[14px] font-medium ${unread ? "text-white" : "text-[#9a9a9a]"}`}>
           <span className="truncate">{fan.name}</span>

@@ -10,7 +10,9 @@
  * through act() with content.write, so delegate permissions apply.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, BarChart3, Check, Clock, FileText, Image as ImageIcon, Pencil, X } from "lucide-react";
+import { ArrowLeft, BarChart3, Check, Clock, FileText, Image as ImageIcon, Pencil, Video, X } from "lucide-react";
+import { ImageSlot } from "../../platform/ui/surfaces";
+import { VideoPlayer } from "../../platform/ui/media";
 import { act, getData, onStoreEvent, useData } from "../../store/store";
 import { roleCan } from "../../store/permissions";
 import {
@@ -49,6 +51,7 @@ import {
   markNotified,
   type APDraft,
   type DraftStatus,
+  type MediaState,
   type RejectReason,
 } from "../../store/slices/autopilot";
 import { useAssistant } from "../../state/assistantStore";
@@ -64,8 +67,41 @@ const btnOutline = "h-9 rounded-full border border-accent px-4 text-[13px] font-
 const btnText = "h-9 px-2 text-[13px] font-bold text-soft underline-offset-2 hover:text-white hover:underline";
 
 const fmtSlot = (iso: string) => new Date(iso).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
-const TYPE_LABEL: Record<APDraft["type"], string> = { text: "Text", poll: "Poll", images: "Image" };
-const TypeIcon = ({ t }: { t: APDraft["type"] }) => (t === "poll" ? <BarChart3 size={14} /> : t === "images" ? <ImageIcon size={14} /> : <FileText size={14} />);
+const TYPE_LABEL: Record<APDraft["type"], string> = { text: "Text", poll: "Poll", images: "Image", video: "Video" };
+const TypeIcon = ({ t }: { t: APDraft["type"] }) => (t === "poll" ? <BarChart3 size={14} /> : t === "images" ? <ImageIcon size={14} /> : t === "video" ? <Video size={14} /> : <FileText size={14} />);
+
+/** What the creator is told about a draft's media. */
+const MEDIA_NOTE: Record<MediaState, string> = {
+  attached: "Attached by you",
+  suggested: "Suggested from your approved library",
+  missing: "Missing: not in your media library",
+  unapproved: "In your library, not approved for posting yet",
+};
+
+/** Compact media preview inside the draft card: the real file, or an honest gap. */
+function DraftMedia({ x }: { x: APDraft }) {
+  const m = x.media!;
+  const state = m.state ?? "missing";
+  const has = !!m.src && state !== "missing";
+  return (
+    <div className="mt-2" data-testid="ap-media-preview" data-state={state}>
+      {has ? (
+        <div className="relative">
+          {x.type === "video" ? (
+            <VideoPlayer video={m.src} label={m.need} className="aspect-video w-full" rounded="rounded-tile" />
+          ) : (
+            <ImageSlot src={m.src} label={m.need} className={`aspect-[4/3] w-full ${state === "unapproved" ? "opacity-50" : ""}`} rounded="rounded-tile" />
+          )}
+        </div>
+      ) : (
+        <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-1 rounded-tile border border-dashed border-line text-[12px] text-soft">
+          <ImageIcon size={20} />
+          No photo yet
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StatusChip({ s }: { s: DraftStatus }) {
   const good = s === "ready" || s === "approved" || s === "saved" || s === "published";
@@ -308,6 +344,7 @@ function Detail({ id }: { id: string }) {
       <div className="mt-3 whitespace-pre-line rounded-tile bg-bg p-3 text-[13px]" data-testid="ap-draft-text">
         <span className="mb-1 block text-[10px] font-bold uppercase tracking-caps text-soft">{x.editedByCreator ? "Your edit" : "Draft"}</span>
         {x.text}
+        {x.media && <DraftMedia x={x} />}
         {x.pollOptions && (
           <ul className="mt-2 flex flex-col gap-1">
             {x.pollOptions.map((o) => (
@@ -322,7 +359,10 @@ function Detail({ id }: { id: string }) {
         {x.media && (
           <div className="flex gap-2">
             <dt className="w-[70px] shrink-0 text-soft">Media</dt>
-            <dd data-testid="ap-media">{x.status === "missing-asset" ? `Needs a photo from "${x.media.need}"` : `Photo from "${x.media.need}" (approved)`}</dd>
+            <dd data-testid="ap-media">
+              {MEDIA_NOTE[x.media.state ?? "missing"]}
+              <span className="block text-soft">"{x.media.need}"</span>
+            </dd>
           </div>
         )}
         <div className="flex gap-2">
@@ -365,8 +405,8 @@ function Detail({ id }: { id: string }) {
           </button>
         )}
         {x.status === "missing-asset" && (
-          <button className={btnOutline} data-testid="ap-add-asset" onClick={() => run("asset", (d) => approveAsset(d, "as-northpeak"))}>
-            I've added the photo (demo)
+          <button className={btnOutline} data-testid="ap-add-asset" onClick={() => run("asset", (d) => approveAsset(d, x.media?.assetId ?? "as-northpeak"))}>
+            {x.media?.state === "unapproved" ? "Approve this photo (demo)" : "I've added the photo (demo)"}
           </button>
         )}
         {x.status === "on-hold" && x.rejections.length >= 2 && (

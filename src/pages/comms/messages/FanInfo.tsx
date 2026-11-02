@@ -11,7 +11,7 @@ import { Button, InfoIcon, TextButton } from "../../../platform/ui/controls";
 import { useToast } from "../../../platform/ui/toast";
 import { useRouter } from "../../../app/router";
 import { pathFor } from "../../../app/routeCatalog";
-import { Bone, SCROLL, useEscape } from "../ui";
+import { Bone, SCROLL, thumbOf, useEscape } from "../ui";
 
 type Tab = "info" | "purchases" | "engagement" | "recruitment";
 const TABS: [Tab, string][] = [
@@ -51,7 +51,7 @@ export function FanInfoModal({ fanId, onClose }: { fanId: string | null; onClose
         </button>
         <div className="flex items-center justify-between px-[24px] pb-[19px] pt-[27px]">
           <div className="flex items-center gap-[9px]">
-            <Avatar src={null} size={52} ring={2} />
+            <Avatar src={fan.avatar} size={52} ring={2} />
             <span className="text-[20px] font-bold">{fan.name}</span>
           </div>
           <div role="tablist" className="flex gap-[8px]">
@@ -254,7 +254,7 @@ function Purchases({ p }: { p: FanProfile }) {
                 <Receipt size={22} className="text-accent" />
               </span>
             ) : (
-              <ImageSlot label={r.item} className="h-[60px] w-[60px]" rounded="rounded-lg" />
+              <ImageSlot src={thumbOf(r.image)} label={r.item} className="h-[60px] w-[60px]" rounded="rounded-lg" />
             )}
             {r.item}
           </span>
@@ -273,7 +273,7 @@ function Engagement({ p }: { p: FanProfile }) {
         <div key={i} className="grid min-h-[101px] items-center border-b border-white/20 py-[20px] text-[14px] last:border-0" style={{ gridTemplateColumns: w }}>
           <span>{r.date}</span>
           <span className="flex items-center gap-[16px] pr-[16px]">
-            <ImageSlot label={r.type} className="h-[60px] w-[60px] shrink-0" rounded="rounded-lg" />
+            <ImageSlot src={thumbOf(r.image)} label={r.type} className="h-[60px] w-[60px] shrink-0" rounded="rounded-lg" />
             <span className="font-bold leading-[20px]">
               <span className="block">{r.type}</span>
               <span className="mt-[4px] block">{r.caption}</span>
@@ -296,7 +296,7 @@ function Recruitment({ p }: { p: FanProfile }) {
         <div key={i} className="grid h-[81px] items-center border-b border-white/20 text-[14px] last:border-0" style={{ gridTemplateColumns: w }}>
           <span>{r.date}</span>
           <span className="flex items-center gap-[8px] font-bold">
-            <Avatar src={r.fanId === "creator" ? creator.avatar : null} size={44} ring={2} />
+            <Avatar src={r.fanId === "creator" ? creator.avatar : (fans.find((f) => f.id === r.fanId)?.avatar ?? null)} size={44} ring={2} />
             {r.fanId === "creator" ? creator.name : fans.find((f) => f.id === r.fanId)?.name}
           </span>
         </div>

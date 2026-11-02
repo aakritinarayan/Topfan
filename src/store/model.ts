@@ -54,7 +54,8 @@ export interface Post {
   comments: number;
   tips: number;
   views: number;
-  media?: { kind: "image" | "video" | "audio"; placeholder: string }[];
+  /** placeholder = label/alt; src = media key or path (src/media); video = clip key for video/reel posts. */
+  media?: { kind: "image" | "video" | "audio"; placeholder: string; src?: string | null; video?: string | null }[];
   /** Extra per-type data (poll options, link URL, fundraiser goal…). */
   extra?: Record<string, unknown>;
 }

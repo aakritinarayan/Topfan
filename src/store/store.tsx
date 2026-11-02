@@ -40,7 +40,7 @@ export const initialData = (): AppData =>
     money: initialMoney,
     comms: initialComms,
     social: initialSocial,
-    autopilot: initialAutopilot,
+    autopilot: initialAutopilot(),
   });
 
 const KEY = "topfan-mock-v1";

@@ -30,7 +30,7 @@ export function NewMessageModal({ open, onClose, onPick }: { open: boolean; onCl
               onClick={() => onPick(f.id)}
               className="flex h-[64px] w-full items-center gap-[12px] rounded-lg px-[12px] text-left text-[14px] hover:bg-accent-tint"
             >
-              <Avatar src={null} size={40} ring={0} />
+              <Avatar src={f.avatar} size={40} ring={0} />
               {f.name}
             </button>
           </li>
@@ -122,7 +122,7 @@ export function CreateListModal({
             {fanShown.map((f) => (
               <li key={f.id}>
                 <button type="button" data-testid={`messages-list-fan-${f.id}`} onClick={() => toggle(ids, setIds, f.id)} className="flex h-[48px] w-full items-center gap-[12px] text-left text-[14px]">
-                  <Avatar src={null} size={40} ring={0} />
+                  <Avatar src={f.avatar} size={40} ring={0} />
                   <span className="flex-1">{f.name}</span>
                   <RadioDot on={ids.includes(f.id)} />
                 </button>

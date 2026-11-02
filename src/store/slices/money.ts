@@ -7,6 +7,8 @@
  */
 import type { AppData } from "../store";
 import type { Fan, FulfillmentRequest, RefundRequest, Transaction } from "../model";
+import { personAvatar } from "../../media";
+import { initialComms } from "./comms";
 
 /** The capture date of the reference pack; periods ("This Month", default date filters) are relative to it. */
 export const MONEY_TODAY = "2026-11-02";
@@ -70,6 +72,8 @@ export interface FulfillmentItem extends FulfillmentRequest {
   disputed?: boolean;
   /** Placeholder tone for the product image tile (light for merchandise, per capture). */
   imageTone: "light" | "dark";
+  /** Media key of the ordered item's image. */
+  image?: string | null;
 }
 
 export interface SavedCard {
@@ -93,6 +97,8 @@ export interface Referral {
 export interface PurchasedPlan {
   id: string;
   creator: string;
+  /** Media key of the creator's avatar (other demo creators get illustrations). */
+  creatorAvatar?: string | null;
   plan: string;
   price: number;
   months: number;
@@ -119,6 +125,10 @@ export interface PurchaseRow {
   /** null = the source renders an empty price cell (known source bug, reproduced). */
   price: number | null;
   currency?: "USD" | "EUR";
+  /** Media key of the creator the item was bought from. */
+  fromAvatar?: string | null;
+  /** Media key of the purchased item's thumbnail (null = no matching media; the placeholder stays). */
+  image?: string | null;
 }
 
 export interface ContentPostStat {
@@ -266,12 +276,51 @@ const namedFans: FanSeed[] = [
   ["Everett Hale", "Innsbruck, Tyrol, Austria", "2026-06-20T13:58", ["subscriber", "newsletter", "follower"], { subscription: "Bronze Plan", totalSpent: 5 }],
 ];
 
+/** Avatar key of a fan: the same person keeps the avatar they have in Messages/Activity (matched by name), else personAvatar(id). */
+function fanAvatar(id: string, name: string): string {
+  return initialComms.fans.find((f) => f.name === name)?.avatar ?? personAvatar(id);
+}
+
+/** Avatar of a creator a purchase was made from: an illustration for other (fictional) creators; null for the account's own
+ *  creator (AJ White), whose avatar the UI reads from account.avatar. */
+const creatorAvatar = (name: string) => (name === "AJ White" ? null : personAvatar(name));
+
+/** Fulfillment item → product image key. */
+const FULFILLMENT_IMAGE: Record<string, string> = {
+  "Ridgeline Pro Board": "merchandise/board-pro",
+  "Hometown Glide Board": "merchandise/board-glide",
+  "Team AJ Hoodie": "merchandise/hoodie",
+  "Summit Beanie": "merchandise/beanie-red",
+  "Shoutout on Social Media": "experiences/social",
+  "Live Video Call with Me": "experiences/video-call",
+  "Personalized Video from Me": "experiences/personal-video",
+};
+
+/** Purchased item → thumbnail key (generic matches; titles with no fitting media keep the placeholder). */
+const PURCHASE_IMAGE: Record<string, string> = {
+  "Find Your Center Hoodie": "merchandise/hoodie",
+  "2024 Open Road Long Sleeve Tee": "merchandise/tee-open-road",
+  "Late Night Encore T-Shirt": "merchandise/tee-late-night",
+  "Learn How to Snowboard": "courses/learn-to-snowboard",
+  "Park Basics: Boxes & Rails": "experiences/park-session",
+  "How to Ride a Snowboard": "courses/learn-to-snowboard",
+  "Personalized Video": "experiences/personal-video",
+  "Social Media Follow or Post": "experiences/social",
+  Shoutout: "experiences/social",
+  "So much fun today at the Winter Jam. #winterjam #Sports": "posts/contest-2",
+  "First run of the season, who's riding this weekend?": "posts/on-the-hill",
+};
+const withPurchaseMedia = (all: Record<PurchaseCategory, PurchaseRow[]>) =>
+  Object.fromEntries(
+    Object.entries(all).map(([k, rows]) => [k, rows.map((r) => ({ ...r, fromAvatar: creatorAvatar(r.from), image: PURCHASE_IMAGE[r.title] ?? null }))]),
+  ) as Record<PurchaseCategory, PurchaseRow[]>;
+
 function buildFans(): MoneyFan[] {
   const out: MoneyFan[] = namedFans.map(([name, location, lastSession, statuses, extra], i) => ({
     id: `fan${i + 1}`,
     name,
     username: name.toLowerCase().replace(/[^a-z]/g, ""),
-    avatar: null,
+    avatar: fanAvatar(`fan${i + 1}`, name),
     email: `${name.toLowerCase().replace(/[^a-z]/g, ".")}@example.com`,
     joinedAt: `2025-0${(i % 9) + 1}-1${i % 10}`,
     subscription: null,
@@ -302,7 +351,7 @@ function buildFans(): MoneyFan[] {
       id: `fan${out.length + 1}`,
       name,
       username: name.toLowerCase().replace(/[^a-z]/g, ""),
-      avatar: null,
+      avatar: fanAvatar(`fan${out.length + 1}`, name),
       email: `${name.toLowerCase().replace(/ /g, ".")}@example.com`,
       joinedAt: `2025-${String((i % 12) + 1).padStart(2, "0")}-0${(i % 9) + 1}`,
       subscription: statuses.includes("subscriber") ? "Bronze Plan" : null,
@@ -351,7 +400,7 @@ function buildFulfillment(): FulfillmentItem[] {
     { item: "Shoutout on Social Media", type: "Experience", itemType: "EXPERIENCE", price: 100, orderedAt: "2026-04-11T12:00", fan: "Ava Sinclair", imageTone: "dark" },
     { item: "Live Video Call with Me", type: "Experience", itemType: "EXPERIENCE", price: 81.8, orderedAt: "2026-03-27T20:35", fan: "Daniel Okoye", imageTone: "dark" },
   ];
-  const out: FulfillmentItem[] = seeded.map((s, i) => ({ ...s, id: `ff${i + 1}`, date: s.orderedAt.slice(0, 10), status: "Pending" }));
+  const out: FulfillmentItem[] = seeded.map((s, i) => ({ ...s, id: `ff${i + 1}`, date: s.orderedAt.slice(0, 10), status: "Pending", image: FULFILLMENT_IMAGE[s.item] ?? null }));
   // 86 older, resolved items (95 total, as in 15f).
   for (let i = 0; out.length < 95; i++) {
     const exp = i % 4 === 1;
@@ -375,6 +424,7 @@ function buildFulfillment(): FulfillmentItem[] {
       disputed: i === 22,
       imageTone: exp ? "dark" : "light",
     });
+    out[out.length - 1].image = FULFILLMENT_IMAGE[out[out.length - 1].item] ?? null;
   }
   return out;
 }
@@ -396,7 +446,7 @@ export const initialMoney: MoneyState = {
     { id: "ref1", name: "Milo Brandt", referredAt: "2025-04-24", commissionStart: "2025-04-24", commissionEnd: "2026-04-24", earned: 0 },
     { id: "ref2", name: "Tessa Lindqvist", referredAt: "2025-04-18", commissionStart: "2025-04-18", commissionEnd: "2026-04-18", earned: 0 },
   ],
-  purchasedPlans: [
+  purchasedPlans: ([
     // Benefit copy keeps the source's typo ("fedwrikcs") — a visible source quirk.
     { id: "pp1", creator: "Marlow Reyes", plan: "Premium Plan", price: 10, months: 1, status: "expired", autoRenew: false, benefits: ALBERT_BENEFITS },
     {
@@ -409,8 +459,8 @@ export const initialMoney: MoneyState = {
     { id: "pp5", creator: "Everett Hale", plan: "Experience Plan", price: 747.6, months: 12, discountPct: 30, status: "expired", autoRenew: false, benefits: ["Monthly experience credit"] },
     { id: "pp6", creator: "Everett Hale", plan: "Course Super Plan", price: 52, months: 1, status: "expired", autoRenew: false, benefits: ["Plan verify"] },
     { id: "pp7", creator: "Copper Canyon Band", plan: "All Access + Presale + Merch Gift", price: 8, months: 1, status: "expired", autoRenew: false, benefits: ["Access to the Ticket Pre-Sale", "First Access to New Music", "Behind the Scenes Photos, Videos, and Livestreams", "Annual Merch Gift"] },
-  ],
-  purchases: {
+  ] as PurchasedPlan[]).map((p) => ({ ...p, creatorAvatar: creatorAvatar(p.creator) })),
+  purchases: withPurchaseMedia({
     newsletter: [],
     merchandise: [
       { id: "pm1", title: "Find Your Center Hoodie", status: "Canceled", from: "Balance With Juniper", date: "2025-11-12", price: 84.3 },
@@ -450,7 +500,7 @@ export const initialMoney: MoneyState = {
     ],
     portfolio: [],
     tickets: [],
-  },
+  }),
   contentPosts: [
     { id: "cp1", title: "Made it to Italy! Thanks for your support, go USA! 🇺🇸", type: "Image", createdAt: "2026-02-15", impressions: 0, engagements: 7, likes: 0, comments: 0, shares: 0 },
     { id: "cp2", title: "Hey guys, I need your help raising money to support my training to qualify for the 2026 Games. Every bit helps!", type: "Fundraiser", createdAt: "2025-11-18", impressions: 0, engagements: 11, likes: 0, comments: 0, shares: 0 },

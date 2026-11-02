@@ -7,6 +7,7 @@
  */
 import type { AppData } from "../store";
 import type { Announcement, AutomatedMessage } from "../model";
+import { personAvatar } from "../../media";
 
 /* ------------------------------------------------------------------ types */
 
@@ -28,13 +29,15 @@ export interface Fan {
   id: string;
   name: string;
   badges: FanBadge[];
+  /** Media key of the fan's illustrated avatar (personAvatar(id); same everywhere the fan appears). */
+  avatar: string;
 }
 
 export type ChatBody =
   | { kind: "text"; text: string }
   | { kind: "tip"; text: string; amount: number }
   | { kind: "guaranteed"; text: string; amount: number }
-  | { kind: "paid"; caption?: string; price: number; preview: "image" | "audio"; locked: "image" | "audio"; fileName?: string }
+  | { kind: "paid"; caption?: string; price: number; preview: "image" | "audio"; locked: "image" | "audio"; fileName?: string; /** media key of the free preview image */ previewMedia?: string | null }
   | { kind: "store"; caption: string; itemId: string }
   | { kind: "course"; itemId: string }
   | { kind: "audio"; seconds: number }
@@ -81,6 +84,10 @@ export interface ChatStoreItem {
   description: string;
   options: StoreItemOption[];
   price?: number;
+  /** Monetize product this store item sells (its image is read from there when set). */
+  productId?: string;
+  /** Media key fallback when the linked product has no image. */
+  image?: string | null;
 }
 
 export interface FanProfile {
@@ -101,8 +108,8 @@ export interface FanProfile {
   badge: string;
   groups: string;
   loyalty: string;
-  purchases: { date: string; type: string; item: string; amount: string; thumb: "image" | "subscription" }[];
-  engagement: { date: string; type: string; caption: string }[];
+  purchases: { date: string; type: string; item: string; amount: string; thumb: "image" | "subscription"; /** media key for image thumbs */ image?: string | null }[];
+  engagement: { date: string; type: string; caption: string; /** media key of the engaged post */ image?: string | null }[];
   recruits: { date: string; fanId: string | "creator" }[];
 }
 
@@ -156,7 +163,7 @@ export interface CommsState {
 
 /* ------------------------------------------------------------------ seed (fictional) */
 
-const fans: Fan[] = [
+const fans: Fan[] = ([
   { id: "f-marcus", name: "Marcus Bell", badges: ["subscriber", "trophy"] },
   { id: "f-summit", name: "Summit Line Band", badges: ["subscriber"] },
   { id: "f-theo", name: "Theo Grant", badges: ["subscriber", "trophy"] },
@@ -188,7 +195,7 @@ const fans: Fan[] = [
   { id: "f-alexa", name: "Alexa Moore", badges: [] },
   { id: "f-cory", name: "Cory Sands", badges: [] },
   { id: "f-gwen", name: "Gwen Talley", badges: [] },
-];
+] as Omit<Fan, "avatar">[]).map((f) => ({ ...f, avatar: personAvatar(f.id) }));
 
 const m = (id: string, from: "creator" | "fan", at: string, body: ChatBody): ChatMessage => ({ id, from, at, body });
 
@@ -199,7 +206,7 @@ const marcusThread: ChatMessage[] = [
   m("mm3", "fan", "2025-07-29T18:09", { kind: "tip", text: "hello", amount: 10 }),
   m("mm4", "fan", "2025-07-30T09:15", { kind: "guaranteed", text: "Hi AJ!", amount: 20 }),
   m("mm5", "fan", "2025-08-07T20:47", { kind: "tip", text: "Hey AJ!", amount: 5 }),
-  m("mm6", "creator", "2025-08-27T02:56", { kind: "paid", price: 1, preview: "image", locked: "audio" }),
+  m("mm6", "creator", "2025-08-27T02:56", { kind: "paid", price: 1, preview: "image", locked: "audio", previewMedia: "posts/on-the-hill" }),
   m("mm7", "creator", "2025-09-02T14:10", { kind: "store", caption: "Check this out", itemId: "si-video" }),
   m("mm8", "creator", "2025-09-02T14:12", { kind: "store", caption: "Just store item", itemId: "si-call" }),
   m("mm9", "creator", "2025-09-03T11:30", { kind: "course", itemId: "si-course" }),
@@ -208,7 +215,7 @@ const marcusThread: ChatMessage[] = [
   m("mm12", "creator", "2025-11-10T20:58", { kind: "text", text: "hello" }),
   m("mm13", "creator", "2025-11-10T20:59", { kind: "text", text: "How are you?" }),
   m("mm14", "fan", "2026-02-27T10:42", { kind: "text", text: "Great run today!" }),
-  m("mm15", "creator", "2026-05-19T03:57", { kind: "paid", price: 5, preview: "image", locked: "image" }),
+  m("mm15", "creator", "2026-05-19T03:57", { kind: "paid", price: 5, preview: "image", locked: "image", previewMedia: "posts/big-air" }),
 ];
 
 const conv = (id: string, fanId: string, folder: "priority" | "general", ago: string, preview: string, extra: Partial<Conversation> = {}): Conversation => ({
@@ -309,27 +316,27 @@ const marcusProfile: FanProfile = {
   groups: "-",
   loyalty: "1,640 Points",
   purchases: [
-    { date: "Oct 29, 2026", type: "Livestream Tip", item: "Livestream Tip", amount: "$5.00", thumb: "image" },
+    { date: "Oct 29, 2026", type: "Livestream Tip", item: "Livestream Tip", amount: "$5.00", thumb: "image", image: "videos/livestream-preview" },
     { date: "Oct 25, 2026", type: "Subscription", item: "Bronze Plan", amount: "$5.00", thumb: "subscription" },
     { date: "Oct 25, 2026", type: "Subscription", item: "Gold Plan", amount: "$67.50", thumb: "subscription" },
     { date: "Sep 25, 2026", type: "Subscription", item: "Bronze Plan", amount: "$5.00", thumb: "subscription" },
     { date: "Aug 25, 2026", type: "Subscription", item: "Bronze Plan", amount: "$5.00", thumb: "subscription" },
-    { date: "Aug 15, 2026", type: "Merchandise", item: "Team Hoodie", amount: "$86.00", thumb: "image" },
+    { date: "Aug 15, 2026", type: "Merchandise", item: "Team Hoodie", amount: "$86.00", thumb: "image", image: "merchandise/hoodie" },
     { date: "Jul 25, 2026", type: "Subscription", item: "Bronze Plan", amount: "$5.00", thumb: "subscription" },
     { date: "Jul 25, 2026", type: "Subscription", item: "Gold Plan", amount: "$67.50", thumb: "subscription" },
-    { date: "Jul 25, 2026", type: "Merchandise", item: "Signed Board Graphic", amount: "$240.00", thumb: "image" },
-    { date: "Jun 02, 2026", type: "Event Ticket", item: "Summer Camp 2026", amount: "$150.00", thumb: "image" },
+    { date: "Jul 25, 2026", type: "Merchandise", item: "Signed Board Graphic", amount: "$240.00", thumb: "image", image: "merchandise/signature-series" },
+    { date: "Jun 02, 2026", type: "Event Ticket", item: "Summer Camp 2026", amount: "$150.00", thumb: "image", image: "events/poster" },
   ],
   engagement: [
-    { date: "Oct 30, 2026", type: "Image", caption: "Some of my favorite shots from the last contest!" },
-    { date: "Oct 30, 2026", type: "Image", caption: "First day back on snow! Thanks for your support, go team!" },
-    { date: "Oct 30, 2026", type: "Poll", caption: "Which board should I ride at the next contest? #Sports" },
-    { date: "Oct 30, 2026", type: "Fundraiser", caption: "Help me raise money for my training season this winter!" },
-    { date: "Oct 30, 2026", type: "Image", caption: "Getting BIG air at the park last weekend #snowboarding" },
-    { date: "Oct 30, 2026", type: "Link", caption: "My new interview is live" },
-    { date: "Oct 30, 2026", type: "Audio", caption: "Quick voice note from the lift" },
-    { date: "Oct 30, 2026", type: "Video", caption: "Full run from the slopestyle final" },
-    { date: "Oct 30, 2026", type: "Article", caption: "How I prep my board before a contest" },
+    { date: "Oct 30, 2026", type: "Image", caption: "Some of my favorite shots from the last contest!", image: "posts/contest-1" },
+    { date: "Oct 30, 2026", type: "Image", caption: "First day back on snow! Thanks for your support, go team!", image: "posts/on-the-hill" },
+    { date: "Oct 30, 2026", type: "Poll", caption: "Which board should I ride at the next contest? #Sports", image: "posts/two-boards" },
+    { date: "Oct 30, 2026", type: "Fundraiser", caption: "Help me raise money for my training season this winter!", image: "posts/fundraiser" },
+    { date: "Oct 30, 2026", type: "Image", caption: "Getting BIG air at the park last weekend #snowboarding", image: "posts/big-air" },
+    { date: "Oct 30, 2026", type: "Link", caption: "My new interview is live", image: "posts/podcast-cover" },
+    { date: "Oct 30, 2026", type: "Audio", caption: "Quick voice note from the lift", image: "posts/podcast" },
+    { date: "Oct 30, 2026", type: "Video", caption: "Full run from the slopestyle final", image: "videos/slopestyle" },
+    { date: "Oct 30, 2026", type: "Article", caption: "How I prep my board before a contest", image: "posts/riding-switch" },
   ],
   recruits: [
     { date: "Apr 8, 2026", fanId: "creator" },
@@ -394,6 +401,8 @@ export const initialComms: CommsState = {
       subtitle: "A Custom Shout-Out",
       description: "I'll record a short personalized video for you or a friend.",
       options: [{ label: "Up to 60 Second Video", price: 50 }],
+      productId: "exp-personal-video",
+      image: "experiences/personal-video",
     },
     {
       id: "si-call",
@@ -406,6 +415,8 @@ export const initialComms: CommsState = {
         { label: "30 Minutes", price: 150 },
         { label: "45 Minutes", price: 200 },
       ],
+      productId: "exp-video-call",
+      image: "experiences/video-call",
     },
     {
       id: "si-course",
@@ -415,6 +426,8 @@ export const initialComms: CommsState = {
       description: "In this 3 part course, I'll walk you through riding the main types of terrain: moguls, trees, and the terrain park.",
       options: [],
       price: 60,
+      productId: "course-learn",
+      image: "courses/learn-to-snowboard",
     },
   ],
   fanProfiles: { "f-marcus": marcusProfile },

@@ -1,0 +1,816 @@
+{
+ "backgrounds/snow-texture": {
+  "src": "/assets/backgrounds/snow-texture.webp",
+  "alt": "",
+  "w": 1600,
+  "h": 900
+ },
+ "courses/learn-to-snowboard": {
+  "src": "/assets/courses/learn-to-snowboard.webp",
+  "alt": "Snowboard lesson",
+  "w": 800,
+  "h": 640
+ },
+ "creators/ajwhite/about-community": {
+  "src": "/assets/creators/ajwhite/about-community.webp",
+  "alt": "Riding with friends",
+  "w": 800,
+  "h": 640
+ },
+ "creators/ajwhite/about-content": {
+  "src": "/assets/creators/ajwhite/about-content.webp",
+  "alt": "Filming on the mountain",
+  "w": 800,
+  "h": 640
+ },
+ "creators/ajwhite/about-curiosity": {
+  "src": "/assets/creators/ajwhite/about-curiosity.webp",
+  "alt": "First days on a snowboard",
+  "w": 800,
+  "h": 640
+ },
+ "creators/ajwhite/about-style": {
+  "src": "/assets/creators/ajwhite/about-style.webp",
+  "alt": "Backcountry riding",
+  "w": 800,
+  "h": 640
+ },
+ "creators/ajwhite/avatar": {
+  "src": "/assets/creators/ajwhite/avatar.webp",
+  "alt": "AJ White in helmet and goggles",
+  "w": 800,
+  "h": 800
+ },
+ "creators/ajwhite/cover": {
+  "src": "/assets/creators/ajwhite/cover.webp",
+  "alt": "Snowboarder riding a mountain ridge",
+  "w": 1800,
+  "h": 600
+ },
+ "creators/ajwhite/hero-1": {
+  "src": "/assets/creators/ajwhite/hero-1.webp",
+  "alt": "Snowboarder in the air above a jump",
+  "w": 1800,
+  "h": 800
+ },
+ "creators/ajwhite/hero-2": {
+  "src": "/assets/creators/ajwhite/hero-2.webp",
+  "alt": "Halfpipe run",
+  "w": 1800,
+  "h": 800
+ },
+ "creators/ajwhite/hero-3": {
+  "src": "/assets/creators/ajwhite/hero-3.webp",
+  "alt": "Riders on a mountain",
+  "w": 1800,
+  "h": 800
+ },
+ "creators/ajwhite/mountain-wide": {
+  "src": "/assets/creators/ajwhite/mountain-wide.webp",
+  "alt": "Riders on the mountain",
+  "w": 1800,
+  "h": 700
+ },
+ "creators/ajwhite/slope-tall": {
+  "src": "/assets/creators/ajwhite/slope-tall.webp",
+  "alt": "Riders on a snowy slope",
+  "w": 700,
+  "h": 1000
+ },
+ "creators/fans/fan-01": {
+  "src": "/assets/creators/fans/fan-01.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-02": {
+  "src": "/assets/creators/fans/fan-02.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-03": {
+  "src": "/assets/creators/fans/fan-03.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-04": {
+  "src": "/assets/creators/fans/fan-04.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-05": {
+  "src": "/assets/creators/fans/fan-05.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-06": {
+  "src": "/assets/creators/fans/fan-06.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-07": {
+  "src": "/assets/creators/fans/fan-07.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-08": {
+  "src": "/assets/creators/fans/fan-08.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-09": {
+  "src": "/assets/creators/fans/fan-09.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-10": {
+  "src": "/assets/creators/fans/fan-10.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-11": {
+  "src": "/assets/creators/fans/fan-11.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-12": {
+  "src": "/assets/creators/fans/fan-12.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-13": {
+  "src": "/assets/creators/fans/fan-13.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-14": {
+  "src": "/assets/creators/fans/fan-14.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-15": {
+  "src": "/assets/creators/fans/fan-15.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-16": {
+  "src": "/assets/creators/fans/fan-16.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-17": {
+  "src": "/assets/creators/fans/fan-17.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-18": {
+  "src": "/assets/creators/fans/fan-18.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-19": {
+  "src": "/assets/creators/fans/fan-19.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-20": {
+  "src": "/assets/creators/fans/fan-20.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-21": {
+  "src": "/assets/creators/fans/fan-21.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-22": {
+  "src": "/assets/creators/fans/fan-22.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-23": {
+  "src": "/assets/creators/fans/fan-23.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/fans/fan-24": {
+  "src": "/assets/creators/fans/fan-24.svg",
+  "alt": "Fan avatar (illustration)",
+  "w": 200,
+  "h": 200
+ },
+ "creators/julesbrennan/avatar": {
+  "src": "/assets/creators/julesbrennan/avatar.webp",
+  "alt": "Podcast microphone",
+  "w": 800,
+  "h": 800
+ },
+ "creators/julesbrennan/cover": {
+  "src": "/assets/creators/julesbrennan/cover.webp",
+  "alt": "Recording studio",
+  "w": 1800,
+  "h": 600
+ },
+ "creators/kaimorrow/avatar": {
+  "src": "/assets/creators/kaimorrow/avatar.webp",
+  "alt": "Game controller",
+  "w": 800,
+  "h": 800
+ },
+ "creators/kaimorrow/clip": {
+  "src": "/assets/creators/kaimorrow/clip.webp",
+  "alt": "Gaming event",
+  "w": 800,
+  "h": 640
+ },
+ "creators/kaimorrow/cover": {
+  "src": "/assets/creators/kaimorrow/cover.webp",
+  "alt": "Streaming setup",
+  "w": 1800,
+  "h": 600
+ },
+ "creators/lenawhitfield/avatar": {
+  "src": "/assets/creators/lenawhitfield/avatar.webp",
+  "alt": "Paint palette",
+  "w": 800,
+  "h": 800
+ },
+ "creators/lenawhitfield/cover": {
+  "src": "/assets/creators/lenawhitfield/cover.webp",
+  "alt": "Art studio",
+  "w": 1800,
+  "h": 600
+ },
+ "creators/marcoreyesfit/avatar": {
+  "src": "/assets/creators/marcoreyesfit/avatar.webp",
+  "alt": "Kettlebell workout",
+  "w": 800,
+  "h": 800
+ },
+ "creators/marcoreyesfit/cover": {
+  "src": "/assets/creators/marcoreyesfit/cover.webp",
+  "alt": "Gym",
+  "w": 1800,
+  "h": 600
+ },
+ "creators/marcoreyesfit/workout": {
+  "src": "/assets/creators/marcoreyesfit/workout.webp",
+  "alt": "Mobility routine",
+  "w": 800,
+  "h": 640
+ },
+ "creators/ninaoduya/avatar": {
+  "src": "/assets/creators/ninaoduya/avatar.webp",
+  "alt": "Study desk",
+  "w": 800,
+  "h": 800
+ },
+ "creators/ninaoduya/cover": {
+  "src": "/assets/creators/ninaoduya/cover.webp",
+  "alt": "Library",
+  "w": 1800,
+  "h": 600
+ },
+ "creators/ninaoduya/lesson": {
+  "src": "/assets/creators/ninaoduya/lesson.webp",
+  "alt": "Study notes",
+  "w": 800,
+  "h": 640
+ },
+ "creators/northridge/avatar": {
+  "src": "/assets/creators/northridge/avatar.webp",
+  "alt": "North Ridge Collective on stage",
+  "w": 800,
+  "h": 800
+ },
+ "creators/northridge/cover": {
+  "src": "/assets/creators/northridge/cover.webp",
+  "alt": "Festival stage",
+  "w": 1800,
+  "h": 600
+ },
+ "creators/northridge/rehearsal": {
+  "src": "/assets/creators/northridge/rehearsal.webp",
+  "alt": "Rehearsal",
+  "w": 800,
+  "h": 640
+ },
+ "creators/raecalder/avatar": {
+  "src": "/assets/creators/raecalder/avatar.webp",
+  "alt": "Rae Calder on stage",
+  "w": 800,
+  "h": 800
+ },
+ "creators/raecalder/cover": {
+  "src": "/assets/creators/raecalder/cover.webp",
+  "alt": "Concert stage",
+  "w": 1800,
+  "h": 600
+ },
+ "creators/raecalder/studio": {
+  "src": "/assets/creators/raecalder/studio.webp",
+  "alt": "Recording studio",
+  "w": 800,
+  "h": 640
+ },
+ "downloadables/ebook-switch": {
+  "src": "/assets/downloadables/ebook-switch.webp",
+  "alt": "E-book cover: How to Ride Switch",
+  "w": 720,
+  "h": 960
+ },
+ "downloadables/ebook-tune": {
+  "src": "/assets/downloadables/ebook-tune.webp",
+  "alt": "E-book cover: Tune a Snowboard",
+  "w": 720,
+  "h": 960
+ },
+ "events/banner": {
+  "src": "/assets/events/banner.webp",
+  "alt": "Snowboard event",
+  "w": 1800,
+  "h": 600
+ },
+ "events/poster": {
+  "src": "/assets/events/poster.webp",
+  "alt": "Big air under the lights",
+  "w": 800,
+  "h": 640
+ },
+ "experiences/park-session": {
+  "src": "/assets/experiences/park-session.webp",
+  "alt": "Terrain park session",
+  "w": 800,
+  "h": 640
+ },
+ "experiences/personal-video": {
+  "src": "/assets/experiences/personal-video.webp",
+  "alt": "Recording a personalized video",
+  "w": 800,
+  "h": 640
+ },
+ "experiences/social": {
+  "src": "/assets/experiences/social.webp",
+  "alt": "Social media on a phone",
+  "w": 800,
+  "h": 640
+ },
+ "experiences/video-call": {
+  "src": "/assets/experiences/video-call.webp",
+  "alt": "Live video call",
+  "w": 800,
+  "h": 640
+ },
+ "experiences/vip-boards": {
+  "src": "/assets/experiences/vip-boards.webp",
+  "alt": "Ridgeline snowboards",
+  "w": 800,
+  "h": 640
+ },
+ "experiences/vip-goggles": {
+  "src": "/assets/experiences/vip-goggles.webp",
+  "alt": "Northpeak goggles",
+  "w": 800,
+  "h": 640
+ },
+ "experiences/vip-soda": {
+  "src": "/assets/experiences/vip-soda.webp",
+  "alt": "Summit Soda can",
+  "w": 800,
+  "h": 640
+ },
+ "illustrations/brands/corner-mart": {
+  "src": "/assets/illustrations/brands/corner-mart.svg",
+  "alt": "corner mart logo (fictional brand)",
+  "w": 400,
+  "h": 400
+ },
+ "illustrations/brands/glacier-hydration": {
+  "src": "/assets/illustrations/brands/glacier-hydration.svg",
+  "alt": "glacier hydration logo (fictional brand)",
+  "w": 400,
+  "h": 400
+ },
+ "illustrations/brands/northpeak": {
+  "src": "/assets/illustrations/brands/northpeak.svg",
+  "alt": "northpeak logo (fictional brand)",
+  "w": 400,
+  "h": 400
+ },
+ "illustrations/brands/ridgeline-boards": {
+  "src": "/assets/illustrations/brands/ridgeline-boards.svg",
+  "alt": "ridgeline boards logo (fictional brand)",
+  "w": 400,
+  "h": 400
+ },
+ "illustrations/brands/summit-soda": {
+  "src": "/assets/illustrations/brands/summit-soda.svg",
+  "alt": "summit soda logo (fictional brand)",
+  "w": 400,
+  "h": 400
+ },
+ "illustrations/fallback-audio": {
+  "src": "/assets/illustrations/fallback-audio.svg",
+  "alt": "audio fallback",
+  "w": 400,
+  "h": 300
+ },
+ "illustrations/fallback-avatar": {
+  "src": "/assets/illustrations/fallback-avatar.svg",
+  "alt": "avatar fallback",
+  "w": 400,
+  "h": 300
+ },
+ "illustrations/fallback-course": {
+  "src": "/assets/illustrations/fallback-course.svg",
+  "alt": "course fallback",
+  "w": 400,
+  "h": 300
+ },
+ "illustrations/fallback-ebook": {
+  "src": "/assets/illustrations/fallback-ebook.svg",
+  "alt": "ebook fallback",
+  "w": 400,
+  "h": 300
+ },
+ "illustrations/fallback-event": {
+  "src": "/assets/illustrations/fallback-event.svg",
+  "alt": "event fallback",
+  "w": 400,
+  "h": 300
+ },
+ "illustrations/fallback-image": {
+  "src": "/assets/illustrations/fallback-image.svg",
+  "alt": "image fallback",
+  "w": 400,
+  "h": 300
+ },
+ "illustrations/fallback-product": {
+  "src": "/assets/illustrations/fallback-product.svg",
+  "alt": "product fallback",
+  "w": 400,
+  "h": 300
+ },
+ "illustrations/fallback-video": {
+  "src": "/assets/illustrations/fallback-video.svg",
+  "alt": "video fallback",
+  "w": 400,
+  "h": 300
+ },
+ "merchandise/airbag-pack": {
+  "src": "/assets/merchandise/airbag-pack.webp",
+  "alt": "Avalanche airbag pack",
+  "w": 800,
+  "h": 640
+ },
+ "merchandise/all-mountain-classic": {
+  "src": "/assets/merchandise/all-mountain-classic.webp",
+  "alt": "All-Mountain Classic snowboard",
+  "w": 800,
+  "h": 640
+ },
+ "merchandise/beanie-red": {
+  "src": "/assets/merchandise/beanie-red.webp",
+  "alt": "Red AJ beanie",
+  "w": 800,
+  "h": 640
+ },
+ "merchandise/board-glide": {
+  "src": "/assets/merchandise/board-glide.webp",
+  "alt": "Hometown Glide snowboard",
+  "w": 800,
+  "h": 640
+ },
+ "merchandise/board-pro": {
+  "src": "/assets/merchandise/board-pro.webp",
+  "alt": "Ridgeline Pro snowboard",
+  "w": 800,
+  "h": 640
+ },
+ "merchandise/home-mountain-hero": {
+  "src": "/assets/merchandise/home-mountain-hero.webp",
+  "alt": "Home Mountain Hero snowboard",
+  "w": 800,
+  "h": 640
+ },
+ "merchandise/hoodie": {
+  "src": "/assets/merchandise/hoodie.webp",
+  "alt": "Team AJ hoodie",
+  "w": 800,
+  "h": 640
+ },
+ "merchandise/park-twin": {
+  "src": "/assets/merchandise/park-twin.webp",
+  "alt": "Park Twin snowboard",
+  "w": 800,
+  "h": 640
+ },
+ "merchandise/signature-series": {
+  "src": "/assets/merchandise/signature-series.webp",
+  "alt": "Aj Signature Series snowboard",
+  "w": 800,
+  "h": 640
+ },
+ "merchandise/spectrum-x": {
+  "src": "/assets/merchandise/spectrum-x.webp",
+  "alt": "Spectrum X snowboard",
+  "w": 800,
+  "h": 640
+ },
+ "merchandise/tee-late-night": {
+  "src": "/assets/merchandise/tee-late-night.webp",
+  "alt": "Black Late Night Encore T-shirt (illustration)",
+  "w": 800,
+  "h": 640
+ },
+ "merchandise/tee-open-road": {
+  "src": "/assets/merchandise/tee-open-road.webp",
+  "alt": "Navy long-sleeve tour tee (illustration)",
+  "w": 800,
+  "h": 640
+ },
+ "merchandise/throwback": {
+  "src": "/assets/merchandise/throwback.webp",
+  "alt": "Throwback snowboard",
+  "w": 800,
+  "h": 640
+ },
+ "posts/beanie": {
+  "src": "/assets/posts/beanie.webp",
+  "alt": "Knit beanie",
+  "w": 800,
+  "h": 800
+ },
+ "posts/big-air": {
+  "src": "/assets/posts/big-air.webp",
+  "alt": "Big air in the terrain park",
+  "w": 800,
+  "h": 640
+ },
+ "posts/contest-1": {
+  "src": "/assets/posts/contest-1.webp",
+  "alt": "Slopestyle contest",
+  "w": 800,
+  "h": 800
+ },
+ "posts/contest-2": {
+  "src": "/assets/posts/contest-2.webp",
+  "alt": "Rail feature at a contest",
+  "w": 800,
+  "h": 800
+ },
+ "posts/contest-3": {
+  "src": "/assets/posts/contest-3.webp",
+  "alt": "Contest finish area",
+  "w": 800,
+  "h": 800
+ },
+ "posts/contest-4": {
+  "src": "/assets/posts/contest-4.webp",
+  "alt": "Contest venue",
+  "w": 800,
+  "h": 800
+ },
+ "posts/fundraiser": {
+  "src": "/assets/posts/fundraiser.webp",
+  "alt": "Snowboard bags ready for travel",
+  "w": 800,
+  "h": 640
+ },
+ "posts/glacier-park": {
+  "src": "/assets/posts/glacier-park.webp",
+  "alt": "Glacier ski area",
+  "w": 800,
+  "h": 640
+ },
+ "posts/goggles": {
+  "src": "/assets/posts/goggles.webp",
+  "alt": "Snow goggles",
+  "w": 800,
+  "h": 640
+ },
+ "posts/halfpipe-run": {
+  "src": "/assets/posts/halfpipe-run.webp",
+  "alt": "Halfpipe run",
+  "w": 800,
+  "h": 640
+ },
+ "posts/nft-pin": {
+  "src": "/assets/posts/nft-pin.webp",
+  "alt": "Summit collectible pin artwork",
+  "w": 800,
+  "h": 800
+ },
+ "posts/nft-yeti": {
+  "src": "/assets/posts/nft-yeti.webp",
+  "alt": "Bored Snowboarding Yeti digital artwork",
+  "w": 800,
+  "h": 800
+ },
+ "posts/nl-austria": {
+  "src": "/assets/posts/nl-austria.webp",
+  "alt": "Austrian Alps",
+  "w": 1600,
+  "h": 900
+ },
+ "posts/nl-culture": {
+  "src": "/assets/posts/nl-culture.webp",
+  "alt": "Snowboarding culture",
+  "w": 1600,
+  "h": 900
+ },
+ "posts/nl-japan": {
+  "src": "/assets/posts/nl-japan.webp",
+  "alt": "Deep powder in Japan",
+  "w": 1600,
+  "h": 900
+ },
+ "posts/nl-new-ride": {
+  "src": "/assets/posts/nl-new-ride.webp",
+  "alt": "New snowboard",
+  "w": 1600,
+  "h": 900
+ },
+ "posts/nl-snow-report": {
+  "src": "/assets/posts/nl-snow-report.webp",
+  "alt": "Fresh snow report",
+  "w": 1600,
+  "h": 900
+ },
+ "posts/nl-training": {
+  "src": "/assets/posts/nl-training.webp",
+  "alt": "Training progress",
+  "w": 1600,
+  "h": 900
+ },
+ "posts/nl-welcome": {
+  "src": "/assets/posts/nl-welcome.webp",
+  "alt": "Mountain sunrise",
+  "w": 1600,
+  "h": 900
+ },
+ "posts/northpeak-shoot": {
+  "src": "/assets/posts/northpeak-shoot.webp",
+  "alt": "Photo shoot on the mountain",
+  "w": 800,
+  "h": 640
+ },
+ "posts/offseason-training": {
+  "src": "/assets/posts/offseason-training.webp",
+  "alt": "Off-season strength training",
+  "w": 1600,
+  "h": 900
+ },
+ "posts/on-the-hill": {
+  "src": "/assets/posts/on-the-hill.webp",
+  "alt": "Snowboarder on the hill",
+  "w": 800,
+  "h": 640
+ },
+ "posts/opening-ceremony": {
+  "src": "/assets/posts/opening-ceremony.webp",
+  "alt": "Opening ceremony fireworks",
+  "w": 800,
+  "h": 640
+ },
+ "posts/podcast": {
+  "src": "/assets/posts/podcast.webp",
+  "alt": "Podcast microphone",
+  "w": 800,
+  "h": 800
+ },
+ "posts/podcast-cover": {
+  "src": "/assets/posts/podcast-cover.webp",
+  "alt": "The Fall Line podcast cover",
+  "w": 800,
+  "h": 800
+ },
+ "posts/riding-switch": {
+  "src": "/assets/posts/riding-switch.webp",
+  "alt": "Snowboarder carving a turn",
+  "w": 800,
+  "h": 640
+ },
+ "posts/two-boards": {
+  "src": "/assets/posts/two-boards.webp",
+  "alt": "Snowboards side by side",
+  "w": 800,
+  "h": 640
+ },
+ "videos/banner": {
+  "src": "/assets/videos/banner.webp",
+  "alt": "Filming a snowboard run",
+  "w": 1800,
+  "h": 600
+ },
+ "videos/big-air": {
+  "src": "/assets/videos/big-air.mp4",
+  "alt": "Big air session",
+  "w": 1280,
+  "h": 720,
+  "poster": "/assets/videos/big-air-poster.webp",
+  "duration": 8
+ },
+ "videos/competition-run": {
+  "src": "/assets/videos/competition-run.mp4",
+  "alt": "Competition run",
+  "w": 1280,
+  "h": 720,
+  "poster": "/assets/videos/competition-run-poster.webp",
+  "duration": 8
+ },
+ "videos/course-preview": {
+  "src": "/assets/videos/course-preview.mp4",
+  "alt": "Course preview",
+  "w": 1280,
+  "h": 720,
+  "poster": "/assets/videos/course-preview-poster.webp",
+  "duration": 8
+ },
+ "videos/event-highlights": {
+  "src": "/assets/videos/event-highlights.mp4",
+  "alt": "Event highlights",
+  "w": 1280,
+  "h": 720,
+  "poster": "/assets/videos/event-highlights-poster.webp",
+  "duration": 8
+ },
+ "videos/fitness-mobility": {
+  "src": "/assets/videos/fitness-mobility.mp4",
+  "alt": "Mobility routine",
+  "w": 1280,
+  "h": 720,
+  "poster": "/assets/videos/fitness-mobility-poster.webp",
+  "duration": 5
+ },
+ "videos/gaming-clip": {
+  "src": "/assets/videos/gaming-clip.mp4",
+  "alt": "Clip of the week",
+  "w": 1280,
+  "h": 720,
+  "poster": "/assets/videos/gaming-clip-poster.webp",
+  "duration": 5
+ },
+ "videos/halfpipe": {
+  "src": "/assets/videos/halfpipe.mp4",
+  "alt": "Halfpipe finals run",
+  "w": 1280,
+  "h": 720,
+  "poster": "/assets/videos/halfpipe-poster.webp",
+  "duration": 8
+ },
+ "videos/livestream-preview": {
+  "src": "/assets/videos/livestream-preview.mp4",
+  "alt": "Recorded livestream preview",
+  "w": 1280,
+  "h": 720,
+  "poster": "/assets/videos/livestream-preview-poster.webp",
+  "duration": 8
+ },
+ "videos/reel-park": {
+  "src": "/assets/videos/reel-park.mp4",
+  "alt": "Park reel",
+  "w": 720,
+  "h": 1280,
+  "poster": "/assets/videos/reel-park-poster.webp",
+  "duration": 5
+ },
+ "videos/slopestyle": {
+  "src": "/assets/videos/slopestyle.mp4",
+  "alt": "Slopestyle practice",
+  "w": 1280,
+  "h": 720,
+  "poster": "/assets/videos/slopestyle-poster.webp",
+  "duration": 8
+ },
+ "videos/welcome": {
+  "src": "/assets/videos/welcome.mp4",
+  "alt": "Welcome video",
+  "w": 1280,
+  "h": 720,
+  "poster": "/assets/videos/welcome-poster.webp",
+  "duration": 8
+ }
+}

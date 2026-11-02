@@ -8,8 +8,8 @@ import { useEffect, useState } from "react";
 import { closeOverlay, openOverlay, useOverlay } from "../../app/ui";
 import { useRouter } from "../../app/router";
 import { act, delaysOff, getData, useData } from "../../store/store";
-import { endLivestream, initialSocial, setFanView, startLivestream } from "../../store/slices/social";
-import { ImageSlot } from "../../platform/ui/surfaces";
+import { endLivestream, initialSocial, setFanView, startLivestream, welcomeVideoOf } from "../../store/slices/social";
+import { FALLBACK, mediaSrc, posterOf, reportMediaError } from "../../media";
 import { Button, Input, TextButton } from "../../platform/ui/controls";
 import { useToast } from "../../platform/ui/toast";
 import { SocialModal, useGo } from "./shared";
@@ -129,7 +129,10 @@ function LivestreamModal({ open }: { open: boolean }) {
 const WELCOME_MS = 10_000;
 
 function WelcomeModal({ open }: { open: boolean }) {
-  // Video autoplays with no controls and the modal closes itself when it ends (~10s). Mock clip = placeholder.
+  // Video autoplays (muted) with no controls and the modal closes itself when it ends (~10s).
+  const video = useData(welcomeVideoOf);
+  const src = mediaSrc(video);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (!open || delaysOff()) return;
     const t = setTimeout(closeOverlay, WELCOME_MS);
@@ -138,7 +141,22 @@ function WelcomeModal({ open }: { open: boolean }) {
   return (
     <SocialModal open={open} onClose={closeOverlay} title="Welcome Message" width={620} top={180} testid="modal-welcome" bodyClass="px-[30px] pb-[35px] pt-[22px]">
       <div role="region" aria-label="Video Player" className="overflow-hidden rounded-[20px]">
-        <ImageSlot label="Welcome video" className="h-[315px] w-full" />
+        {src && !failed ? (
+          <video
+            src={src}
+            poster={posterOf(video) ?? undefined}
+            autoPlay
+            muted
+            playsInline
+            aria-label="Welcome video"
+            data-testid="welcome-video"
+            onEnded={() => !delaysOff() && closeOverlay()}
+            onError={() => (reportMediaError(src, "video"), setFailed(true))}
+            className="block h-[315px] w-full bg-black object-cover"
+          />
+        ) : (
+          <img src={FALLBACK.video} alt="" className="h-[315px] w-full object-cover" />
+        )}
       </div>
     </SocialModal>
   );

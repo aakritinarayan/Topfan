@@ -52,7 +52,7 @@ export function ActivityPage({ route }: PageProps) {
           </p>
         ) : (
           shown.map((a, i) => (
-            <ActivityRow key={a.id} a={a} name={fans.find((f) => f.id === a.actorId)?.name ?? ""} avatar={a.actorId ? null : avatar} last={i === shown.length - 1} />
+            <ActivityRow key={a.id} a={a} name={fans.find((f) => f.id === a.actorId)?.name ?? ""} avatar={a.actorId ? (fans.find((f) => f.id === a.actorId)?.avatar ?? null) : avatar} last={i === shown.length - 1} />
           ))
         )}
       </div>

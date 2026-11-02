@@ -11,6 +11,7 @@ import { addComment, editPostText, sendChatMessage } from "../../store/slices/so
 import { openOverlay } from "../../app/ui";
 import { useRouter } from "../../app/router";
 import { Avatar } from "../../platform/ui/surfaces";
+import { personAvatar } from "../../media";
 import { Button, TextButton } from "../../platform/ui/controls";
 import { useToast } from "../../platform/ui/toast";
 import { PostCard, useGo } from "./shared";
@@ -35,6 +36,7 @@ export function PostDetailPage({ route, params, query }: PageProps) {
   const comments = useData((d) => d.social.postComments.filter((c) => c.postId === params.postId));
   const view = useData((d) => d.account.session.fanView);
   const name = useData((d) => d.account.name);
+  const avatar = useData((d) => d.account.avatar);
   const canManage = useData((d) => d.account.session.fanView === "creator" && can(d, "content.write"));
   const act = useAct();
   const toast = useToast();
@@ -83,7 +85,7 @@ export function PostDetailPage({ route, params, query }: PageProps) {
         <ul className="mt-[16px] space-y-[12px]">
           {comments.map((c) => (
             <li key={c.id} className="flex gap-[12px]">
-              <Avatar size={36} ring={2} />
+              <Avatar src={c.author === name ? avatar : personAvatar(c.author)} size={36} ring={2} />
               <div className="flex-1 rounded-inner bg-bg px-[16px] py-[12px]">
                 <p className="text-[14px] font-bold">
                   {c.author} <span className="ml-[8px] text-[12px] font-normal text-muted">{fmt(c.at)}</span>
@@ -128,6 +130,7 @@ export function ChatRoomPage({ route }: PageProps) {
   const msgs = useData((d) => d.social.chatRoom);
   const view = useData((d) => d.account.session.fanView);
   const name = useData((d) => d.account.name);
+  const avatar = useData((d) => d.account.avatar);
   const act = useAct();
   const [text, setText] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -141,7 +144,7 @@ export function ChatRoomPage({ route }: PageProps) {
         <div className="flex-1 space-y-[16px] overflow-y-auto px-[30px] py-[24px]" data-testid="chat-room-messages">
           {msgs.map((m) => (
             <div key={m.id} className={`flex gap-[12px] ${m.mine ? "flex-row-reverse" : ""}`}>
-              <Avatar size={36} ring={2} />
+              <Avatar src={m.author === name ? avatar : personAvatar(m.author)} size={36} ring={2} />
               <div className={`max-w-[70%] rounded-inner px-[16px] py-[12px] ${m.mine ? "bg-accent" : "bg-bg"}`}>
                 <p className="text-[12px] font-bold">
                   {m.author} <span className="ml-[4px] font-normal opacity-70">{fmt(m.at)}</span>
@@ -207,7 +210,7 @@ export function LeaderboardsPage({ route }: PageProps) {
                 {i < 3 && <Trophy size={16} className="text-accent" />}
               </span>
               <span className="flex items-center gap-[12px]">
-                <Avatar size={40} ring={2} />
+                <Avatar src={personAvatar(r.name)} size={40} ring={2} />
                 <span>
                   <span className="block text-[16px] font-bold">{r.name}</span>
                   <span className="block text-[14px] text-muted">@{r.username}</span>

@@ -14,6 +14,22 @@ import type { AppData } from "../store";
 import type { ID, PostType } from "../model";
 import { publishPost } from "./social";
 
+/* ------------------------------------------------------------------ media library (demo) */
+
+/**
+ * The default demo library is complete. Test fixtures for the exception paths (dev/test only):
+ * ?apFixture=missing-asset (the shoot isn't in the library) · ?apFixture=unapproved-asset (not cleared).
+ */
+function seedAssets(): Asset[] {
+  const fixture = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("apFixture");
+  const lib: Asset[] = [
+    { id: "as-northpeak", label: "Northpeak photo shoot", kind: "image", approved: fixture !== "unapproved-asset", src: "posts/northpeak-shoot" },
+    { id: "as-park", label: "Park session photos", kind: "image", approved: true, src: "posts/big-air" },
+    { id: "as-clips", label: "Season clips", kind: "video", approved: true, src: "videos/big-air" },
+  ];
+  return fixture === "missing-asset" ? lib.filter((a) => a.id !== "as-northpeak") : lib;
+}
+
 /* ------------------------------------------------------------------ types */
 
 export type DraftStatus =
@@ -50,12 +66,22 @@ export interface Source {
   facts: string[];
 }
 
+/** An item in the creator's media library (approved = cleared by the creator for posting). */
 export interface Asset {
   id: ID;
   label: string;
   kind: "image" | "video";
   approved: boolean;
+  /** Media key (src/media) of the file. */
+  src: string;
 }
+
+/**
+ * How a draft's media stands (the assistant must tell these apart):
+ * attached = the creator attached it · suggested = picked by Autopilot from the approved library
+ * missing = the required file isn't in the library · unapproved = it's there but not cleared yet.
+ */
+export type MediaState = "attached" | "suggested" | "missing" | "unapproved";
 
 export interface Slot {
   at: string; // ISO
@@ -67,12 +93,12 @@ export interface APDraft {
   id: ID;
   /** Idea key (for duplicate checks and "replace idea"). */
   idea: string;
-  type: Extract<PostType, "text" | "poll" | "images">;
+  type: Extract<PostType, "text" | "poll" | "images" | "video">;
   title: string;
   text: string;
   pollOptions?: string[];
-  /** Required media, if any. */
-  media?: { need: string; assetId: string | null };
+  /** Required media, if any (resolved by runChecks; never fabricated). */
+  media?: { need: string; assetId: string | null; state?: MediaState; src?: string | null };
   sourceIds: ID[];
   /** Factual statements in the text, each tied to an approved source fact (or null = unsupported). */
   claims: { text: string; sourceId: ID | null }[];
@@ -116,7 +142,7 @@ export interface AutopilotState {
 
 /* ------------------------------------------------------------------ demo seed (fictional) */
 
-export const initialAutopilot: AutopilotState = {
+export const initialAutopilot = (): AutopilotState => ({
   enabled: true,
   paused: false,
   strategy: {
@@ -131,12 +157,12 @@ export const initialAutopilot: AutopilotState = {
     { id: "src-tricks", label: "Trick list", kind: "notes", facts: ["switch backside 540", "frontside 720", "cab 900"] },
     { id: "src-posts", label: "Your recent posts", kind: "post", facts: ["glacier trip", "travel week"] },
   ],
-  assets: [{ id: "as-northpeak", label: "Northpeak photo shoot", kind: "image", approved: false }],
+  assets: seedAssets(),
   preferences: [],
   timingRule: false,
   batch: null,
   log: [],
-};
+});
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -297,7 +323,7 @@ function candidates(d: AppData, seq: number): Candidate[] {
       },
       { idea: "trick-poll-2", type: "poll", title: "Next clip", text: "Which one do you want to see first?", pollOptions: ["Frontside 720", "Cab 900"], sourceIds: ["src-tricks"], claims: [], tags: ["poll"] },
       { idea: "motivation-2", type: "text", title: "Keep pushing", text: "Success is a journey, not a destination. Keep pushing every day!", sourceIds: [], claims: [], tags: ["motivational", "generic"] },
-      { idea: "clips-coming", type: "text", title: "Clips coming", text: "Filming new clips for the season. First edit drops soon.", sourceIds: ["src-notes"], claims: [{ text: "filming new clips for the season", sourceId: "src-notes" }], tags: ["training"] },
+      { idea: "clips-coming", type: "video", title: "Clips coming", text: "Filming new clips for the season. First edit drops soon.", media: { need: "Season clips", assetId: null }, sourceIds: ["src-notes"], claims: [{ text: "filming new clips for the season", sourceId: "src-notes" }], tags: ["training"] },
     ];
   }
   return base;
@@ -334,10 +360,19 @@ export function runChecks(d: AppData, x: Pick<APDraft, "text" | "claims" | "medi
     ...(ap.batch?.drafts.filter((o) => o.id !== x.id && o.idea !== x.idea && !["on-hold", "duplicate"].includes(o.status)).map((o) => o.text) ?? []),
   ];
   if (others.some((t) => similarity(t, x.text) >= 0.7)) return { status: "duplicate", reason: "Too close to a recent post." };
-  // Required media.
+  // Required media: only real library files; nothing is generated or substituted.
   if (x.media) {
     const asset = ap.assets.find((a) => a.label === x.media!.need);
-    if (!asset || !asset.approved) return { status: "missing-asset", reason: `Needs a photo from "${x.media.need}".` };
+    const m = x.media as NonNullable<APDraft["media"]>;
+    if (!asset) {
+      Object.assign(m, { assetId: null, state: "missing", src: null });
+      return { status: "missing-asset", reason: `Needs a photo from "${m.need}". It isn't in your media library yet.` };
+    }
+    if (!asset.approved) {
+      Object.assign(m, { assetId: asset.id, state: "unapproved", src: asset.src });
+      return { status: "missing-asset", reason: `The photo from "${m.need}" hasn't been approved for posting yet.` };
+    }
+    Object.assign(m, { assetId: asset.id, state: m.state === "attached" ? "attached" : "suggested", src: asset.src });
   }
   if (x.text.trim().length < 10 || x.text.length > 600) return { status: "needs-info", reason: "The text needs more detail." };
   return { status: "ready" };
@@ -561,9 +596,10 @@ export function markNotified(d: AppData) {
   if (d.autopilot.batch) d.autopilot.batch.notified = true;
 }
 
-/** Demo: the creator approves an asset (e.g. uploads the photo), so held posts can be re-checked. */
+/** Demo: the creator adds (if missing) and approves a library file, so held posts can be re-checked. */
 export function approveAsset(d: AppData, assetId: ID) {
-  const a = d.autopilot.assets.find((x) => x.id === assetId);
+  let a = d.autopilot.assets.find((x) => x.id === assetId);
+  if (!a && assetId === "as-northpeak") d.autopilot.assets.push((a = { id: "as-northpeak", label: "Northpeak photo shoot", kind: "image", approved: true, src: "posts/northpeak-shoot" }));
   if (a) a.approved = true;
   d.autopilot.batch?.drafts.filter((x) => x.status === "missing-asset").forEach((x) => unparkDraft(d, x.id));
 }
@@ -595,6 +631,7 @@ export function saveApproved(d: AppData, ids: ID[]) {
       title: x.type === "text" ? undefined : x.title,
       text: x.text,
       status: "draft",
+      ...(x.media?.src ? { media: [{ kind: x.type === "video" ? ("video" as const) : ("image" as const), placeholder: x.media.need, src: x.type === "video" ? null : x.media.src, video: x.type === "video" ? x.media.src : null }] } : {}),
       extra: { autopilotDraftId: x.id, ...(x.type === "poll" ? { poll: { question: x.text, options: (x.pollOptions ?? []).map((label) => ({ label, votes: 0 })), endsAt: null } } : {}) },
     });
     x.status = "saved";

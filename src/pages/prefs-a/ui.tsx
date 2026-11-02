@@ -8,6 +8,7 @@ import type { AppData } from "../../store/store";
 import type { Capability } from "../../store/permissions";
 import { Button, Input, TextButton, Toggle, useOutside } from "../../platform/ui/controls";
 import { Modal } from "../../platform/ui/surfaces";
+import { FALLBACK, mediaSrc, reportMediaError } from "../../media";
 import { useToast } from "../../platform/ui/toast";
 
 /** Runs a store write and reports failures (role/permission) in a toast. Returns ok. */
@@ -385,8 +386,9 @@ export function ConfirmModal({
   );
 }
 
-/** 28px creator avatar with a thin accent ring (P35 / P38 lists). */
-export function MiniAvatar({ name }: { name: string }) {
+/** 28px creator avatar with a thin accent ring (P35 / P38 lists). `src` = media key; initials when absent. */
+export function MiniAvatar({ name, src }: { name: string; src?: string | null }) {
+  const url = mediaSrc(src);
   const initials = name
     .split(/\s+/)
     .slice(0, 2)
@@ -395,7 +397,9 @@ export function MiniAvatar({ name }: { name: string }) {
     .toUpperCase();
   return (
     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent p-px">
-      <span className="flex h-full w-full items-center justify-center rounded-full bg-placeholder-img text-[10px] font-bold text-white/70">{initials}</span>
+      <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-placeholder-img text-[10px] font-bold text-white/70">
+        {url ? <img src={url} alt="" loading="lazy" decoding="async" onError={(e) => (reportMediaError(url, "avatar"), (e.currentTarget.src = FALLBACK.avatar))} className="h-full w-full object-cover" /> : initials}
+      </span>
     </span>
   );
 }

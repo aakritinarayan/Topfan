@@ -5,7 +5,7 @@ import { useData, useMockLoading } from "../../../store/store";
 import { approveAdBrand, declineAdBrand, money, saveAdPreferences, type AdCatalogBrand } from "../../../store/slices/monetize";
 import type { AdBrand } from "../../../store/model";
 import { Radio } from "../../../platform/ui/controls";
-import { Modal } from "../../../platform/ui/surfaces";
+import { ImageSlot, Modal } from "../../../platform/ui/surfaces";
 import { useToast } from "../../../platform/ui/toast";
 import type { PageProps } from "../../types";
 import { Checkbox, ConfirmModal, MiniSelect, MonetizeFrame, Pill, TableCard, td, th, useRun } from "../ui";
@@ -50,6 +50,15 @@ function Spinner({ label }: { label: string }) {
 }
 
 const initials = (n: string) => n.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+
+/** 50px white brand circle: the brand's logo (media key) when it has one, else its initials. */
+function BrandMark({ name, logo, className = "" }: { name: string; logo?: string | null; className?: string }) {
+  return (
+    <span className={`flex h-[50px] w-[50px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-[14px] font-black text-black ${className}`}>
+      {logo ? <ImageSlot src={logo} fit="contain" label={`${name} logo`} className="h-full w-full" rounded="rounded-full" /> : initials(name)}
+    </span>
+  );
+}
 
 function AdPreferences() {
   const ads = useData((d) => d.monetize.ads);
@@ -131,7 +140,7 @@ function AdPreferences() {
                 {newBrands.length ? (
                   newBrands.map((b) => (
                     <div key={b.id} className="flex items-center gap-[14px] rounded-inner bg-surface p-[12px]" data-testid={`monetize-ads-new-${b.id}`}>
-                      <span className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-white text-[14px] font-black text-black">{initials(b.name)}</span>
+                      <BrandMark name={b.name} logo={b.logo} />
                       <span className="min-w-0 flex-1">
                         <span className="block text-[16px] font-medium">{b.name}</span>
                         <span className="text-[13px] text-[#c8c8c8]">({b.offer})</span>
@@ -165,7 +174,7 @@ function AdPreferences() {
                   {visible.map((b: AdCatalogBrand) => (
                     <li key={b.id} className="flex h-[70px] items-center">
                       <Checkbox checked={sel.includes(b.id)} onChange={() => toggle(b.id)} label={b.name} testid={`monetize-ads-brand-${b.id}`}>
-                        <span className="ml-[4px] flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-white text-[14px] font-black text-black">{initials(b.name)}</span>
+                        <BrandMark name={b.name} logo={b.logo} className="ml-[4px]" />
                         <span>
                           <span className="block text-[16px] font-medium">{b.name}</span>
                           <span className="text-[13px] text-[#c8c8c8]">({b.categories.join(", ")})</span>

@@ -52,7 +52,7 @@ function TSelect({ testid, ...p }: Parameters<typeof Select>[0] & { testid: stri
 
 export function Profile({ route }: PageProps) {
   const saved = useData((d) => d.prefsA.profile);
-  const account = useData((d) => ({ name: d.account.name, avatar: d.account.avatar }));
+  const account = useData((d) => ({ name: d.account.name, avatar: d.account.avatar, cover: d.account.cover }));
   const run = useRun();
   const [f, setF] = useState<PrefProfile>(saved);
   const [displayName, setDisplayName] = useState(account.name);
@@ -108,7 +108,7 @@ export function Profile({ route }: PageProps) {
         <div className="rounded-card bg-surface p-[30px] pt-0">
           {/* Cover banner bleeds to the card edges */}
           <div className="relative -mx-[30px]">
-            <ImageSlot src={coverUrl} label="Cover photo" rounded="rounded-card" className="aspect-[785/393] w-full" />
+            <ImageSlot src={coverUrl ?? account.cover} label="Cover photo" rounded="rounded-card" className="aspect-[785/393] w-full" />
             <button
               type="button"
               aria-label="Upload cover photo"

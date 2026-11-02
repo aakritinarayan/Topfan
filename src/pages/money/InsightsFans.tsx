@@ -278,7 +278,7 @@ function ChipIcon({ icon: Icon }: { icon: typeof Users }) {
 function FanName({ f }: { f: MoneyFan }) {
   return (
     <span className="flex items-center gap-[14px]">
-      <Avatar size={44} ring={2} />
+      <Avatar src={f.avatar} size={44} ring={2} />
       <span className="text-[14px] font-bold">{f.name}</span>
     </span>
   );

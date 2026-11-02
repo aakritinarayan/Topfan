@@ -16,6 +16,8 @@ import { Avatar, ImageSlot, Modal } from "../../platform/ui/surfaces";
 import { useToast } from "../../platform/ui/toast";
 import { creator as demoCreator } from "../../config/demo";
 import { useData, useMockLoading } from "../../store/store";
+import { welcomeVideoOf } from "../../store/slices/social";
+import { VideoPlayer } from "../../platform/ui/media";
 import {
   LIB_NEW_ACTIONS, LIB_PALETTES, LIB_THEMES, makeBioAction, saveLinkInBio, setLinkInBioEnabled, setLinkInBioReferral,
   type BioAction, type LinkInBioState,
@@ -117,6 +119,8 @@ function BioCard({ c, edit, cover, avatar, onCover, onAvatar, name, bio }: { c: 
 
 function ActionCard({ a, c, name }: { a: BioAction; c: PV; name: string }) {
   const [qty, setQty] = useState(1);
+  const avatar = useData((d) => d.account.avatar);
+  const welcomeVideo = useData(welcomeVideoOf);
   const pill = "inline-flex h-[34px] items-center rounded-full px-[26px] text-[11px] font-black uppercase";
   const box: CSSProperties = { borderColor: c.btn, background: c.bg, color: c.text };
   if (a.kind === "welcome-video") {
@@ -127,14 +131,14 @@ function ActionCard({ a, c, name }: { a: BioAction; c: PV; name: string }) {
           <span className="text-[14px] font-medium uppercase tracking-[.4px]">{a.title}</span>
         </div>
         <p className="mt-[16px] text-[14px] font-medium leading-6">{a.text}</p>
-        <ImageSlot label="Welcome video" className="mt-[16px] h-[205px] w-full" rounded="rounded-[18px]" />
+        <VideoPlayer video={welcomeVideo} label="Welcome video" className="mt-[16px] h-[205px] w-full" rounded="rounded-[18px]" />
       </div>
     );
   }
   if (a.kind === "store-item") {
     return (
       <div className="flex gap-[24px] rounded-[10px] border-2 p-[16px]" style={box}>
-        <ImageSlot label={a.title} className="h-[132px] w-[110px] shrink-0" rounded="rounded-[14px]" />
+        <ImageSlot src={a.image} kind="product" label={a.title} className="h-[132px] w-[110px] shrink-0" rounded="rounded-[14px]" />
         <div className="flex-1 rounded-[6px] p-[20px]" style={{ background: c.post, color: c.postText }}>
           <p className="text-[16px] font-bold">{a.title}</p>
           {a.text && <p className="mt-[2px] text-[12px] leading-[18px]">{a.text}</p>}
@@ -156,7 +160,7 @@ function ActionCard({ a, c, name }: { a: BioAction; c: PV; name: string }) {
     return (
       <div className="rounded-[10px] border-2 p-[20px]" style={box}>
         <div className="flex items-center gap-[10px]">
-          <Avatar size={40} ring={2} />
+          <Avatar src={avatar} size={40} ring={2} />
           <span className="text-[14px] font-bold">{name}</span>
         </div>
         <p className="mt-[20px] text-[16px] font-medium leading-6">{a.text}</p>
@@ -193,6 +197,7 @@ function ActionCard({ a, c, name }: { a: BioAction; c: PV; name: string }) {
 function Preview({ device, draft, palettes, edit, onDraft, loading }: { device: Device; draft: Draft; palettes: string[][]; edit: boolean; onDraft: (d: Draft) => void; loading: boolean }) {
   const c = pv(draft.palette === -1 ? draft.customPalette : palettes[draft.palette] ?? palettes[0]);
   const name = useData((d) => d.account.name);
+  const identity = useData((d) => ({ avatar: d.account.avatar, cover: d.account.cover }));
   const [cover, setCover] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -205,7 +210,7 @@ function Preview({ device, draft, palettes, edit, onDraft, loading }: { device: 
   const bg: CSSProperties = { background: draft.theme ? `${THEME_BG[draft.theme]}, ${c.bg}` : c.bg, color: c.text };
 
   const bio = (
-    <BioCard c={c} edit={edit} cover={cover} avatar={avatar} onCover={() => pick("cover")} onAvatar={() => pick("avatar")} name={name} bio={demoCreator.bio} />
+    <BioCard c={c} edit={edit} cover={cover ?? identity.cover} avatar={avatar ?? identity.avatar} onCover={() => pick("cover")} onAvatar={() => pick("avatar")} name={name} bio={demoCreator.bio} />
   );
   const move = (from: number, to: number) => {
     if (from === to) return;

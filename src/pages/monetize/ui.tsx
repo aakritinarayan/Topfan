@@ -10,6 +10,7 @@ import { useData, act, type AppData } from "../../store/store";
 import type { Capability } from "../../store/permissions";
 import { InfoIcon, Toggle, useOutside } from "../../platform/ui/controls";
 import { Avatar, ImageSlot, Modal } from "../../platform/ui/surfaces";
+import { posterOf, type MediaKind } from "../../media";
 import { useToast } from "../../platform/ui/toast";
 
 /* ------------------------------------------------------------ actions */
@@ -292,6 +293,12 @@ export function AddTile({ label, onClick, testid, height = 319 }: { label: strin
   );
 }
 
+/** Content-type fallback kind for a store product's image slot. */
+export const productMediaKind = (kind: string): MediaKind => (kind === "course" ? "course" : kind === "downloadable" ? "ebook" : "product");
+
+/** Still image for a cover that may be a video key (uses the video's poster) or an image key/path. */
+export const stillOf = (v: string | null | undefined) => posterOf(v) ?? v ?? null;
+
 /** Full-bleed media card (306×319, r30) with gradient, title, price and corner controls. */
 export function MediaCard({
   title,
@@ -305,7 +312,12 @@ export function MediaCard({
   frame = "light",
   titleCase,
   height = 319,
+  image,
+  kind = "product",
 }: {
+  /** Media key or path for the card image (src/media). */
+  image?: string | null;
+  kind?: MediaKind;
   title: string;
   price?: string | null;
   external?: boolean;
@@ -325,7 +337,7 @@ export function MediaCard({
       className={`group relative w-full overflow-hidden rounded-card ${frame === "light" ? "border-[4px] border-white/85" : ""} bg-placeholder-img`}
     >
       <button type="button" aria-label={`Open ${title}`} onClick={onOpen} className="absolute inset-0" tabIndex={onOpen ? 0 : -1} disabled={!onOpen}>
-        <ImageSlot label={title} className="h-full w-full" />
+        <ImageSlot src={image} kind={kind} label={title} className="h-full w-full" />
       </button>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
       {topLeft && <div className="absolute left-[20px] top-[20px] flex gap-[10px]">{topLeft}</div>}

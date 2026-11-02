@@ -13,6 +13,7 @@ import { FieldError, Radio, useOutside } from "../../platform/ui/controls";
 import { Avatar, Modal, OutlinePill } from "../../platform/ui/surfaces";
 import { useToast } from "../../platform/ui/toast";
 import { useData } from "../../store/store";
+import { personAvatar } from "../../media";
 import type { Delegate } from "../../store/model";
 import { addDelegate, removeDelegate, REVENUE_STREAMS, updateDelegateAccess } from "../../store/slices/prefsB";
 import type { PageProps } from "../types";
@@ -87,6 +88,7 @@ export function DelegationPage({ route }: PageProps) {
   const { navigate } = useRouter();
   const delegates = useData((d) => d.prefsB.delegates);
   const sessions = useData((d) => d.prefsB.delegateLastSession);
+  const avatars = useData((d) => d.prefsB.delegateAvatars);
   const [filter, setFilter] = useState<Filter>("All");
   const rows = delegates.filter((d) => filter === "All" || statusLabel(d.status) === filter);
   const cols = "grid grid-cols-[minmax(0,344fr)_minmax(0,172fr)_minmax(0,257fr)_66px] items-center";
@@ -120,7 +122,7 @@ export function DelegationPage({ route }: PageProps) {
           {rows.map((d, i) => (
             <div key={d.id} data-testid={`pref-delegation-row-${d.id}`} className={`${cols} h-[81px] ${i < rows.length - 1 ? "border-b border-surface-2" : ""}`}>
               <span className="flex min-w-[0px] items-center gap-[8px]">
-                <Avatar size={44} ring={2} />
+                <Avatar src={avatars?.[d.id] ?? personAvatar(d.id)} size={44} ring={2} />
                 <span className="min-w-[0px]">
                   <span className="block truncate text-[14px] font-bold text-accent">{fullName(d)}</span>
                   <span className="block truncate text-[11px] text-soft">{d.email}</span>
@@ -326,6 +328,7 @@ export function DelegateDetailsPage({ route, query }: PageProps) {
   const toast = useToast();
   const delegates = useData((d) => d.prefsB.delegates);
   const sessions = useData((d) => d.prefsB.delegateLastSession);
+  const avatars = useData((d) => d.prefsB.delegateAvatars);
   const del = delegates.find((d) => d.id === query.get("id")) ?? delegates[0];
   const [year, setYear] = useState<"2026" | "2025">("2026");
   const [editOpen, setEditOpen] = useState(false);
@@ -387,7 +390,7 @@ export function DelegateDetailsPage({ route, query }: PageProps) {
 
       <div className="mt-[30px] rounded-card bg-surface p-[30px]" data-testid="pref-delegate-card">
         <div className="flex items-start gap-[30px] pt-[22px]">
-          <Avatar size={104} ring={2} />
+          <Avatar src={avatars?.[del.id] ?? personAvatar(del.id)} size={104} ring={2} />
           <div className="min-w-[0px] flex-1 pt-[4px]">
             <div className="flex items-start justify-between gap-[16px]">
               <p className="flex items-baseline gap-[8px]">

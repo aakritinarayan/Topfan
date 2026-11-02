@@ -11,6 +11,7 @@ import { deletePost, extraOf, toggleLike, togglePin, votePoll } from "../../stor
 import { routeById, pathFor } from "../../app/routeCatalog";
 import { useRouter } from "../../app/router";
 import { ImageSlot } from "../../platform/ui/surfaces";
+import { VideoPlayer } from "../../platform/ui/media";
 import { Button, TextButton, useOutside } from "../../platform/ui/controls";
 import { useToast } from "../../platform/ui/toast";
 
@@ -221,10 +222,10 @@ function Media({ post }: { post: Post }) {
     return (
       <div className="relative mt-[16px] grid grid-cols-2 gap-[6px] overflow-hidden rounded-2xl">
         {badge && <Badge>{badge}</Badge>}
-        <ImageSlot label={media[0].placeholder} className="col-span-2 h-[410px] w-full" />
-        <ImageSlot label={media[1].placeholder} className="h-[252px] w-full" />
+        <ImageSlot src={media[0].src} label={media[0].placeholder} className="col-span-2 h-[410px] w-full" />
+        <ImageSlot src={media[1].src} label={media[1].placeholder} className="h-[252px] w-full" />
         <div className="relative">
-          <ImageSlot label={media[2]?.placeholder ?? "Image"} className="h-[252px] w-full" />
+          <ImageSlot src={media[2]?.src} label={media[2]?.placeholder ?? "Image"} className="h-[252px] w-full" />
           {extra > 0 && (
             <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-[18px] font-bold">+{extra} More</span>
           )}
@@ -237,16 +238,9 @@ function Media({ post }: { post: Post }) {
     <div className={`relative overflow-hidden rounded-2xl ${post.type === "poll" ? "mt-[50px]" : "mt-[16px]"}`}>
       {badge && <Badge>{badge}</Badge>}
       {post.type === "video" || x.variant === "welcome" ? (
-        <div aria-label={`${media[0].placeholder} placeholder`} className={`${h} w-full bg-placeholder-img`} />
+        <VideoPlayer video={media[0].video} poster={media[0].src} label={media[0].placeholder} className={`${h} w-full`} />
       ) : (
-        <ImageSlot label={media[0].placeholder} className={`${h} w-full ${post.type === "poll" ? "!bg-[#efefef] !text-black/25" : ""}`} />
-      )}
-      {(post.type === "video" || x.variant === "welcome") && (
-        <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
-          <span className="flex h-[56px] w-[56px] items-center justify-center rounded-full bg-black/45">
-            <Play size={26} className="ml-[4px] fill-white" />
-          </span>
-        </span>
+        <ImageSlot src={media[0].src} label={media[0].placeholder} className={`${h} w-full ${post.type === "poll" ? "!bg-[#efefef] !text-black/25" : ""}`} />
       )}
     </div>
   );

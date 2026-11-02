@@ -13,7 +13,7 @@ import {
 import { ImageSlot } from "../../../platform/ui/surfaces";
 import { useOutside } from "../../../platform/ui/controls";
 import type { PageProps } from "../../types";
-import { ConfirmModal, Pill, PublicHeader, PublicPage, RedCircle, ShareButton, Stepper, TextArea, TextInput, useRun } from "../ui";
+import { ConfirmModal, Pill, productMediaKind, PublicHeader, PublicPage, RedCircle, ShareButton, Stepper, TextArea, TextInput, useRun } from "../ui";
 
 const FILTERS: { id: "all" | ProductKind; label: string }[] = [
   { id: "all", label: "ALL" },
@@ -137,7 +137,7 @@ function StoreCard({
       className={`relative h-[305px] overflow-hidden rounded-card border-[5px] border-[#e9e9e9] bg-placeholder-img ${dragging ? "opacity-50" : ""}`}
     >
       <button type="button" aria-label={`Open ${p.title}`} onClick={() => navigate(pathFor("public-product", { handle, productId: p.id }))} className="absolute inset-0">
-        <ImageSlot label={p.title} className="h-full w-full" />
+        <ImageSlot src={p.image} kind={productMediaKind(p.kind)} label={p.title} className="h-full w-full" />
       </button>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
       {full && <span className="absolute left-[10px] top-[12px] rounded-pill bg-accent px-[10px] py-[8px] text-[13px] leading-none">{KIND_LABEL[p.kind].badge}</span>}
@@ -247,7 +247,8 @@ function Product({ routeId, p, name, handle, storePath }: { routeId: string; p: 
       </div>
       <div className="mt-[30px] flex items-start gap-[56px]">
         <div className="ml-[24px] h-[450px] w-[334px] shrink-0 bg-[#f0f0f0]" data-testid="public-product-image">
-          {p.image ? <img src={p.image} alt={p.title} className="h-full w-full object-contain" /> : <ImageSlot label={p.title} className="h-full w-full" />}
+          {/* Merch packshots sit whole on the light panel (85); photos/covers fill it. */}
+          <ImageSlot src={p.image} kind={productMediaKind(p.kind)} fit={p.kind === "merchandise" ? "contain" : "cover"} label={p.title} className={`h-full w-full ${p.kind === "merchandise" ? "!bg-transparent" : ""}`} eager />
         </div>
         <section className="min-w-0 flex-1 rounded-card bg-surface px-[30px] pb-[30px] pt-[30px]" data-testid="public-product-card">
           <div className="flex items-start justify-between gap-[12px]">
@@ -382,7 +383,7 @@ function Booking({ routeId, p, name, handle, storePath }: { routeId: string; p: 
       <div className="mt-[16px] flex items-start gap-[16px]">
         <section className="w-1/2 rounded-[24px] bg-surface p-[24px]">
           <div className="flex items-start justify-between">
-            <ImageSlot label={p.title} className="h-[300px] w-[300px]" rounded="rounded-inner" />
+            <ImageSlot src={p.image} kind={productMediaKind(p.kind)} label={p.title} className="h-[300px] w-[300px]" rounded="rounded-inner" eager />
             <ShareButton testid="public-booking-share" />
           </div>
           <h2 className="mt-[30px] text-[24px] font-bold">{p.title}</h2>

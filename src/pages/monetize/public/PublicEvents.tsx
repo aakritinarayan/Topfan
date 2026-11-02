@@ -10,7 +10,7 @@ import type { PageProps } from "../../types";
 import { CalendarStar, ConfirmModal, DateBadge, EmptyState, Pill, PublicHeader, PublicPage, ShareButton, Skel, Stepper, useRun } from "../ui";
 
 export function PublicEventsPage({ route, params }: PageProps) {
-  const m = useData((d) => ({ name: d.account.name, label: d.monetize.eventsLabel, title: d.monetize.eventsBannerTitle, events: selectEvents(d) }));
+  const m = useData((d) => ({ name: d.account.name, label: d.monetize.eventsLabel, title: d.monetize.eventsBannerTitle, cover: d.monetize.eventsCover ?? null, events: selectEvents(d) }));
   const loading = useMockLoading(900);
   const [tab, setTab] = useState<"active" | "past">("active");
   const list = m.events.filter((e) => (tab === "past" ? isPastEvent(e) : !isPastEvent(e)));
@@ -40,7 +40,7 @@ export function PublicEventsPage({ route, params }: PageProps) {
       <PublicHeader avatar crumbs={[{ label: `${m.name}'s ${m.label}` }]} />
       <section className="mt-[30px] overflow-hidden rounded-card bg-surface" data-testid="public-events-card">
         <div className="relative h-[400px]">
-          <ImageSlot label="Events banner" className="h-full w-full" />
+          <ImageSlot src={m.cover} kind="event" label="Events banner" className="h-full w-full" eager />
           <div className="absolute inset-x-0 bottom-0 h-[200px] bg-gradient-to-t from-surface to-transparent" />
           <h2 className="absolute inset-x-0 top-[300px] text-center text-[30px] font-bold">{m.title}</h2>
           <p className="absolute bottom-[10px] left-[30px] text-[24px] font-bold" data-testid="public-events-count">
@@ -159,7 +159,7 @@ function EventDetail({ routeId, e, name, label, listPath }: { routeId: string; e
       <div className="mt-[16px] flex items-start gap-[16px]">
         <section className="w-1/2 rounded-[24px] bg-surface p-[24px]" data-testid="public-event-info">
           <div className="flex items-start justify-between">
-            {e.image ? <img src={e.image} alt="" className="h-[300px] w-[300px] rounded-inner object-cover" /> : <ImageSlot label={e.title} className="h-[300px] w-[300px]" rounded="rounded-inner" />}
+            <ImageSlot src={e.image} kind="event" label={e.title} className="h-[300px] w-[300px]" rounded="rounded-inner" eager />
             <ShareButton testid="public-event-share" />
           </div>
           <h2 className="mt-[30px] text-[24px] font-bold uppercase">{e.title}</h2>

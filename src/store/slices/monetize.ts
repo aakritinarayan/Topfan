@@ -112,7 +112,10 @@ export interface VipOffer {
   price?: number;
   endsAt: string;
   active: boolean;
+  /** Brand logo (media key or uploaded path): VIP Offers rows, public deal list. */
   logo?: string | null;
+  /** Deal photo (media key): public deal detail. */
+  image?: string | null;
   order: number;
 }
 
@@ -124,12 +127,15 @@ export interface Episode {
   releaseDate?: string | null;
   description: string;
   locked: boolean;
+  /** Playable video (media key); its poster is the thumbnail. */
+  video?: string | null;
 }
 export interface VideoSeries {
   id: ID;
   title: string;
   description: string;
   price: number;
+  /** Cover: an image key/path, or a video key (its poster is shown). */
   cover?: string | null;
   episodes: Episode[];
 }
@@ -159,7 +165,12 @@ export interface AdCatalogBrand {
   name: string;
   categories: string[];
   enabled: boolean;
+  /** Brand logo (media key); brands without one show initials. */
+  logo?: string | null;
 }
+
+/** Contract AdBrand plus an optional logo (media key) for the New Brands to Review list. */
+export type MAdBrand = AdBrand & { logo?: string | null };
 
 export interface Booking {
   id: ID;
@@ -187,7 +198,7 @@ export interface MonetizeState {
   plans: SubscriptionPlan[];
   /** Contract type: other sections (and dev profiles) push plain EventItems. Read through toMEvent(). */
   events: EventItem[];
-  adBrands: AdBrand[];
+  adBrands: MAdBrand[];
   /* --- Monetize-only --- */
   products: Product[];
   newsletters: Newsletter[];
@@ -199,6 +210,8 @@ export interface MonetizeState {
   eventsLabel: string;
   eventsBannerTitle: string;
   eventsDisplay: boolean;
+  /** Events banner image (media key or uploaded path): Monetize › Events cover + public listing banner. */
+  eventsCover?: string | null;
   bandsintown: { connected: boolean; artist: string; autoImport: boolean; lastImportAt: string | null };
   vipOffers: VipOffer[];
   vipLabel: string;
@@ -284,31 +297,31 @@ export const initialMonetize: MonetizeState = {
   ],
   events: [], // spec default for this demo: no events
   adBrands: [
-    { id: "ad1", name: "Northpeak Outfitters", status: "new", offer: "Sponsored post" },
-    { id: "ad2", name: "Glacier Hydration", status: "new", offer: "Story mention" },
+    { id: "ad1", name: "Northpeak Outfitters", status: "new", offer: "Sponsored post", logo: "illustrations/brands/northpeak" },
+    { id: "ad2", name: "Glacier Hydration", status: "new", offer: "Story mention", logo: "illustrations/brands/glacier-hydration" },
   ],
   products: [
-    { id: "exp-social", kind: "experience", title: "Comment or Follow on Social Media", description: "I'll comment on one of your posts or follow you back on social media.", price: 100, locked: true, published: true, external: false, featured: true, order: 1, experienceType: "Social Media Interaction", createdAt: "2025-05-01" },
-    { id: "merch-spectrum", kind: "merchandise", title: "Spectrum X", description: "All Mountain Snowboard. A poppy, versatile and fun board with twin flex and camber that makes short work of every kind of terrain and condition.", price: 899.95, locked: false, published: true, external: false, featured: false, order: 2, source: "shopify", collection: "Home Page", options: [{ name: "Color", values: ["SPECTRUM", "COSMIC", "LINKS"] }, { name: "Board Size", values: ["158", "160", "154"] }], createdAt: "2025-02-01" },
-    { id: "exp-personal-video", kind: "experience", title: "Personalized Video from Me", description: "A short personalized video message for you or a friend: birthdays, shout-outs or riding tips.", price: 50, locked: false, published: true, external: false, featured: false, order: 3, experienceType: "Personalized Video", createdAt: "2025-04-01" },
-    { id: "exp-video-call", kind: "experience", title: "Live Video Call with Me", description: "We will do a video call where I can show you how to tune your snowboard or answer any of your questions about snowboarding technique!", price: 100, locked: false, published: true, external: false, featured: false, order: 4, experienceType: "1:1 Video Call", durations: [{ label: "15 Minutes", price: 100 }, { label: "30 Minutes", price: 150 }, { label: "45 Minutes", price: 200 }], createdAt: "2025-03-01" },
-    { id: "dl-switch", kind: "downloadable", title: "E-book: How to Ride Switch", description: "In this handy manual, you'll learn to ride switch like a pro.", price: 15, locked: false, published: true, external: false, featured: true, order: 5, fileName: "how-to-ride-switch.pdf", createdAt: "2025-06-15" },
-    { id: "nft-yeti", kind: "nft", title: "Bored Snowboarding Yeti", description: "A one-of-one collectible from my first season on tour.", price: 350, locked: true, published: true, external: true, externalUrl: "https://marketplace.example.com/yeti", featured: true, order: 6, source: "external", createdAt: "2025-05-30" },
-    { id: "merch-airbag", kind: "merchandise", title: "Avalanche Airbag Pack E2-3", description: "Backcountry airbag pack I ride with on every splitboard tour.", price: 1399, locked: true, published: true, external: true, externalUrl: "https://shop.example.com/airbag-pack", featured: false, order: 7, source: "external", collection: "Automated Collection", createdAt: "2025-05-10" },
-    { id: "course-learn", kind: "course", title: "Learn How to Snowboard", description: "A step-by-step course from your first day on the hill to linking turns with confidence.", price: 60, locked: false, published: true, external: false, featured: false, order: 8, createdAt: "2025-04-22" },
-    { id: "exp-park", kind: "experience", title: "In Person Terrain Park Session @ Copper Ridge Mountain", description: "Ride a half-day park session with me and work on your rails, jumps and style.", price: 250, locked: false, published: true, external: false, featured: false, order: 9, experienceType: "In Person Session", createdAt: "2025-06-01" },
-    { id: "dl-tune", kind: "downloadable", title: "E-Book: Tune a Snowboard", description: "In this e-book, I will teach you my secrets to tuning a competition-ready snowboard.", price: 12, locked: false, published: true, external: false, featured: true, order: 10, fileName: "tune-a-snowboard.pdf", createdAt: "2025-03-18" },
-    { id: "merch-hero", kind: "merchandise", title: "Home Mountain Hero", description: "A playful all-mountain twin built for laps with friends.", price: 799.95, locked: false, published: true, external: false, featured: true, order: 11, source: "shopify", collection: "Home Page", options: [{ name: "Board Size", values: ["152", "155", "158"] }], createdAt: "2025-02-20" },
-    { id: "merch-throwback", kind: "merchandise", title: "Throwback", description: "A soft, surfy freestyle deck for spring slush and park laps.", price: 529.95, locked: false, published: true, external: false, featured: false, order: 12, source: "shopify", collection: "Home Page", options: [{ name: "Board Size", values: ["150", "154", "157"] }], createdAt: "2025-02-10" },
+    { id: "exp-social", kind: "experience", title: "Comment or Follow on Social Media", description: "I'll comment on one of your posts or follow you back on social media.", price: 100, locked: true, published: true, external: false, featured: true, order: 1, experienceType: "Social Media Interaction", image: "experiences/social", createdAt: "2025-05-01" },
+    { id: "merch-spectrum", kind: "merchandise", title: "Spectrum X", description: "All Mountain Snowboard. A poppy, versatile and fun board with twin flex and camber that makes short work of every kind of terrain and condition.", price: 899.95, locked: false, published: true, external: false, featured: false, order: 2, source: "shopify", collection: "Home Page", options: [{ name: "Color", values: ["SPECTRUM", "COSMIC", "LINKS"] }, { name: "Board Size", values: ["158", "160", "154"] }], image: "merchandise/spectrum-x", createdAt: "2025-02-01" },
+    { id: "exp-personal-video", kind: "experience", title: "Personalized Video from Me", description: "A short personalized video message for you or a friend: birthdays, shout-outs or riding tips.", price: 50, locked: false, published: true, external: false, featured: false, order: 3, experienceType: "Personalized Video", image: "experiences/personal-video", createdAt: "2025-04-01" },
+    { id: "exp-video-call", kind: "experience", title: "Live Video Call with Me", description: "We will do a video call where I can show you how to tune your snowboard or answer any of your questions about snowboarding technique!", price: 100, locked: false, published: true, external: false, featured: false, order: 4, experienceType: "1:1 Video Call", durations: [{ label: "15 Minutes", price: 100 }, { label: "30 Minutes", price: 150 }, { label: "45 Minutes", price: 200 }], image: "experiences/video-call", createdAt: "2025-03-01" },
+    { id: "dl-switch", kind: "downloadable", title: "E-book: How to Ride Switch", description: "In this handy manual, you'll learn to ride switch like a pro.", price: 15, locked: false, published: true, external: false, featured: true, order: 5, fileName: "how-to-ride-switch.pdf", image: "downloadables/ebook-switch", createdAt: "2025-06-15" },
+    { id: "nft-yeti", kind: "nft", title: "Bored Snowboarding Yeti", description: "A one-of-one collectible from my first season on tour.", price: 350, locked: true, published: true, external: true, externalUrl: "https://marketplace.example.com/yeti", featured: true, order: 6, source: "external", image: "posts/nft-yeti", createdAt: "2025-05-30" },
+    { id: "merch-airbag", kind: "merchandise", title: "Avalanche Airbag Pack E2-3", description: "Backcountry airbag pack I ride with on every splitboard tour.", price: 1399, locked: true, published: true, external: true, externalUrl: "https://shop.example.com/airbag-pack", featured: false, order: 7, source: "external", collection: "Automated Collection", image: "merchandise/airbag-pack", createdAt: "2025-05-10" },
+    { id: "course-learn", kind: "course", title: "Learn How to Snowboard", description: "A step-by-step course from your first day on the hill to linking turns with confidence.", price: 60, locked: false, published: true, external: false, featured: false, order: 8, image: "courses/learn-to-snowboard", createdAt: "2025-04-22" },
+    { id: "exp-park", kind: "experience", title: "In Person Terrain Park Session @ Copper Ridge Mountain", description: "Ride a half-day park session with me and work on your rails, jumps and style.", price: 250, locked: false, published: true, external: false, featured: false, order: 9, experienceType: "In Person Session", image: "experiences/park-session", createdAt: "2025-06-01" },
+    { id: "dl-tune", kind: "downloadable", title: "E-Book: Tune a Snowboard", description: "In this e-book, I will teach you my secrets to tuning a competition-ready snowboard.", price: 12, locked: false, published: true, external: false, featured: true, order: 10, fileName: "tune-a-snowboard.pdf", image: "downloadables/ebook-tune", createdAt: "2025-03-18" },
+    { id: "merch-hero", kind: "merchandise", title: "Home Mountain Hero", description: "A playful all-mountain twin built for laps with friends.", price: 799.95, locked: false, published: true, external: false, featured: true, order: 11, source: "shopify", collection: "Home Page", options: [{ name: "Board Size", values: ["152", "155", "158"] }], image: "merchandise/home-mountain-hero", createdAt: "2025-02-20" },
+    { id: "merch-throwback", kind: "merchandise", title: "Throwback", description: "A soft, surfy freestyle deck for spring slush and park laps.", price: 529.95, locked: false, published: true, external: false, featured: false, order: 12, source: "shopify", collection: "Home Page", options: [{ name: "Board Size", values: ["150", "154", "157"] }], image: "merchandise/throwback", createdAt: "2025-02-10" },
   ],
   newsletters: [
-    { id: "nl1", title: "", body: "", status: "Draft", lock: "Free", audience: "all", planIds: [], groupIds: [], sent: 0, opened: 0, unlocked: 0, createdAt: "2026-10-28" },
-    { id: "nl2", title: "The Unstoppable Ascent of Snowboarding: Carving a Culture 🏂", body: "How a niche winter pastime grew into a global culture.", status: "Draft", lock: "Subscribers", audience: "all", planIds: [], groupIds: [], sent: 0, opened: 0, unlocked: 0, createdAt: "2026-10-20" },
-    { id: "nl3", title: "My New Ride: Summit Pro Hero 🏂🔥", body: "First impressions of my new board after a week of park laps.", status: "Sent", lock: "Paid", price: 3, audience: "all", planIds: [], groupIds: [], sent: 12, opened: 5, unlocked: 2, sentAt: "2026-10-02", createdAt: "2026-10-01" },
-    { id: "nl4", title: "Asia Bound: Deep Powder & Big Lines in Japan 🇯🇵❄️", body: "Two weeks of storm days and tree runs.", status: "Sent", lock: "Paid", price: 3, audience: "all", planIds: [], groupIds: [], sent: 12, opened: 7, unlocked: 2, sentAt: "2026-02-14", createdAt: "2026-02-13" },
-    { id: "nl5", title: "Chasing Powder Dreams: Austrian Adventure 🇦🇹🏂", body: "Alpine villages, long lunches and longer descents.", status: "Sent", lock: "Paid", price: 3, audience: "all", planIds: [], groupIds: [], sent: 10, opened: 6, unlocked: 0, sentAt: "2026-01-20", createdAt: "2026-01-19" },
-    { id: "nl6", title: "Training Progress Report for Summit Games 2026", body: "Where my runs are at and what I'm working on next.", status: "Sent", lock: "Subscribers", audience: "all", planIds: [], groupIds: [], sent: 9, opened: 7, unlocked: 0, sentAt: "2025-12-10", createdAt: "2025-12-09" },
-    { id: "nl7", title: "Snow Report from Copper Ridge", body: "Early-season conditions and what's open.", status: "Sent", lock: "Paid", price: 2, audience: "all", planIds: [], groupIds: [], sent: 7, opened: 3, unlocked: 2, sentAt: "2025-11-25", createdAt: "2025-11-24" },
+    { id: "nl1", title: "", body: "", status: "Draft", lock: "Free", audience: "all", planIds: [], groupIds: [], sent: 0, opened: 0, unlocked: 0, image: "posts/nl-welcome", createdAt: "2026-10-28" },
+    { id: "nl2", title: "The Unstoppable Ascent of Snowboarding: Carving a Culture 🏂", body: "How a niche winter pastime grew into a global culture.", status: "Draft", lock: "Subscribers", audience: "all", planIds: [], groupIds: [], sent: 0, opened: 0, unlocked: 0, image: "posts/nl-culture", createdAt: "2026-10-20" },
+    { id: "nl3", title: "My New Ride: Summit Pro Hero 🏂🔥", body: "First impressions of my new board after a week of park laps.", status: "Sent", lock: "Paid", price: 3, audience: "all", planIds: [], groupIds: [], sent: 12, opened: 5, unlocked: 2, sentAt: "2026-10-02", image: "posts/nl-new-ride", createdAt: "2026-10-01" },
+    { id: "nl4", title: "Asia Bound: Deep Powder & Big Lines in Japan 🇯🇵❄️", body: "Two weeks of storm days and tree runs.", status: "Sent", lock: "Paid", price: 3, audience: "all", planIds: [], groupIds: [], sent: 12, opened: 7, unlocked: 2, sentAt: "2026-02-14", image: "posts/nl-japan", createdAt: "2026-02-13" },
+    { id: "nl5", title: "Chasing Powder Dreams: Austrian Adventure 🇦🇹🏂", body: "Alpine villages, long lunches and longer descents.", status: "Sent", lock: "Paid", price: 3, audience: "all", planIds: [], groupIds: [], sent: 10, opened: 6, unlocked: 0, sentAt: "2026-01-20", image: "posts/nl-austria", createdAt: "2026-01-19" },
+    { id: "nl6", title: "Training Progress Report for Summit Games 2026", body: "Where my runs are at and what I'm working on next.", status: "Sent", lock: "Subscribers", audience: "all", planIds: [], groupIds: [], sent: 9, opened: 7, unlocked: 0, sentAt: "2025-12-10", image: "posts/nl-training", createdAt: "2025-12-09" },
+    { id: "nl7", title: "Snow Report from Copper Ridge", body: "Early-season conditions and what's open.", status: "Sent", lock: "Paid", price: 2, audience: "all", planIds: [], groupIds: [], sent: 7, opened: 3, unlocked: 2, sentAt: "2025-11-25", image: "posts/nl-snow-report", createdAt: "2025-11-24" },
   ],
   newslettersOnProfile: true,
   recipients,
@@ -318,28 +331,29 @@ export const initialMonetize: MonetizeState = {
   eventsLabel: "Competitions",
   eventsBannerTitle: "Competitions",
   eventsDisplay: true,
+  eventsCover: "events/banner",
   bandsintown: { connected: false, artist: "", autoImport: false, lastImportAt: null },
   vipOffers: [
-    { id: "vip1", title: "Free Gift with any Northpeak Goggle Purchase", description: "Our friends at Northpeak have a special gift for my best fans.", codeType: "General Code", code: "AJGOGGLE", issued: 0, left: "Unlimited", lockOptions: ["Individual Purchase", "Subscription"], price: 5, endsAt: "2029-03-02", active: true, order: 1 },
-    { id: "vip2", title: "10% Off at Ridgeline Boards", description: "Take 10% off anything in the Ridgeline Boards online shop.", codeType: "General Code", code: "AJRIDE10", issued: 0, left: "Unlimited", lockOptions: ["Subscription"], endsAt: "2028-12-31", active: true, order: 2 },
-    { id: "vip3", title: "$1 Off Summit Soda Products at Corner Mart", description: "In honor of my win at the Summit Games, Summit Soda is offering $1.00 off any product at Corner Mart.", codeType: "General Code", code: "AJSODA1", issued: 3, left: "Unlimited", lockOptions: ["Free"], endsAt: "2028-09-15", active: true, order: 3 },
+    { id: "vip1", title: "Free Gift with any Northpeak Goggle Purchase", description: "Our friends at Northpeak have a special gift for my best fans.", codeType: "General Code", code: "AJGOGGLE", issued: 0, left: "Unlimited", lockOptions: ["Individual Purchase", "Subscription"], price: 5, endsAt: "2029-03-02", active: true, logo: "illustrations/brands/northpeak", image: "experiences/vip-goggles", order: 1 },
+    { id: "vip2", title: "10% Off at Ridgeline Boards", description: "Take 10% off anything in the Ridgeline Boards online shop.", codeType: "General Code", code: "AJRIDE10", issued: 0, left: "Unlimited", lockOptions: ["Subscription"], endsAt: "2028-12-31", active: true, logo: "illustrations/brands/ridgeline-boards", image: "experiences/vip-boards", order: 2 },
+    { id: "vip3", title: "$1 Off Summit Soda Products at Corner Mart", description: "In honor of my win at the Summit Games, Summit Soda is offering $1.00 off any product at Corner Mart.", codeType: "General Code", code: "AJSODA1", issued: 3, left: "Unlimited", lockOptions: ["Free"], endsAt: "2028-09-15", active: true, logo: "illustrations/brands/summit-soda", image: "experiences/vip-soda", order: 3 },
   ],
   vipLabel: "VIP Deals",
   vipDisplay: true,
   portfolios: [
     {
-      id: "1760000000001", title: "Videos", type: "Video", banner: null, createdAt: "2026-02-15",
+      id: "1760000000001", title: "Videos", type: "Video", banner: "videos/banner", createdAt: "2026-02-15",
       series: [
         {
-          id: "1760000000777", title: "Competition Videos", description: "Videos of my various snowboard competitions around the world", price: 20, cover: null,
+          id: "1760000000777", title: "Competition Videos", description: "Videos of my various snowboard competitions around the world", price: 20, cover: "videos/competition-run",
           episodes: [
-            { id: "ep1", title: "2026 Summit Games in Aspen", duration: "00:09", seconds: 8, releaseDate: "2026-01-23", description: "Took Bronze on this run", locked: true },
-            { id: "ep2", title: "Ridge Tour Big Air", duration: "00:09", seconds: 8, releaseDate: null, description: "One of my favorite events", locked: true },
-            { id: "ep3", title: "Big Air in Breckenridge", duration: "00:09", seconds: 8, releaseDate: null, description: "Gold medal at Ridge Tour 2024", locked: false },
+            { id: "ep1", title: "2026 Summit Games in Aspen", duration: "00:09", seconds: 8, releaseDate: "2026-01-23", description: "Took Bronze on this run", locked: true, video: "videos/halfpipe" },
+            { id: "ep2", title: "Ridge Tour Big Air", duration: "00:09", seconds: 8, releaseDate: null, description: "One of my favorite events", locked: true, video: "videos/big-air" },
+            { id: "ep3", title: "Big Air in Breckenridge", duration: "00:09", seconds: 8, releaseDate: null, description: "Gold medal at Ridge Tour 2024", locked: false, video: "videos/slopestyle" },
           ],
         },
       ],
-      singles: [{ id: "sv1", title: "Single Video", duration: "00:14", seconds: 13, releaseDate: null, description: "", locked: false }],
+      singles: [{ id: "sv1", title: "Single Video", duration: "00:05", seconds: 5, releaseDate: null, description: "", locked: false, video: "videos/reel-park" }],
     },
   ],
   discountCodes: [
@@ -353,7 +367,7 @@ export const initialMonetize: MonetizeState = {
     catalog: [
       { id: "b1", name: "Stridewell", categories: ["Athletic Equipment"], enabled: false },
       { id: "b2", name: "Ranchline Boots", categories: ["Athletic Wear"], enabled: false },
-      { id: "b3", name: "Ridgeline Boards", categories: ["Athletic Equipment"], enabled: true },
+      { id: "b3", name: "Ridgeline Boards", categories: ["Athletic Equipment"], enabled: true, logo: "illustrations/brands/ridgeline-boards" },
       { id: "b4", name: "Cascade Outerwear", categories: ["Athletic Wear"], enabled: false },
       { id: "b5", name: "Peakbrew Coffee", categories: ["Beverages"], enabled: false },
       { id: "b6", name: "Shoreline Apparel", categories: ["Athletic Wear"], enabled: false },
@@ -616,7 +630,7 @@ export function saveBandsintown(d: AppData, s: Partial<MonetizeState["bandsintow
 export function importBandsintown(d: AppData) {
   const sample: EventInput = {
     title: "Copper Ridge Rail Jam", date: "2027-01-16T20:00:00Z", time: "1:00 PM", timeZone: "US/Mountain", tzAbbr: "MST",
-    location: "Copper Ridge Resort - Summit County, Colorado", description: "Imported from Bandsintown.", kind: "event", image: null,
+    location: "Copper Ridge Resort - Summit County, Colorado", description: "Imported from Bandsintown.", kind: "event", image: "events/poster",
     ctas: ["TICKETS"], maxPerPerson: 10, tickets: [],
   };
   if (!d.monetize.events.some((e) => e.title === sample.title)) addEvent(d, sample, "bandsintown");

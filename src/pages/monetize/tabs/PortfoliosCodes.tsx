@@ -10,7 +10,7 @@ import {
 import { ImageSlot, Modal } from "../../../platform/ui/surfaces";
 import type { PageProps } from "../../types";
 import {
-  BlackCircle, ChipChoice, ConfirmModal, Field, FilePick, MarkButton, MonetizeFrame, Pill, PillTabs, SectionHeader, TableCard, TextInput, td, th, useHandle, useRun,
+  BlackCircle, ChipChoice, ConfirmModal, Field, FilePick, MarkButton, MonetizeFrame, Pill, PillTabs, SectionHeader, stillOf, TableCard, TextInput, td, th, useHandle, useRun,
 } from "../ui";
 
 /* ----------------------------------------------------------------- Portfolios */
@@ -37,7 +37,7 @@ export function PortfoliosTab({ route }: PageProps) {
               onClick={() => navigate(pathFor("public-videos", { handle, portfolioId: p.id }))}
               className="relative h-[193px] w-[284px] rounded-inner bg-bg p-[4px] text-left hover:ring-1 hover:ring-accent"
             >
-              {p.banner ? <img src={p.banner} alt="" className="h-[138px] w-full rounded-tile object-cover" /> : <ImageSlot label={p.title} className="h-[138px] w-full" rounded="rounded-tile" />}
+              <ImageSlot src={stillOf(p.banner)} label={p.title} className="h-[138px] w-full" rounded="rounded-tile" />
               <span className="absolute left-[8px] top-[12px] rounded-pill bg-surface/90 px-[8px] py-[3px] text-[12px] font-medium">{p.type}</span>
               <span className="mt-[16px] block px-[16px] text-[16px] font-bold">{p.title}</span>
             </button>

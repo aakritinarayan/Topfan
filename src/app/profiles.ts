@@ -7,6 +7,7 @@ import { act, resetData } from "../store/store";
 import type { EventItem, Post, SubscriptionPlan } from "../store/model";
 import type { AppData } from "../store/store";
 import { resetWorkflow } from "./agent-context/workflow-state";
+import { creatorMedia } from "../media";
 
 interface Profile {
   id: string;
@@ -31,6 +32,13 @@ const identity = (d: AppData, name: string, handle: string, category: string, pr
   d.account.handle = handle;
   d.account.creatorCategory = category;
   d.account.session.profileId = profileId;
+  // Identity media follows the profile everywhere (header, sidebar, feed cover, site preview).
+  const m = creatorMedia(handle);
+  d.account.avatar = m.avatar;
+  if (handle !== "ajwhite") {
+    d.account.cover = m.cover;
+    d.account.hero = m.cover;
+  }
   d.account.whiteLabel.domain = `${handle}.com`;
   d.account.whiteLabel.siteUrl = `https://fans.${handle}.com`;
 };
@@ -43,7 +51,7 @@ export const PROFILES: Profile[] = [
     apply: (d) => {
       identity(d, "Rae Calder", "raecalder", "Musicians", "musician");
       d.monetize.events = [event("ev-m1", "Harbor Lights Live", 9, "event", "Portland, OR", 35, 300, 214)];
-      d.social.posts = [post("pm1", "audio", "New demo from the studio. Tell me what you think!", 3)];
+      d.social.posts = [post("pm1", "audio", "New demo from the studio. Tell me what you think!", 3, { media: [{ kind: "audio", placeholder: "Studio session", src: "creators/raecalder/studio" }] })];
     },
   },
   {
@@ -52,7 +60,7 @@ export const PROFILES: Profile[] = [
     apply: (d) => {
       identity(d, "Nina Oduya", "ninaoduya", "Educators", "educator");
       d.monetize.plans = [plan("scholar", "Scholar Plan", 12, ["Weekly lessons", "Monthly live Q&A"])];
-      d.social.posts = [post("pe1", "article", "Three study habits that actually stick.", 21)];
+      d.social.posts = [post("pe1", "article", "Three study habits that actually stick.", 21, { media: [{ kind: "image", placeholder: "Study notes", src: "creators/ninaoduya/lesson" }] })];
     },
   },
   {
@@ -60,7 +68,7 @@ export const PROFILES: Profile[] = [
     label: "Fitness · Marco Reyes",
     apply: (d) => {
       identity(d, "Marco Reyes", "marcoreyesfit", "Fitness", "fitness");
-      d.social.posts = [post("pf1", "video", "15-minute mobility routine.", 2), post("pf2", "reel", "Form check: the goblet squat.", 6)];
+      d.social.posts = [post("pf1", "video", "15-minute mobility routine.", 2, { media: [{ kind: "video", placeholder: "Mobility routine", video: "videos/fitness-mobility" }] }), post("pf2", "reel", "Form check: the goblet squat.", 6, { media: [{ kind: "image", placeholder: "Workout", src: "creators/marcoreyesfit/workout" }] })];
       d.money.refundRequests = d.money.refundRequests.slice(0, 1);
     },
   },
@@ -70,7 +78,7 @@ export const PROFILES: Profile[] = [
     apply: (d) => {
       identity(d, "Jules Brennan", "julesbrennan", "Podcasters", "podcaster");
       d.monetize.plans = [plan("insider", "Insider", 6, ["Ad-free episodes", "Bonus episodes"])];
-      d.social.posts = [post("pp1", "audio", "Episode 48: the long road home.", 5)];
+      d.social.posts = [post("pp1", "audio", "Episode 48: the long road home.", 5, { media: [{ kind: "audio", placeholder: "Podcast cover", src: "posts/podcast" }] })];
     },
   },
   {
@@ -79,7 +87,7 @@ export const PROFILES: Profile[] = [
     apply: (d) => {
       identity(d, "Kai Morrow", "kaimorrow", "Gamers", "gamer");
       d.monetize.events = [event("ev-g1", "Friday Night Speedruns", 2, "livestream", "Online", 0, 1000, 0)];
-      d.social.posts = [post("pg1", "video", "Clip of the week.", 1)];
+      d.social.posts = [post("pg1", "video", "Clip of the week.", 1, { media: [{ kind: "video", placeholder: "Clip of the week", video: "videos/gaming-clip" }] })];
     },
   },
   {
@@ -98,7 +106,7 @@ export const PROFILES: Profile[] = [
       d.prefsB.outboundEmail = { ...d.prefsB.outboundEmail, domain: "mail.northridge.com", senderEmail: "hello@mail.northridge.com", status: "verified", steps: d.prefsB.outboundEmail.steps.map((s) => ({ ...s, status: "Verified" as const })), errorDetail: null };
       d.money.payoutAccount = { connected: true, label: "Checking ••••4821 (demo)" };
       d.monetize.events = [event("ev-t1", "Ridge Fest Day 1", 21, "event", "Denver, CO", 55, 1200, 860)];
-      d.social.posts = [post("pt1", "images", "Rehearsal photos are up.", 1)];
+      d.social.posts = [post("pt1", "images", "Rehearsal photos are up.", 1, { media: [{ kind: "image", placeholder: "Rehearsal", src: "creators/northridge/rehearsal" }] })];
     },
   },
 ];
