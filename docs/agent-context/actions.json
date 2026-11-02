@@ -1,0 +1,431 @@
+[
+  {
+    "id": "navigate",
+    "label": "Open a screen",
+    "tier": "navigate",
+    "featureId": "*",
+    "assistant": "navigate"
+  },
+  {
+    "id": "highlight",
+    "label": "Point at a control",
+    "tier": "navigate",
+    "featureId": "*",
+    "assistant": "navigate"
+  },
+  {
+    "id": "livestream.open",
+    "label": "Open the Livestream modal",
+    "tier": "navigate",
+    "featureId": "livestream",
+    "assistant": "navigate"
+  },
+  {
+    "id": "post.draft",
+    "label": "Draft a post",
+    "tier": "draft",
+    "featureId": "new-post",
+    "assistant": "draft"
+  },
+  {
+    "id": "plan.draft",
+    "label": "Draft plan benefits",
+    "tier": "draft",
+    "featureId": "subscriptions",
+    "assistant": "draft"
+  },
+  {
+    "id": "newsletter.draft",
+    "label": "Draft a newsletter",
+    "tier": "draft",
+    "featureId": "newsletters",
+    "assistant": "draft"
+  },
+  {
+    "id": "welcome.draft",
+    "label": "Draft a welcome message",
+    "tier": "draft",
+    "featureId": "welcome-message",
+    "assistant": "draft"
+  },
+  {
+    "id": "event.draft",
+    "label": "Draft event promo copy",
+    "tier": "draft",
+    "featureId": "events",
+    "assistant": "draft"
+  },
+  {
+    "id": "course.draft",
+    "label": "Draft a course outline",
+    "tier": "draft",
+    "featureId": "courses",
+    "assistant": "draft"
+  },
+  {
+    "id": "segment.draft",
+    "label": "Suggest fan segment criteria",
+    "tier": "draft",
+    "featureId": "segments",
+    "assistant": "draft"
+  },
+  {
+    "id": "message.draft",
+    "label": "Draft a message",
+    "tier": "draft",
+    "featureId": "messages",
+    "assistant": "draft"
+  },
+  {
+    "id": "group.add",
+    "label": "Create a group",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "prefsB.addGroup",
+    "inputs": [
+      "name",
+      "description?"
+    ],
+    "featureId": "groups",
+    "assistant": "execute-with-approval"
+  },
+  {
+    "id": "tag.add",
+    "label": "Add a Topic Tag",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "prefsB.addTopicTag",
+    "inputs": [
+      "name",
+      "description?"
+    ],
+    "featureId": "topic-tags",
+    "assistant": "execute-with-approval"
+  },
+  {
+    "id": "automated.add",
+    "label": "Add and turn on an automated message",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "comms.saveAutomatedMessage",
+    "inputs": [
+      "event",
+      "text"
+    ],
+    "featureId": "automated-messages",
+    "assistant": "execute-with-approval"
+  },
+  {
+    "id": "post.publish",
+    "label": "Publish a post",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "social.publishPost",
+    "featureId": "new-post",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "plan.publish",
+    "label": "Add or edit a subscription plan",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "monetize.*Plan",
+    "featureId": "subscriptions",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "plan.changePrice",
+    "label": "Change a plan's price",
+    "tier": "confirm",
+    "need": "finance.write",
+    "storeFn": "monetize.*Plan",
+    "featureId": "subscriptions",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "newsletter.send",
+    "label": "Send a newsletter",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "monetize.*Newsletter",
+    "featureId": "newsletters",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "event.publish",
+    "label": "Create an event with tickets",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "monetize.*Event",
+    "featureId": "events",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "course.publish",
+    "label": "Publish a course",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "monetize.*Course",
+    "featureId": "courses",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "downloadable.publish",
+    "label": "Publish a downloadable",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "monetize.*Downloadable",
+    "featureId": "downloadables",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "merch.publish",
+    "label": "Add merchandise",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "monetize.*Merch*",
+    "featureId": "merchandise",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "experience.publish",
+    "label": "Publish an experience",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "monetize.*Experience",
+    "featureId": "experiences",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "ad.approve",
+    "label": "Approve an advertiser",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "monetize.*Ad*",
+    "featureId": "advertisements",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "ad.decline",
+    "label": "Decline an advertiser",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "monetize.*Ad*",
+    "featureId": "advertisements",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "refund.approve",
+    "label": "Approve a refund",
+    "tier": "confirm",
+    "need": "finance.write",
+    "storeFn": "money.*Refund*",
+    "featureId": "refunds",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "refund.decline",
+    "label": "Decline a refund",
+    "tier": "confirm",
+    "need": "finance.write",
+    "storeFn": "money.*Refund*",
+    "featureId": "refunds",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "fulfillment.markDone",
+    "label": "Mark an order fulfilled",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "money.*Fulfill*",
+    "featureId": "fulfillment",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "message.send",
+    "label": "Send a message to fans",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "comms.sendDirectMessage / sendToMessageList",
+    "featureId": "messages",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "welcome.save",
+    "label": "Save the welcome message",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "prefsA.updateWelcomeMessage",
+    "featureId": "welcome-message",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "profile.update",
+    "label": "Update profile",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "prefsA.updateProfile",
+    "featureId": "profile",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "monetization.update",
+    "label": "Change tips / DM price settings",
+    "tier": "confirm",
+    "need": "finance.write",
+    "storeFn": "prefsA.setMonetizationFlag / setDmPrice",
+    "featureId": "monetization-settings",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "linkinbio.update",
+    "label": "Save Link in Bio",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "prefsB.saveLinkInBio",
+    "featureId": "link-in-bio",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "gamification.update",
+    "label": "Save gamification settings",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "prefsB.saveEarnPoints / saveBuyPoints / saveBadges",
+    "featureId": "gamification",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "delegate.addContent",
+    "label": "Give a delegate Content access",
+    "tier": "confirm",
+    "need": "account.admin",
+    "storeFn": "prefsB.addDelegate",
+    "featureId": "delegation",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "wls.updateBranding",
+    "label": "Update & publish White Label appearance",
+    "tier": "confirm",
+    "need": "account.admin",
+    "storeFn": "account.whiteLabel.lastPublishedAt (ManageWls)",
+    "featureId": "white-label",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "email.verify",
+    "label": "Re-run Outbound Email verification",
+    "tier": "confirm",
+    "need": "account.admin",
+    "storeFn": "prefsB.startOutboundVerification / recheckOutboundEmail",
+    "featureId": "outbound-emails",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "livestream.start",
+    "label": "Go live",
+    "tier": "confirm",
+    "need": "content.write",
+    "storeFn": "social.startLivestream",
+    "featureId": "livestream",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "wallet.withdraw",
+    "label": "Withdraw earnings",
+    "tier": "protected",
+    "need": "finance.write",
+    "storeFn": "money.*Withdraw*",
+    "featureId": "wallet-balance",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "wallet.connectPayout",
+    "label": "Connect a payout account",
+    "tier": "protected",
+    "need": "finance.write",
+    "storeFn": "money.*Payout*",
+    "featureId": "wallet-balance",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "wallet.addCard",
+    "label": "Add a card",
+    "tier": "protected",
+    "need": "finance.write",
+    "storeFn": "money.*Card*",
+    "featureId": "wallet-balance",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "delegate.addFinancial",
+    "label": "Give a delegate Financial access",
+    "tier": "protected",
+    "need": "account.admin",
+    "storeFn": "prefsB.addDelegate / updateDelegateAccess",
+    "featureId": "delegation",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "account.changePassword",
+    "label": "Change password",
+    "tier": "protected",
+    "need": "account.admin",
+    "storeFn": "prefsA.changePassword",
+    "featureId": "privacy",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "account.pause",
+    "label": "Pause account",
+    "tier": "protected",
+    "need": "account.admin",
+    "storeFn": "prefsA.pauseAccount",
+    "featureId": "privacy",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "account.delete",
+    "label": "Delete account",
+    "tier": "protected",
+    "need": "account.admin",
+    "storeFn": "prefsA.requestAccountDeletion",
+    "featureId": "privacy",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "wallet.unlinkNft",
+    "label": "Unlink MetaMask",
+    "tier": "protected",
+    "need": "account.admin",
+    "storeFn": "prefsA.unlinkWallet",
+    "featureId": "nft-wallet",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "wls.changeDns",
+    "label": "Change White Label domain / DNS",
+    "tier": "protected",
+    "need": "account.admin",
+    "featureId": "white-label",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "wls.delete",
+    "label": "Delete White Label Site",
+    "tier": "protected",
+    "need": "account.admin",
+    "featureId": "white-label",
+    "assistant": "open-screen"
+  },
+  {
+    "id": "email.changeDns",
+    "label": "Change Outbound Email domain",
+    "tier": "protected",
+    "need": "account.admin",
+    "storeFn": "prefsB.setOutboundDomain",
+    "featureId": "outbound-emails",
+    "assistant": "open-screen"
+  }
+]

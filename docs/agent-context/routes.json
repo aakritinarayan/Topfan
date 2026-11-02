@@ -1,0 +1,1853 @@
+[
+  {
+    "id": "pref-whitelabel",
+    "pattern": "/edit-preference/whitelabel",
+    "title": "White Label Site",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › White Label Site",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "captured",
+    "spec": "50-pref-white-label-site.md",
+    "shots": [
+      "50-",
+      "50a-",
+      "50b-",
+      "50c-",
+      "50d-",
+      "50e-"
+    ]
+  },
+  {
+    "id": "pref-whitelabel-cover",
+    "pattern": "/edit-preference/whitelabel-cover-page",
+    "title": "Cover Page editor",
+    "section": "preferences",
+    "parent": "pref-whitelabel",
+    "menu": "White Label Site › EDIT COVER PAGE",
+    "layout": "wide",
+    "access": [
+      "creator"
+    ],
+    "status": "captured",
+    "spec": "50f-wls-cover-page-editor.md",
+    "shots": [
+      "50f-",
+      "50g-"
+    ]
+  },
+  {
+    "id": "wls-setup-domain",
+    "pattern": "/edit-preference/whitelabel/setup/domain",
+    "title": "White Label Site setup · Domain Information",
+    "section": "onboarding",
+    "parent": "pref-whitelabel",
+    "menu": "White Label Site (before a domain is set up)",
+    "layout": "onboarding",
+    "access": [
+      "creator"
+    ],
+    "status": "existing",
+    "spec": "50-pref-white-label-site.md",
+    "note": "Approved AI-assisted onboarding. URL is inferred (the live app shows setup at /edit-preference/whitelabel)."
+  },
+  {
+    "id": "wls-setup-dns",
+    "pattern": "/edit-preference/whitelabel/setup/dns",
+    "title": "White Label Site setup · Add DNS Records",
+    "section": "onboarding",
+    "parent": "pref-whitelabel",
+    "menu": "White Label Site setup, step 2 of 3",
+    "layout": "onboarding",
+    "access": [
+      "creator"
+    ],
+    "status": "existing",
+    "spec": "50-pref-white-label-site.md",
+    "note": "URL inferred."
+  },
+  {
+    "id": "wls-setup-provisioning",
+    "pattern": "/edit-preference/whitelabel/setup/provisioning",
+    "title": "White Label Site setup · Provisioning",
+    "section": "onboarding",
+    "parent": "pref-whitelabel",
+    "menu": "White Label Site setup, provisioning",
+    "layout": "onboarding",
+    "access": [
+      "creator"
+    ],
+    "status": "existing",
+    "spec": "50-pref-white-label-site.md",
+    "note": "URL inferred. Includes Creator Quest."
+  },
+  {
+    "id": "wls-setup-complete",
+    "pattern": "/edit-preference/whitelabel/setup/complete",
+    "title": "White Label Site setup · Site activated",
+    "section": "onboarding",
+    "parent": "pref-whitelabel",
+    "menu": "White Label Site setup, complete",
+    "layout": "onboarding",
+    "access": [
+      "creator"
+    ],
+    "status": "existing",
+    "spec": "50-pref-white-label-site.md",
+    "note": "URL inferred."
+  },
+  {
+    "id": "not-found",
+    "pattern": "/__not-found",
+    "title": "Page not found",
+    "section": "help",
+    "menu": "(fallback)",
+    "layout": "dashboard",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "note": "Unobtrusive fallback for unknown routes."
+  },
+  {
+    "id": "pref-profile",
+    "pattern": "/edit-preference",
+    "title": "Profile",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Profile",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "captured",
+    "spec": "30-pref-profile.md",
+    "shots": [
+      "30-",
+      "30a-",
+      "30b-",
+      "30c-",
+      "30d-",
+      "30e-"
+    ]
+  },
+  {
+    "id": "pref-welcome",
+    "pattern": "/edit-preference/edit-welcome-message",
+    "title": "Welcome Message",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Welcome Message",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "31-pref-welcome-message.md",
+    "shots": [
+      "31-",
+      "31a-"
+    ]
+  },
+  {
+    "id": "pref-interests",
+    "pattern": "/edit-preference/edit-content",
+    "title": "Interests",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Interests",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "32-pref-interests.md",
+    "shots": [
+      "32-"
+    ]
+  },
+  {
+    "id": "pref-creator-type",
+    "pattern": "/edit-preference/edit-creator",
+    "title": "Creator Type",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Creator Type",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "captured",
+    "spec": "33-pref-creator-type.md",
+    "shots": [
+      "33-",
+      "33a-"
+    ]
+  },
+  {
+    "id": "pref-customer-support",
+    "pattern": "/edit-preference/customer-support",
+    "title": "Customer Support",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Customer Support",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "captured",
+    "spec": "34-pref-customer-support.md",
+    "shots": [
+      "34-"
+    ]
+  },
+  {
+    "id": "pref-notifications",
+    "pattern": "/edit-preference/notifications",
+    "title": "Notifications & Newsletters",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Notifications & Newsletters",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "captured",
+    "spec": "35-pref-notifications-newsletters.md",
+    "shots": [
+      "35-",
+      "35a-"
+    ]
+  },
+  {
+    "id": "pref-nft-wallet",
+    "pattern": "/edit-preference/connect-nft-wallet",
+    "title": "NFT Wallet",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › NFT Wallet",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "captured",
+    "spec": "36-pref-nft-wallet.md",
+    "shots": [
+      "36-"
+    ]
+  },
+  {
+    "id": "pref-monetization",
+    "pattern": "/edit-preference/monetization",
+    "title": "Monetization",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Monetization",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "captured",
+    "spec": "37-pref-monetization.md",
+    "shots": [
+      "37-",
+      "37a-",
+      "37b-"
+    ]
+  },
+  {
+    "id": "pref-privacy",
+    "pattern": "/edit-preference/privacy",
+    "title": "Privacy, Password & Integrations",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Privacy, Password & Integrations",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "captured",
+    "spec": "38-pref-privacy-password-integrations.md",
+    "shots": [
+      "38-",
+      "38a-",
+      "38b-"
+    ]
+  },
+  {
+    "id": "pref-blocked-users",
+    "pattern": "/edit-preference/privacy/blocked-users",
+    "title": "Blocked Users",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Privacy, Password & Integrations › Blocked Users",
+    "parent": "pref-privacy",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "inferred",
+    "spec": "38-pref-privacy-password-integrations.md",
+    "note": "Inferred: the row exists in P38 but the list was never opened. URL and layout are inferred."
+  },
+  {
+    "id": "pref-outbound-emails",
+    "pattern": "/edit-preference/outbound-emails",
+    "title": "Outbound Emails",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Outbound Emails",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "captured",
+    "spec": "51-pref-outbound-emails.md",
+    "shots": [
+      "51-",
+      "51a-"
+    ]
+  },
+  {
+    "id": "pref-link-in-bio",
+    "pattern": "/edit-preference/link-in-bio",
+    "title": "Link In Bio",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Link In Bio",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "52-pref-link-in-bio.md",
+    "shots": [
+      "52-",
+      "52a-",
+      "52b-",
+      "52c-",
+      "52f-"
+    ]
+  },
+  {
+    "id": "pref-link-in-bio-edit",
+    "pattern": "/edit-preference/link-in-bio/add-link-in-bio",
+    "title": "Link In Bio · Edit",
+    "section": "preferences",
+    "parent": "pref-link-in-bio",
+    "menu": "Avatar menu › Edit Preferences › Link In Bio › EDIT",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "52-pref-link-in-bio.md",
+    "shots": [
+      "52d-",
+      "52e-"
+    ]
+  },
+  {
+    "id": "pref-delegation",
+    "pattern": "/edit-preference/delegation/delegation-view",
+    "title": "Delegation",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Delegation",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "captured",
+    "spec": "53-pref-delegation.md",
+    "shots": [
+      "53-",
+      "53a-"
+    ]
+  },
+  {
+    "id": "pref-delegate-details",
+    "pattern": "/edit-preference/delegation/delegate-details",
+    "title": "Delegate Details",
+    "section": "preferences",
+    "parent": "pref-delegation",
+    "menu": "Avatar menu › Edit Preferences › Delegation › a delegate",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "captured",
+    "spec": "53-pref-delegation.md",
+    "shots": [
+      "53b-"
+    ],
+    "note": "The live app keeps the delegate id in state; here it is ?id= (inferred)."
+  },
+  {
+    "id": "pref-delegate-add",
+    "pattern": "/edit-preference/delegation/add-delegate",
+    "title": "Add New Delegate",
+    "section": "preferences",
+    "parent": "pref-delegation",
+    "menu": "Avatar menu › Edit Preferences › Delegation › ADD NEW DELEGATE",
+    "layout": "dashboard",
+    "access": [
+      "creator"
+    ],
+    "status": "inferred",
+    "spec": "53-pref-delegation.md",
+    "note": "Route inferred; step 2 (access + revenue share) inferred."
+  },
+  {
+    "id": "pref-topic-tags",
+    "pattern": "/edit-preference/topic-tags",
+    "title": "Topic Tags",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Topic Tags",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "54-pref-topic-tags.md",
+    "shots": [
+      "54-",
+      "54a-"
+    ]
+  },
+  {
+    "id": "pref-topic-tags-add",
+    "pattern": "/edit-preference/topic-tags/add",
+    "title": "Add Topic Tag",
+    "section": "preferences",
+    "parent": "pref-topic-tags",
+    "menu": "Avatar menu › Edit Preferences › Topic Tags › ADD NEW",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "54-pref-topic-tags.md",
+    "shots": [
+      "54b-"
+    ]
+  },
+  {
+    "id": "pref-topic-tags-edit",
+    "pattern": "/edit-preference/topic-tags/edit",
+    "title": "Edit Topic Tag",
+    "section": "preferences",
+    "parent": "pref-topic-tags",
+    "menu": "Avatar menu › Edit Preferences › Topic Tags › (row) Edit",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "54-pref-topic-tags.md",
+    "note": "Route inferred (?id=); the bundle names the view \"Edit Topic Tag\"."
+  },
+  {
+    "id": "pref-groups",
+    "pattern": "/edit-preference/groups",
+    "title": "Groups",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Groups",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "55-pref-groups.md",
+    "shots": [
+      "55-",
+      "55a-"
+    ]
+  },
+  {
+    "id": "pref-groups-add",
+    "pattern": "/edit-preference/groups/add",
+    "title": "Add Group",
+    "section": "preferences",
+    "parent": "pref-groups",
+    "menu": "Avatar menu › Edit Preferences › Groups › ADD NEW",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "55-pref-groups.md",
+    "shots": [
+      "55b-"
+    ]
+  },
+  {
+    "id": "pref-groups-edit",
+    "pattern": "/edit-preference/groups/edit",
+    "title": "Edit Group",
+    "section": "preferences",
+    "parent": "pref-groups",
+    "menu": "Avatar menu › Edit Preferences › Groups › (row) Edit",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "55-pref-groups.md",
+    "note": "Route and view inferred (?id=), mirrors Edit Topic Tag."
+  },
+  {
+    "id": "pref-gamification",
+    "pattern": "/edit-preference/gamification/earn-points",
+    "title": "Gamification · Earn Points",
+    "section": "preferences",
+    "menu": "Avatar menu › Edit Preferences › Gamification",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "56-pref-gamification.md",
+    "shots": [
+      "56-",
+      "56a-"
+    ]
+  },
+  {
+    "id": "pref-gamification-buy",
+    "pattern": "/edit-preference/gamification/buy-points",
+    "title": "Gamification · Buy Points",
+    "section": "preferences",
+    "parent": "pref-gamification",
+    "menu": "Avatar menu › Edit Preferences › Gamification › Buy Points",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "56-pref-gamification.md",
+    "shots": [
+      "56b-"
+    ]
+  },
+  {
+    "id": "pref-gamification-badges",
+    "pattern": "/edit-preference/gamification/badges",
+    "title": "Gamification · Badges",
+    "section": "preferences",
+    "parent": "pref-gamification",
+    "menu": "Avatar menu › Edit Preferences › Gamification › Badges",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "56-pref-gamification.md",
+    "shots": [
+      "56c-"
+    ]
+  },
+  {
+    "id": "monetize",
+    "pattern": "/monetize",
+    "title": "Monetize",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "redirect": "monetize-subscription"
+  },
+  {
+    "id": "monetize-subscription",
+    "pattern": "/monetize/subscription",
+    "title": "Subscriptions",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize › SUBSCRIPTIONS",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "shots": [
+      "14-",
+      "14a-"
+    ]
+  },
+  {
+    "id": "monetize-newsletters",
+    "pattern": "/monetize/newsletters",
+    "title": "Newsletters",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize › NEWSLETTERS",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "shots": [
+      "14b-"
+    ]
+  },
+  {
+    "id": "monetize-experience",
+    "pattern": "/monetize/experience",
+    "title": "Experiences",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize › EXPERIENCES",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "shots": [
+      "14c-"
+    ]
+  },
+  {
+    "id": "monetize-courses",
+    "pattern": "/monetize/courses",
+    "title": "Courses",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize › COURSES",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "shots": [
+      "14d-"
+    ]
+  },
+  {
+    "id": "monetize-downloadable",
+    "pattern": "/monetize/downloadable",
+    "title": "Downloadables",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize › DOWNLOADABLES",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "shots": [
+      "14e-"
+    ]
+  },
+  {
+    "id": "monetize-merchandise",
+    "pattern": "/monetize/merchandise",
+    "title": "Merchandise",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize › MERCHANDISE",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "shots": [
+      "14f-"
+    ]
+  },
+  {
+    "id": "monetize-nfts",
+    "pattern": "/monetize/nfts",
+    "title": "NFTs",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize › NFTS",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "shots": [
+      "14g-"
+    ]
+  },
+  {
+    "id": "monetize-event-calendar",
+    "pattern": "/monetize/event-calendar",
+    "title": "Events & Ticketing",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize › EVENTS & TICKETING",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "shots": [
+      "14h-"
+    ]
+  },
+  {
+    "id": "monetize-vip-offers",
+    "pattern": "/monetize/vip-offers",
+    "title": "VIP Offers",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize › VIP OFFERS",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "shots": [
+      "14i-"
+    ]
+  },
+  {
+    "id": "monetize-portfolio",
+    "pattern": "/monetize/portfolio",
+    "title": "Portfolios",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize › PORTFOLIOS",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "shots": [
+      "14j-"
+    ]
+  },
+  {
+    "id": "monetize-discount-codes",
+    "pattern": "/monetize/discount-codes",
+    "title": "Discount Codes",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize › DISCOUNT CODES",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "shots": [
+      "14k-"
+    ]
+  },
+  {
+    "id": "monetize-advertisements",
+    "pattern": "/monetize/advertisements",
+    "title": "Advertisements",
+    "section": "monetize",
+    "menu": "Sidebar › Monetize › ADVERTISEMENTS",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "14-monetize.md",
+    "shots": [
+      "14l-",
+      "14m-",
+      "14x-"
+    ]
+  },
+  {
+    "id": "monetize-plan-add",
+    "pattern": "/monetize/subscription/add-plan",
+    "title": "Add Plan",
+    "section": "monetize",
+    "parent": "monetize-subscription",
+    "menu": "Sidebar › Monetize › SUBSCRIPTIONS › ADD NEW PLAN",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-plan-edit",
+    "pattern": "/monetize/subscription/edit-plan/:planId",
+    "title": "Edit Plan",
+    "section": "monetize",
+    "parent": "monetize-subscription",
+    "menu": "Sidebar › Monetize › SUBSCRIPTIONS › plan pencil",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-subscribers",
+    "pattern": "/monetize/subscription/subscribers/:planId",
+    "title": "View Subscribers",
+    "section": "monetize",
+    "parent": "monetize-subscription",
+    "menu": "Sidebar › Monetize › SUBSCRIPTIONS › N ACTIVE SUBSCRIBERS",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-newsletter-new",
+    "pattern": "/monetize/newsletters/new-newsletter",
+    "title": "New Newsletter",
+    "section": "monetize",
+    "parent": "monetize-newsletters",
+    "menu": "Sidebar › Monetize › NEWSLETTERS › + NEW NEWSLETTER",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-newsletter-edit",
+    "pattern": "/monetize/newsletters/edit-newsletter/:newsletterId",
+    "title": "Edit Newsletter",
+    "section": "monetize",
+    "parent": "monetize-newsletters",
+    "menu": "Sidebar › Monetize › NEWSLETTERS › row pencil",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-newsletter-recipients",
+    "pattern": "/monetize/newsletters/recipients",
+    "title": "Newsletter Recipients",
+    "section": "monetize",
+    "parent": "monetize-newsletters",
+    "menu": "Sidebar › Monetize › NEWSLETTERS › VIEW NEWSLETTER RECIPIENTS",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-experience-add",
+    "pattern": "/monetize/experience/add-experience",
+    "title": "Add Experience",
+    "section": "monetize",
+    "parent": "monetize-experience",
+    "menu": "Sidebar › Monetize › EXPERIENCES › Add Another Experience",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-experience-edit",
+    "pattern": "/monetize/experience/edit-experience/:productId",
+    "title": "Edit Experience",
+    "section": "monetize",
+    "parent": "monetize-experience",
+    "menu": "Sidebar › Monetize › EXPERIENCES › card pencil",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-course-add",
+    "pattern": "/monetize/courses/add-course",
+    "title": "Add Course",
+    "section": "monetize",
+    "parent": "monetize-courses",
+    "menu": "Sidebar › Monetize › COURSES › Add Another Course",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-course-edit",
+    "pattern": "/monetize/courses/edit-course/:productId",
+    "title": "Edit Course",
+    "section": "monetize",
+    "parent": "monetize-courses",
+    "menu": "Sidebar › Monetize › COURSES › card pencil",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-downloadable-add",
+    "pattern": "/monetize/downloadable/add-downloadable",
+    "title": "Add Downloadable",
+    "section": "monetize",
+    "parent": "monetize-downloadable",
+    "menu": "Sidebar › Monetize › DOWNLOADABLES › Add Another Downloadable",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-downloadable-edit",
+    "pattern": "/monetize/downloadable/edit-downloadable/:productId",
+    "title": "Edit Downloadable",
+    "section": "monetize",
+    "parent": "monetize-downloadable",
+    "menu": "Sidebar › Monetize › DOWNLOADABLES › card pencil",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-merch-add",
+    "pattern": "/monetize/merchandise/add-external-merchandise",
+    "title": "Add External Merchandise",
+    "section": "monetize",
+    "parent": "monetize-merchandise",
+    "menu": "Sidebar › Monetize › MERCHANDISE › ADD EXTERNAL MERCHANDISE",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-merch-edit",
+    "pattern": "/monetize/merchandise/edit-merchandise/:productId",
+    "title": "Edit Merchandise",
+    "section": "monetize",
+    "parent": "monetize-merchandise",
+    "menu": "Sidebar › Monetize › MERCHANDISE › card pencil",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-nft-add",
+    "pattern": "/monetize/nfts/add-external-nft",
+    "title": "Add External NFT",
+    "section": "monetize",
+    "parent": "monetize-nfts",
+    "menu": "Sidebar › Monetize › NFTS › ADD EXTERNAL NFTS",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-nft-edit",
+    "pattern": "/monetize/nfts/edit-nft/:productId",
+    "title": "Edit External NFT",
+    "section": "monetize",
+    "parent": "monetize-nfts",
+    "menu": "Sidebar › Monetize › NFTS › card pencil",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-event-add",
+    "pattern": "/monetize/event-calendar/add-event",
+    "title": "Add Event",
+    "section": "monetize",
+    "parent": "monetize-event-calendar",
+    "menu": "Sidebar › Monetize › EVENTS & TICKETING › + ADD EVENT",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-event-edit",
+    "pattern": "/monetize/event-calendar/edit-event/:eventId",
+    "title": "Edit Event",
+    "section": "monetize",
+    "parent": "monetize-event-calendar",
+    "menu": "Sidebar › Monetize › EVENTS & TICKETING › event pencil",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-event-tickets",
+    "pattern": "/monetize/event-calendar/manage-native-tickets/:eventId",
+    "title": "Manage Native Tickets",
+    "section": "monetize",
+    "parent": "monetize-event-calendar",
+    "menu": "Sidebar › Monetize › EVENTS & TICKETING › MANAGE NATIVE TICKETS",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-vip-add",
+    "pattern": "/monetize/vip-offers/add-offer",
+    "title": "Add VIP Offer",
+    "section": "monetize",
+    "parent": "monetize-vip-offers",
+    "menu": "Sidebar › Monetize › VIP OFFERS › ADD NEW OFFER",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "monetize-vip-edit",
+    "pattern": "/monetize/vip-offers/edit-offer/:offerId",
+    "title": "Edit VIP Offer",
+    "section": "monetize",
+    "parent": "monetize-vip-offers",
+    "menu": "Sidebar › Monetize › VIP OFFERS › row pencil",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Route and form inferred (not captured)."
+  },
+  {
+    "id": "public-events",
+    "pattern": "/dashboard/event-listing/:handle",
+    "title": "Competitions",
+    "section": "public",
+    "menu": "Public Home › Competitions",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "82-competitions.md",
+    "shots": [
+      "82-",
+      "82a-",
+      "82b-",
+      "82c-"
+    ]
+  },
+  {
+    "id": "public-event-detail",
+    "pattern": "/dashboard/event-listing/:handle/ticket-purchase/:eventId",
+    "title": "Event detail",
+    "section": "public",
+    "parent": "public-events",
+    "menu": "Competitions › an event",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "88-event-detail.md",
+    "shots": [
+      "88-"
+    ]
+  },
+  {
+    "id": "public-videos",
+    "pattern": "/dashboard/portfolio/:handle/banner-view/:portfolioId",
+    "title": "Videos",
+    "section": "public",
+    "menu": "Public Home › Videos",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "81-videos.md",
+    "shots": [
+      "81-",
+      "81a-",
+      "81b-",
+      "81c-",
+      "81d-"
+    ]
+  },
+  {
+    "id": "public-video-series",
+    "pattern": "/dashboard/portfolio/:handle/video-series/:seriesId",
+    "title": "Video Series",
+    "section": "public",
+    "parent": "public-videos",
+    "menu": "Videos › a series",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "90-video-series.md",
+    "shots": [
+      "90-",
+      "90a-",
+      "90b-",
+      "90c-"
+    ]
+  },
+  {
+    "id": "public-store",
+    "pattern": "/:handle/store",
+    "title": "Store",
+    "section": "public",
+    "menu": "Profile › Store button",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "shots": [
+      "83-",
+      "83a-",
+      "83b-",
+      "83c-"
+    ],
+    "note": "Route inferred (no spec); screenshots 83-*. Spec written in src/pages/monetize/NOTES.md."
+  },
+  {
+    "id": "public-product",
+    "pattern": "/:handle/store/:productId",
+    "title": "Product detail",
+    "section": "public",
+    "parent": "public-store",
+    "menu": "Store › a product",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "shots": [
+      "85-"
+    ],
+    "note": "Route inferred (no spec); one screenshot. Spec written in src/pages/monetize/NOTES.md."
+  },
+  {
+    "id": "public-booking",
+    "pattern": "/:handle/store/:productId/book",
+    "title": "Book a 1:1 Call",
+    "section": "public",
+    "parent": "public-product",
+    "menu": "Store › Live Video Call › SCHEDULE",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "note": "Not captured. Built from the Home 'Exclusive experience' card (10-home.md) and the product detail pattern."
+  },
+  {
+    "id": "public-newsletters",
+    "pattern": "/:handle/newsletters",
+    "title": "Newsletters",
+    "section": "public",
+    "menu": "Profile › NEWSLETTERS chip",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "note": "Not captured. Built from the list-page header pattern (82/83)."
+  },
+  {
+    "id": "public-vip-deals",
+    "pattern": "/:handle/vip-deals",
+    "title": "VIP Deals",
+    "section": "public",
+    "menu": "Profile › VIP DEALS chip",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "note": "Not captured. Built from the Home 'VIP Deals' rows (10-home.md)."
+  },
+  {
+    "id": "public-vip-deal",
+    "pattern": "/:handle/vip-deals/:offerId",
+    "title": "VIP Deal",
+    "section": "public",
+    "parent": "public-vip-deals",
+    "menu": "VIP Deals › VIEW DEAL",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "note": "Not captured. Built from the event detail two-card pattern (88)."
+  },
+  {
+    "id": "wallet",
+    "pattern": "/wallet",
+    "title": "Wallet",
+    "section": "wallet",
+    "menu": "Sidebar › Wallet",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "15-wallet.md",
+    "redirect": "wallet-balance"
+  },
+  {
+    "id": "wallet-balance",
+    "pattern": "/wallet/current-balance",
+    "title": "Current Balance",
+    "section": "wallet",
+    "menu": "Sidebar › Wallet › Current Balance",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "15-wallet.md",
+    "shots": [
+      "15-"
+    ]
+  },
+  {
+    "id": "wallet-referrals",
+    "pattern": "/wallet/referrals",
+    "title": "Referrals",
+    "section": "wallet",
+    "menu": "Sidebar › Wallet › Referrals",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "15-wallet.md",
+    "shots": [
+      "15a-"
+    ]
+  },
+  {
+    "id": "wallet-transactions",
+    "pattern": "/wallet/transaction-history",
+    "title": "Transaction History",
+    "section": "wallet",
+    "menu": "Sidebar › Wallet › Transaction History",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "15-wallet.md",
+    "shots": [
+      "15b-"
+    ]
+  },
+  {
+    "id": "wallet-loyalty",
+    "pattern": "/wallet/loyalty-history",
+    "title": "Loyalty History",
+    "section": "wallet",
+    "menu": "Sidebar › Wallet › Loyalty History",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "15-wallet.md",
+    "shots": [
+      "15c-"
+    ]
+  },
+  {
+    "id": "wallet-purchases",
+    "pattern": "/wallet/my-purchases",
+    "title": "My Purchases",
+    "section": "wallet",
+    "menu": "Sidebar › Wallet › My Purchases",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "15-wallet.md",
+    "shots": [
+      "15d-",
+      "15x-"
+    ]
+  },
+  {
+    "id": "wallet-purchases-category",
+    "pattern": "/wallet/my-purchases/:category",
+    "title": "My Purchases",
+    "section": "wallet",
+    "parent": "wallet-purchases",
+    "menu": "Sidebar › Wallet › My Purchases › a category",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "15-wallet.md",
+    "shots": [
+      "15d-"
+    ],
+    "note": ":category = newsletter | merchandise | courses | experiences | tips | content | messages | vip-offers | downloadables | livestreams | portfolio | tickets; unknown values redirect to /wallet/my-purchases."
+  },
+  {
+    "id": "wallet-refunds",
+    "pattern": "/wallet/refund-requests",
+    "title": "Refund Requests",
+    "section": "wallet",
+    "menu": "Sidebar › Wallet › Refund Requests",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "15-wallet.md",
+    "shots": [
+      "15e-"
+    ]
+  },
+  {
+    "id": "wallet-fulfillment",
+    "pattern": "/wallet/my-fulfillment-requests",
+    "title": "My Fulfillment Requests",
+    "section": "wallet",
+    "menu": "Sidebar › Wallet › My Fulfillment Requests",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "15-wallet.md",
+    "shots": [
+      "15f-"
+    ]
+  },
+  {
+    "id": "insights",
+    "pattern": "/insights",
+    "title": "Insights & Fans",
+    "section": "insights",
+    "menu": "Sidebar › Insights & Fans",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "16-insights-fans.md",
+    "shots": [
+      "16-",
+      "16a-",
+      "16b-",
+      "16c-",
+      "16d-",
+      "16e-",
+      "16f-",
+      "16g-",
+      "16h-",
+      "16i-"
+    ],
+    "note": "Tabs stay on /insights; ?tab=engagement and ?tab=fan-relationship-management are supported. Inferred deep links: &sub=segmentation (Segmentation & Outreach) and &status=<Filter By Status option> (e.g. Subscribers, used by VIEW SUBSCRIBERS >)."
+  },
+  {
+    "id": "activity",
+    "pattern": "/dashboard/activity",
+    "title": "Activity",
+    "section": "activity",
+    "menu": "Sidebar › Activity",
+    "layout": "bleed",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "12-activity.md",
+    "shots": [
+      "12-",
+      "12a-",
+      "12x-"
+    ]
+  },
+  {
+    "id": "messages",
+    "pattern": "/messages",
+    "title": "Messages",
+    "section": "messages",
+    "menu": "Sidebar › Messages",
+    "layout": "bleed",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "13-messages.md",
+    "shots": [
+      "13-",
+      "13a-",
+      "13b-",
+      "13c-",
+      "13d-",
+      "13e-",
+      "13f-",
+      "13g-",
+      "13h-",
+      "13i-",
+      "13j-",
+      "13k-",
+      "13x-"
+    ]
+  },
+  {
+    "id": "resources",
+    "pattern": "/resources",
+    "title": "Resources",
+    "section": "resources",
+    "menu": "Sidebar › Resources",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "17-resources.md",
+    "redirect": "resources-announcements"
+  },
+  {
+    "id": "resources-announcements",
+    "pattern": "/resources/announcements",
+    "title": "Announcements",
+    "section": "resources",
+    "menu": "Sidebar › Resources › Announcements",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "17-resources.md",
+    "shots": [
+      "17-"
+    ]
+  },
+  {
+    "id": "resources-guides",
+    "pattern": "/resources/tips-tutorials",
+    "title": "Guides",
+    "section": "resources",
+    "menu": "Sidebar › Resources › Guides",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "17-resources.md",
+    "shots": [
+      "17a-"
+    ]
+  },
+  {
+    "id": "resources-providers",
+    "pattern": "/resources/service-providers",
+    "title": "Service Providers",
+    "section": "resources",
+    "menu": "Sidebar › Resources › Service Providers",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "17-resources.md",
+    "shots": [
+      "17b-"
+    ]
+  },
+  {
+    "id": "resources-support",
+    "pattern": "/resources/creator-support",
+    "title": "Creator Support",
+    "section": "resources",
+    "menu": "Sidebar › Resources › Creator Support",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "17-resources.md",
+    "shots": [
+      "17c-"
+    ]
+  },
+  {
+    "id": "help-faq",
+    "pattern": "/help-faq",
+    "title": "Help Center & FAQ",
+    "section": "help",
+    "menu": "Avatar menu › Help Center & FAQ",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "72-help-faq.md",
+    "shots": [
+      "72-",
+      "72a-"
+    ]
+  },
+  {
+    "id": "terms",
+    "pattern": "/terms-of-service",
+    "title": "Terms of Service",
+    "section": "help",
+    "menu": "Avatar menu › Terms & Privacy Policy",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "73-terms-and-privacy.md",
+    "shots": [
+      "73-"
+    ]
+  },
+  {
+    "id": "privacy-policy",
+    "pattern": "/privacy-policy",
+    "title": "Privacy Policy",
+    "section": "help",
+    "menu": "Terms of Service › Privacy Policy",
+    "layout": "public",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "73-terms-and-privacy.md",
+    "shots": [
+      "74-"
+    ]
+  },
+  {
+    "id": "home",
+    "pattern": "/",
+    "title": "Home",
+    "section": "home",
+    "menu": "Sidebar › Home",
+    "layout": "marketing",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "10-home.md",
+    "shots": [
+      "10-"
+    ]
+  },
+  {
+    "id": "newpost",
+    "pattern": "/dashboard/newpost",
+    "title": "New Post",
+    "section": "newpost",
+    "menu": "Sidebar › NEW POST",
+    "layout": "narrow",
+    "access": [
+      "creator",
+      "content"
+    ],
+    "status": "captured",
+    "spec": "18-new-post.md",
+    "shots": [
+      "18-",
+      "18a-",
+      "18b-",
+      "18c-",
+      "18d-",
+      "18e-",
+      "18f-",
+      "18g-",
+      "18h-",
+      "18i-",
+      "18j-"
+    ]
+  },
+  {
+    "id": "post-detail",
+    "pattern": "/:handle/post/:postId",
+    "title": "Post",
+    "section": "feed",
+    "parent": "feed",
+    "menu": "Feed › post card (SEE POST / READ ARTICLE …)",
+    "layout": "dashboard",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "note": "Single post page was not captured; URL and layout inferred."
+  },
+  {
+    "id": "chat-room",
+    "pattern": "/:handle/chat-room",
+    "title": "Chat Room",
+    "section": "feed",
+    "parent": "feed",
+    "menu": "Feed › CHAT ROOM",
+    "layout": "dashboard",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "note": "Not captured; built from the Messages/Feed patterns."
+  },
+  {
+    "id": "leaderboards",
+    "pattern": "/:handle/leaderboards",
+    "title": "Leaderboards",
+    "section": "feed",
+    "parent": "feed",
+    "menu": "Feed › LEADERBOARDS",
+    "layout": "dashboard",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "note": "Not captured; built from the Gamification/Insights table patterns."
+  },
+  {
+    "id": "feed",
+    "pattern": "/:handle",
+    "title": "Feed",
+    "section": "feed",
+    "menu": "Sidebar › Feed",
+    "layout": "dashboard",
+    "access": [
+      "public",
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "captured",
+    "spec": "11-feed.md",
+    "shots": [
+      "11-",
+      "11a-",
+      "11b-"
+    ]
+  }
+]

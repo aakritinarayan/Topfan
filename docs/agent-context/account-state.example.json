@@ -1,0 +1,140 @@
+{
+  "note": "getAccountState(initialData()) — derived from the mock store, never hard-coded.",
+  "setup": {
+    "whiteLabel": "active",
+    "outboundEmail": "failed",
+    "payoutConnected": false,
+    "plans": 3,
+    "publishedPosts": 14
+  },
+  "failures": [
+    {
+      "id": "outbound-failed",
+      "priority": 1,
+      "title": "Your Outbound Email verification failed",
+      "why": "Emails and newsletters can't send from mail.ajwhite.com until it's verified. The verification records were not found in the domain's DNS.",
+      "featureId": "outbound-emails",
+      "taskId": "fix-outbound-email",
+      "need": "account.admin",
+      "cta": "Fix it"
+    }
+  ],
+  "pending": [
+    {
+      "id": "fulfillment-pending",
+      "priority": 2,
+      "title": "9 orders waiting to be fulfilled",
+      "why": "Fans already paid for these experiences and items.",
+      "featureId": "fulfillment",
+      "taskId": "fulfill-orders",
+      "count": 9,
+      "need": "content.write",
+      "cta": "Open requests"
+    },
+    {
+      "id": "refunds-pending",
+      "priority": 2,
+      "title": "3 refund requests waiting for review",
+      "why": "The oldest has waited 547 days. Nothing is refunded until you decide.",
+      "featureId": "refunds",
+      "taskId": "review-refunds",
+      "count": 3,
+      "need": "finance.read",
+      "cta": "Review refunds"
+    },
+    {
+      "id": "ads-new",
+      "priority": 2,
+      "title": "2 new brands want to advertise with you",
+      "why": "Northpeak Outfitters and Glacier Hydration.",
+      "featureId": "advertisements",
+      "count": 2,
+      "need": "content.write",
+      "cta": "Review brands"
+    }
+  ],
+  "unfinished": [],
+  "items": [
+    {
+      "id": "outbound-failed",
+      "priority": 1,
+      "title": "Your Outbound Email verification failed",
+      "why": "Emails and newsletters can't send from mail.ajwhite.com until it's verified. The verification records were not found in the domain's DNS.",
+      "featureId": "outbound-emails",
+      "taskId": "fix-outbound-email",
+      "need": "account.admin",
+      "cta": "Fix it"
+    },
+    {
+      "id": "fulfillment-pending",
+      "priority": 2,
+      "title": "9 orders waiting to be fulfilled",
+      "why": "Fans already paid for these experiences and items.",
+      "featureId": "fulfillment",
+      "taskId": "fulfill-orders",
+      "count": 9,
+      "need": "content.write",
+      "cta": "Open requests"
+    },
+    {
+      "id": "refunds-pending",
+      "priority": 2,
+      "title": "3 refund requests waiting for review",
+      "why": "The oldest has waited 547 days. Nothing is refunded until you decide.",
+      "featureId": "refunds",
+      "taskId": "review-refunds",
+      "count": 3,
+      "need": "finance.read",
+      "cta": "Review refunds"
+    },
+    {
+      "id": "ads-new",
+      "priority": 2,
+      "title": "2 new brands want to advertise with you",
+      "why": "Northpeak Outfitters and Glacier Hydration.",
+      "featureId": "advertisements",
+      "count": 2,
+      "need": "content.write",
+      "cta": "Review brands"
+    },
+    {
+      "id": "payout-missing",
+      "priority": 4,
+      "title": "No payout account connected",
+      "why": "You'll need one before you can withdraw earnings.",
+      "featureId": "wallet-balance",
+      "taskId": "withdraw",
+      "need": "finance.write",
+      "cta": "Set up payouts"
+    },
+    {
+      "id": "no-automated",
+      "priority": 4,
+      "title": "No automated welcome message",
+      "why": "New fans get nothing from you when they join.",
+      "featureId": "automated-messages",
+      "taskId": "welcome-message",
+      "need": "content.write",
+      "cta": "Draft one"
+    },
+    {
+      "id": "announcements",
+      "priority": 6,
+      "title": "1 new announcement from TopFan",
+      "why": "Webinar: User Adoption",
+      "featureId": "announcements",
+      "cta": "Read it",
+      "count": 1
+    },
+    {
+      "id": "no-groups",
+      "priority": 6,
+      "title": "Try a VIP group",
+      "why": "Groups let you share content with just your closest fans.",
+      "featureId": "groups",
+      "taskId": "vip-group",
+      "need": "content.write",
+      "cta": "Create a group"
+    }
+  ]
+}

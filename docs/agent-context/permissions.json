@@ -1,0 +1,45 @@
+{
+  "tiers": {
+    "navigate": {
+      "meaning": "Read, find, explain, open a screen.",
+      "assistant": "May do it right away."
+    },
+    "draft": {
+      "meaning": "Prepare something for the creator to review, without saving or publishing.",
+      "assistant": "Shows the draft marked Draft; the creator copies or uses it."
+    },
+    "confirm": {
+      "meaning": "Publish, send, change prices, grant Content access, approve ads, process refunds.",
+      "assistant": "Never does it from chat. Opens the original screen; the creator confirms with the product's own button."
+    },
+    "protected": {
+      "meaning": "Withdrawals, payment details, delegate Financial access, password, pause/delete account, delete site, unlink wallet or store, change DNS.",
+      "assistant": "Never does it. Explains, opens the original screen, and the page's own strong confirmation applies."
+    }
+  },
+  "roles": {
+    "creator": {
+      "capabilities": [
+        "content.write",
+        "finance.read",
+        "finance.write",
+        "account.admin"
+      ],
+      "note": "Owner: everything."
+    },
+    "content": {
+      "capabilities": [
+        "content.write"
+      ],
+      "note": "Delegate · Content: posts, livestreams, products and offers, messages, groups, tags. No Wallet, no money decisions, no account settings."
+    },
+    "financial": {
+      "capabilities": [
+        "content.write",
+        "finance.read",
+        "finance.write"
+      ],
+      "note": "Delegate · Financial, Content: everything a Content delegate can do, plus Wallet, refunds, payouts and prices. No account settings (password, delegates, domain/DNS, pause/delete)."
+    }
+  }
+}
