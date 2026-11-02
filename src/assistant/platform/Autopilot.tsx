@@ -704,6 +704,33 @@ function Prefs() {
   );
 }
 
+/* ------------------------------------------------------------------ notice (one per batch, persistent) */
+
+/** A compact card above the conversation while a batch has posts waiting. "Not now" dismisses the batch. */
+export function AutopilotNotice() {
+  const batch = useData((d) => d.autopilot.batch);
+  const ready = useData((d) => readyDrafts(d).length);
+  const held = useData((d) => heldDrafts(d).length);
+  if (!batch || batch.dismissed || ready + held === 0) return null;
+  return (
+    <div data-testid="ap-notice" className="flex items-center gap-3 rounded-[20px] bg-surface px-4 py-3 text-[13px]">
+      <span className="min-w-0 flex-1">
+        <b className="block">Your weekly content is prepared.</b>
+        <span className="text-soft">
+          {ready ? `${ready} ${ready === 1 ? "post is" : "posts are"} ready for review` : "Nothing is ready yet"}
+          {held ? ` · ${held} on hold` : ""}
+        </span>
+      </span>
+      <button className={btnOutline} data-testid="ap-notice-review" onClick={() => openAutopilot({ screen: "summary" })}>
+        Review
+      </button>
+      <button aria-label="Not now" data-testid="ap-notice-dismiss" className="text-soft hover:text-white" onClick={() => run("dismiss", dismissBatch)}>
+        <X size={16} />
+      </button>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ director: prepare, notify once, sync */
 
 export function AutopilotDirector({ active, connected }: { active: boolean; connected: boolean | null }) {
@@ -726,16 +753,10 @@ export function AutopilotDirector({ active, connected }: { active: boolean; conn
     if (!active) return;
     const d = getData();
     if (!d.autopilot.batch && d.autopilot.enabled && !d.autopilot.paused && roleCan(d.account.session.role, "content.write")) act("autopilot.prepare", prepareBatch, { need: "content.write" });
+    // The notice itself is <AutopilotNotice/> (derived from stored state, so it survives reloads);
+    // mark the batch once so it counts as one notification, never one per draft.
     const b = getData().autopilot.batch;
-    const ready = readyDrafts(getData()).length;
-    // One quiet notice per batch, never one per draft.
-    if (b && !b.notified && !b.dismissed && ready > 0) {
-      act("autopilot.notified", markNotified);
-      live.current.suggest({
-        text: `Your weekly content is prepared: ${ready} ${ready === 1 ? "post is" : "posts are"} ready for review.`,
-        actions: [{ label: ready === 1 ? "Review ready post" : "Review ready posts", variant: "outline", onClick: () => openAutopilot({ screen: "summary" }) }],
-      });
-    }
+    if (b && !b.notified && !b.dismissed && readyDrafts(getData()).length > 0) act("autopilot.notified", markNotified);
   }, [active]);
 
   // Manual changes in New Post (or anywhere) sync back; the creator's version always wins.

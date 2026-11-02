@@ -10,7 +10,7 @@ import { isOnboarding, usePlatform, type PlatformState } from "../state/platform
 import { LiveMascot } from "./LiveMascot";
 import { ActiveTaskCard, PlatformWelcome } from "./platform/TaskCard";
 import { useChat } from "./chat/ChatEngine";
-import { AutopilotView } from "./platform/Autopilot";
+import { AutopilotNotice, AutopilotView } from "./platform/Autopilot";
 import { useAPView } from "./platform/autopilotView";
 import { useVoice, type VoiceState } from "./chat/useVoice";
 import { Answer, ListenButton } from "./chat/Answer";
@@ -160,8 +160,15 @@ export function AssistantPanel() {
         </div>
       )}
 
-      <motion.div {...reveal(0.15)} className="shrink-0 px-5 pb-1 pt-3" inert={waiting}>
-        {onboarding ? <Checklist state={state} /> : <ActiveTaskCard />}
+      <motion.div {...reveal(0.15)} className="flex shrink-0 flex-col gap-2 px-5 pb-1 pt-3" inert={waiting}>
+        {onboarding ? (
+          <Checklist state={state} />
+        ) : (
+          <>
+            <ActiveTaskCard />
+            {!apView && <AutopilotNotice />}
+          </>
+        )}
       </motion.div>
 
       {/* Conversation */}

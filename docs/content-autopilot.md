@@ -71,7 +71,7 @@ No model confidence score is used anywhere as authorization.
 
 - **Nothing publishes.** Native scheduling doesn't exist for regular posts (the New Post spec has none), so suggested times stay as proposals and the UI says so. Publishing happens only in New Post, behind its own confirmation.
 - **Inactivity never approves.** Dismissing ("Not now") or ignoring a batch leaves every draft unpublished.
-- **One notification per batch** (`batch.notified`), never one per draft.
+- **One notification per batch:** a compact card above the conversation (`AutopilotNotice`), derived from stored state so it survives reloads. Its ✕ dismisses the batch. It is never repeated per draft.
 - **Preferences need explicit confirmation.** One unexplained rejection never creates a rule. A preference can be reviewed and removed, and the next batch respects it.
 - **Manual edits win.** When the creator saves or publishes from New Post, `syncFromPosts` copies their version back and marks it *Your edit*. Later AI actions such as "Make my posts more personal" skip edited drafts. Saving replaces the linked draft post, so a post is never duplicated.
 - **Missing assets are never fabricated.** The draft waits on *Needs a photo*. Others proceed.

@@ -25,8 +25,14 @@ const shot = (n) => p.screenshot({ path: `/tmp/ap-${W}-${n}.png` });
 
 /* ---------- notification: one per batch ---------- */
 await fresh();
-let t = await panel();
-check("one batch notification", (t.match(/Your weekly content is prepared: 3 posts are ready/g) ?? []).length === 1, t.slice(0, 400));
+let t = await text("ap-notice");
+check("one batch notice", /3 posts are ready for review/.test(t) && (await p.$$('[data-testid="ap-notice"]')).length === 1, t);
+await p.goto("http://localhost:5173/ajwhite?noDelay=1", { waitUntil: "networkidle0" }); await sleep(600);
+if (!(await $("ai-panel"))) await click("ai-launcher");
+check("notice survives reload", !!(await $("ap-notice")));
+await click("ap-notice-review");
+check("notice opens summary", (await screen()) === "summary");
+await p.evaluate(() => document.querySelector('[data-testid="ap-close"]').click()); await sleep(200);
 const startPosts = (await posts()).length;
 
 /* ---------- A: easy batch approval ---------- */
@@ -156,7 +162,8 @@ await ask("Review my posts");
 await click("ap-dismiss");
 check("G: dismissed, nothing published", (await ap()).batch.dismissed && (await posts()).length === n0 && (await ap()).batch.drafts.every((x) => !["published", "saved", "approved"].includes(x.status)));
 await p.goto("http://localhost:5173/ajwhite?noDelay=1", { waitUntil: "networkidle0" }); await sleep(600);
-check("G: no re-notification after dismiss", !/weekly content is prepared/.test(await panel().catch(() => "")));
+if (!(await $("ai-panel"))) await click("ai-launcher");
+check("G: no notice after dismiss", !(await $("ap-notice")));
 
 /* ---------- failures: save failure + retry reads status first; refresh persistence; pause ---------- */
 await fresh();
