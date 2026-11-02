@@ -50,7 +50,7 @@ const IDLE_MS = 30_000;
  * `signal` cancels (Stop button, reset).
  */
 export async function streamChat(
-  req: { history: ChatTurn[]; message: string; context: unknown },
+  req: { history: ChatTurn[]; message: string; context: unknown; mode?: "onboarding" | "platform" | "autopilot" },
   on: { text: (t: string) => void; action: (a: ProposedAction) => void },
   signal: AbortSignal,
 ): Promise<void> {

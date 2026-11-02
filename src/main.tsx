@@ -14,6 +14,7 @@ import { ToastProvider } from "./platform/ui/toast";
 import { AssistantProvider } from "./state/assistantStore";
 import { DomainFinderProvider } from "./state/domainFinderStore";
 import { ChatProvider } from "./assistant/chat/ChatEngine";
+import { PlatformAgentProvider } from "./assistant/platform/PlatformAgent";
 import { QuestProvider } from "./state/questStore";
 import { RouterProvider } from "./app/router";
 import { StoreProvider } from "./store/store";
@@ -26,11 +27,13 @@ createRoot(document.getElementById("root")!).render(
       <AssistantProvider>
         <DomainFinderProvider>
           <QuestProvider>
-            <ChatProvider>
-              <ToastProvider>
-                <App />
-              </ToastProvider>
-            </ChatProvider>
+            <PlatformAgentProvider>
+              <ChatProvider>
+                <ToastProvider>
+                  <App />
+                </ToastProvider>
+              </ChatProvider>
+            </PlatformAgentProvider>
           </QuestProvider>
         </DomainFinderProvider>
       </AssistantProvider>

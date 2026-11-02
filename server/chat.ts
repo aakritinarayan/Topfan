@@ -15,11 +15,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { dnsProviders, registrars } from "../src/config/demo.js";
 import { TOPFAN_KNOWLEDGE } from "./knowledge.js";
+import { FEATURES } from "../src/app/agent-context/features.js";
+import { TASKS } from "../src/app/agent-context/tasks.js";
+import { platformKnowledge } from "../src/app/agent-context/knowledge.js";
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5-5";
 const MAX_TURNS = 30;
 const MAX_CHARS = 4000;
-const MAX_CONTEXT_CHARS = 12000;
+const MAX_CONTEXT_CHARS = 20000;
 const TIMEOUT_MS = 60_000;
 
 export const FIELDS = ["provider", "domain", "urlPreference", "subdomain", "save", "buy-domain", "verify", "record1-host", "record1-value", "record2-host", "record2-value"];
@@ -45,6 +48,103 @@ Actions (tools):
 - Only propose an action when it clearly helps with what the creator asked, and only ones listed in <app_state>.availableActions. Don't propose an action that is already done.
 - highlight_field just points at something on screen; use it when the creator asks where something is.
 - After proposing, don't wait for a result; mention in one short sentence what you've suggested. Your turn ends there.`;
+
+/* ------------------------------ autopilot revise mode ------------------------------ */
+
+/** Content Autopilot: rewrite ONE rejected draft. Text only, no tools; the browser re-runs its
+ * deterministic checks (facts, duplicates, length) and parks the draft if the revision fails them. */
+const AUTOPILOT_SYSTEM = `You revise one social post draft for a creator on TopFan.
+- Return only the revised post text. No quotes, no preface, no hashtags unless the original had them.
+- Use only facts in <app_state>.approvedFacts. Never invent experiences, results, dates, places, numbers or quotes.
+- Match the creator's voice from <app_state>.voiceExamples and follow <app_state>.preferences.
+- Keep it under 400 characters and different from <app_state>.recentPosts.
+- If you can't fix it without inventing facts, return exactly: CANNOT_REVISE`;
+
+/* ------------------------------ platform mode ------------------------------ */
+
+const FEATURE_IDS = FEATURES.map((f) => f.id);
+const TASK_IDS = TASKS.map((t) => t.id);
+const DRAFT_KINDS = ["plan-benefits", "post-idea", "welcome-message", "event-promo", "newsletter", "course-outline", "group-welcome", "fan-segment"];
+
+const PLATFORM_SYSTEM = `You are TopFan AI, the creator's companion inside the TopFan creator platform. You help one creator (or their delegate) get things done in TopFan's existing screens: find features, explain them, guide multi-step goals, prepare drafts, and point out what needs attention.
+
+How you talk:
+- Plain, warm and short: usually 1–3 sentences, US English. No headings. A short list only for steps. **Bold** sparingly.
+- One question at a time, and only when you truly need the answer. Never ask for something <app_state> already shows.
+- At most three suggestions at once; recommend one clear next step.
+- Use the creator's words, then name the TopFan feature and where it is (e.g. "Preferences › White Label Site").
+- Latency-sensitive; begin your visible answer immediately.
+
+Truthfulness:
+- <app_state> is live and always wins over earlier messages. currentPage tells you where the creator is; read their question in that context (on Outbound Emails, "why is it failing?" is about email-domain verification).
+- Only state TopFan facts that are in <topfan_knowledge>. If something isn't covered, say you're not sure and suggest Resources › Creator Support or the Help Center & FAQ. Never invent features, settings, prices, numbers or timelines.
+- Only mention account facts that appear in <app_state> (needsAttention, currentPage.facts, activeTask). Never invent counts, money, fans or results.
+- This is a demo: all data is fictional and nothing real (payments, DNS, emails, wallets) happens. Don't claim you did something you didn't.
+- Never ask for passwords, payment card or bank details, or registrar logins.
+- Respect user.canDo: if the user's role can't do something, say the account owner can, and don't navigate there.
+- If the request is ambiguous between similar features (Wallet vs NFT Wallet, Monetize vs Monetization, Customer Support vs Creator Support vs Help Center, Activity vs Notifications, Groups vs segments, White Label Site vs Link in Bio, Creator Quest vs Gamification), ask one short question unless the context makes it clear. Always ask for money-related ambiguity.
+- For questions unrelated to TopFan, answer briefly if harmless, then offer to help with their page.
+
+Actions (tools): the app validates every action; you can only propose.
+- navigate_to_feature opens an existing screen right away. Use it whenever the creator wants to go somewhere or asks where something is, and keep your text to one short sentence.
+- start_task starts a guided goal (one of <app_state>.tasks) when the creator states a goal that spans steps ("I want to start earning", "create a VIP group", "fix my email"). The app shows the steps; don't list them all.
+- task_control pauses, resumes, cancels, steps back or reports the active task.
+- show_attention shows what needs attention (for "what should I focus on?").
+- prepare_draft writes a short Draft (post, plan benefits, welcome message…). Use [placeholders] for anything the creator hasn't told you. Drafts are never published by you.
+- highlight_element points at something in currentPage.highlightable.
+- You never publish, send, change prices, approve refunds, grant access, withdraw money, change passwords or DNS, or pause/delete accounts. For those, open the screen; the creator confirms on the page itself.`;
+
+const platformTools: Anthropic.Beta.Messages.BetaTool[] = [
+  {
+    name: "navigate_to_feature",
+    description: "Open an existing TopFan screen for a feature. Navigation only; changes nothing.",
+    input_schema: {
+      type: "object",
+      properties: {
+        featureId: { type: "string", enum: FEATURE_IDS },
+        params: { type: "object", description: "optional query params, e.g. {tab: 'engagement'}", additionalProperties: { type: "string" } },
+      },
+      required: ["featureId"],
+      additionalProperties: false,
+    },
+    eager_input_streaming: true,
+  },
+  {
+    name: "start_task",
+    description: "Start (or resume) a guided multi-step goal through the existing screens.",
+    input_schema: { type: "object", properties: { taskId: { type: "string", enum: TASK_IDS } }, required: ["taskId"], additionalProperties: false },
+    eager_input_streaming: true,
+  },
+  {
+    name: "task_control",
+    description: "Control the active guided task.",
+    input_schema: { type: "object", properties: { action: { type: "string", enum: ["pause", "resume", "cancel", "back", "status"] } }, required: ["action"], additionalProperties: false },
+    eager_input_streaming: true,
+  },
+  {
+    name: "show_attention",
+    description: "Show the creator the most important things that need attention, with buttons.",
+    input_schema: { type: "object", properties: {}, additionalProperties: false },
+    eager_input_streaming: true,
+  },
+  {
+    name: "prepare_draft",
+    description: "Show a short draft for the creator to copy and edit. Never published by the assistant.",
+    input_schema: {
+      type: "object",
+      properties: { kind: { type: "string", enum: DRAFT_KINDS }, text: { type: "string", description: "the draft, under 1200 characters; [placeholders] for unknown facts" } },
+      required: ["kind", "text"],
+      additionalProperties: false,
+    },
+    eager_input_streaming: true,
+  },
+  {
+    name: "highlight_element",
+    description: "Briefly highlight a control on the current page (one of currentPage.highlightable). Changes nothing.",
+    input_schema: { type: "object", properties: { target: { type: "string" } }, required: ["target"], additionalProperties: false },
+    eager_input_streaming: true,
+  },
+];
 
 const tools: Anthropic.Beta.Messages.BetaTool[] = [
   {
@@ -107,6 +207,7 @@ interface ChatRequest {
   history: Turn[];
   message: string;
   context: unknown;
+  mode: "onboarding" | "platform" | "autopilot";
 }
 
 function parseRequest(raw: unknown): ChatRequest | string {
@@ -124,7 +225,7 @@ function parseRequest(raw: unknown): ChatRequest | string {
   }
   const context = JSON.stringify(r.context ?? {});
   if (context.length > MAX_CONTEXT_CHARS) return "Context is too large.";
-  return { history: turns, message: r.message.trim(), context: r.context ?? {} };
+  return { history: turns, message: r.message.trim(), context: r.context ?? {}, mode: r.mode === "platform" || r.mode === "autopilot" ? r.mode : "onboarding" };
 }
 
 /** Alternate roles strictly (merge neighbors) and start with a user turn, as the API requires. */
@@ -149,8 +250,30 @@ const ROOT_DOMAIN = /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.[a-z0-9-]{1,63})*\.[a-z]{2,}$
 const SUBDOMAIN = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/i;
 
 /** Server-side check of a proposed action. The browser checks again against the live state. */
-export function validateAction(name: string, input: unknown): Record<string, unknown> | null {
+export function validateAction(name: string, input: unknown, mode: ChatRequest["mode"] = "onboarding"): Record<string, unknown> | null {
   const i = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  if (mode === "platform") {
+    switch (name) {
+      case "navigate_to_feature": {
+        if (typeof i.featureId !== "string" || !FEATURE_IDS.includes(i.featureId)) return null;
+        const params: Record<string, string> = {};
+        if (i.params && typeof i.params === "object")
+          for (const [k, v] of Object.entries(i.params as Record<string, unknown>)) if (/^[a-zA-Z]{1,20}$/.test(k) && typeof v === "string" && /^[\w-]{1,40}$/.test(v)) params[k] = v;
+        return { featureId: i.featureId, ...(Object.keys(params).length ? { params } : {}) };
+      }
+      case "start_task":
+        return typeof i.taskId === "string" && TASK_IDS.includes(i.taskId) ? { taskId: i.taskId } : null;
+      case "task_control":
+        return typeof i.action === "string" && ["pause", "resume", "cancel", "back", "status"].includes(i.action) ? { action: i.action } : null;
+      case "show_attention":
+        return {};
+      case "prepare_draft":
+        return typeof i.kind === "string" && DRAFT_KINDS.includes(i.kind) && typeof i.text === "string" && i.text.trim() && i.text.length <= 2000 ? { kind: i.kind, text: i.text.trim() } : null;
+      case "highlight_element":
+        return typeof i.target === "string" && /^[\w-]{1,80}$/.test(i.target) ? { target: i.target } : null;
+    }
+    return null;
+  }
   switch (name) {
     case "highlight_field":
       return typeof i.field === "string" && FIELDS.includes(i.field) ? { field: i.field } : null;
@@ -252,13 +375,17 @@ export async function handleChat(req: IncomingMessage & { body?: unknown }, res:
     const stream = client.beta.messages.stream(
       {
         model: MODEL,
-        max_tokens: 2048,
+        max_tokens: parsed.mode === "autopilot" ? 600 : 2048,
         system: [
-          { type: "text", text: SYSTEM },
-          { type: "text", text: `<topfan_knowledge>\n${TOPFAN_KNOWLEDGE}\n</topfan_knowledge>`, cache_control: { type: "ephemeral" } },
+          { type: "text", text: parsed.mode === "autopilot" ? AUTOPILOT_SYSTEM : parsed.mode === "platform" ? PLATFORM_SYSTEM : SYSTEM },
+          {
+            type: "text",
+            text: `<topfan_knowledge>\n${parsed.mode === "platform" ? `${platformKnowledge()}\n\n${TOPFAN_KNOWLEDGE}` : TOPFAN_KNOWLEDGE}\n</topfan_knowledge>`,
+            cache_control: { type: "ephemeral" },
+          },
         ],
         output_config: { effort: "low" },
-        tools,
+        ...(parsed.mode === "autopilot" ? {} : { tools: parsed.mode === "platform" ? platformTools : tools }),
         messages: toMessages(parsed),
         // On a safety decline, re-run on Anthropic's recommended fallback model instead of failing.
         fallbacks: "default",
@@ -279,7 +406,7 @@ export async function handleChat(req: IncomingMessage & { body?: unknown }, res:
     if (final.stop_reason !== "max_tokens") {
       for (const block of final.content) {
         if (block.type !== "tool_use") continue;
-        const input = validateAction(block.name, block.input);
+        const input = validateAction(block.name, block.input, parsed.mode);
         if (input) write({ type: "action", name: block.name, input });
       }
     }

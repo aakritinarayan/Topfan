@@ -17,6 +17,8 @@ import { useAssistant } from "../state/assistantStore";
 import { useDomainFinder } from "../state/domainFinderStore";
 import { useQuest } from "../state/questStore";
 import { isOnboarding, siteAddress, usePlatform } from "../state/platformStore";
+import { usePlatformAgent } from "./platform/PlatformAgent";
+import { useRouter } from "../app/router";
 import { useRecords } from "../platform/wls/DnsRecordsStep";
 import { CopyLine } from "./AssistantPanel";
 import { DraftCard } from "./Extras";
@@ -28,6 +30,8 @@ const firstName = creator.name.split(" ")[0];
 export function AssistantDirector() {
   const { state, patch, go } = usePlatform();
   const a = useAssistant();
+  const agent = usePlatformAgent();
+  const { navigate } = useRouter();
   const finder = useDomainFinder();
   const quest = useQuest();
   const records = useRecords();
@@ -548,46 +552,20 @@ export function AssistantDirector() {
     );
   }, [state.screen, state.provisionDone]);
 
+  // Platform pages: quiet by default (brief §12.3). Arriving straight from setup gets one short summary
+  // of what needs attention; a direct visit starts with the panel collapsed.
   useEffect(() => {
     if (onboarding) return;
-    a.once("dashboard", () => {
-      a.say({
-        text: <>Welcome to your dashboard, {firstName}. Setup is done, so I've started a new list: getting your site ready for fans.</>,
+    if (a.messages.length > 0)
+      a.once("dashboard", () => {
+        if (a.draftPost)
+          a.say({
+            text: "Your drafted first post is still here. Nothing has been posted.",
+            actions: [{ label: "Use my drafted post", variant: "primary", onClick: () => navigate("/dashboard/newpost?prefill=assistant") }],
+          });
+        agent.showAttention("You're all set up. One thing worth a look next:");
       });
-      a.suggest({
-        text: "Where would you like to start?",
-        choice: {
-          instant: true,
-          options: [
-            { value: "brand", label: "Brand my site", recommended: true },
-            { value: "post", label: a.draftPost ? "Use my drafted post" : "Create my first post" },
-            { value: "payouts", label: "Set up payouts" },
-          ],
-          onPick: (v) => {
-            if (v === "brand") {
-              if (live.current.screen !== "manage") go("manage");
-              a.say({
-                text: (
-                  <>
-                    Start with <b>Customize Appearance</b> below: your colors and logo. When you're happy, click <b>Update &amp; Publish</b>.
-                  </>
-                ),
-              });
-              setTimeout(() => a.highlight("colors"), 300);
-            } else if (v === "post") {
-              a.say({
-                text: <>Click <b>New Post</b> in the left column{a.draftPost ? " and paste in your draft" : " to write your first post"}.</>,
-                body: a.draftPost ? <CopyLine label="Draft" value={a.draftPost} /> : undefined,
-              });
-              a.highlight("new-post");
-            } else {
-              a.say({ text: <>Open <b>Wallet</b> in the left column and click <b>Connect Payout Account</b>.</> });
-              a.highlight("nav-wallet");
-            }
-          },
-        },
-      });
-    });
+    else a.once("platform-collapsed", () => a.setOpen(false));
   }, [onboarding]);
 
   return (

@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "types": ["node"], "lib": ["ES2022"] },
-  "include": ["server", "api", "src/config"]
+  "compilerOptions": { "types": ["node"], "lib": ["ES2022", "DOM"] },
+  "include": ["server", "api", "src/config", "src/app/agent-context/features.ts", "src/app/agent-context/tasks.ts", "src/app/agent-context/knowledge.ts"]
 }

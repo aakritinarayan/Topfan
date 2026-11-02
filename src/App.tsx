@@ -16,6 +16,8 @@ import { AssistantPanel } from "./assistant/AssistantPanel";
 import { AssistantDirector } from "./assistant/Director";
 import { QuestCompanion } from "./assistant/QuestCompanion";
 import { useQuest } from "./state/questStore";
+import { DevSwitcher } from "./app/DevSwitcher";
+import { resetWorkflow } from "./app/agent-context/workflow-state";
 
 export default function App() {
   const assistant = <AssistantPanel />;
@@ -119,8 +121,10 @@ function ReviewNav() {
           {s.label}
         </button>
       ))}
+      <DevSwitcher />
       <button
         onClick={() => {
+          resetWorkflow();
           reset();
           assistant.reset();
           finder.reset();

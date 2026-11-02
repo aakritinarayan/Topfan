@@ -1,21 +1,27 @@
 /**
- * Page map for this area: route id → component. Replace Pending with the real screen as it is built.
+ * Page map for Preferences B (tabs 11–16): route id → component.
  */
-import { Pending } from "../Pending";
 import type { PageMap } from "../types";
+import { OutboundEmailsPage } from "./OutboundEmails";
+import { LinkInBioPage } from "./LinkInBio";
+import { AddDelegatePage, DelegateDetailsPage, DelegationPage } from "./Delegation";
+import { GroupFormPage, GroupsPage, TopicTagFormPage, TopicTagsPage } from "./TagsGroups";
+import { BadgesPage, BuyPointsPage, EarnPointsPage } from "./Gamification";
 
 export const pages: PageMap = {
-  "pref-outbound-emails": Pending,
-  "pref-link-in-bio": Pending,
-  "pref-link-in-bio-edit": Pending,
-  "pref-delegation": Pending,
-  "pref-delegate-details": Pending,
-  "pref-delegate-add": Pending,
-  "pref-topic-tags": Pending,
-  "pref-topic-tags-add": Pending,
-  "pref-groups": Pending,
-  "pref-groups-add": Pending,
-  "pref-gamification": Pending,
-  "pref-gamification-buy": Pending,
-  "pref-gamification-badges": Pending,
+  "pref-outbound-emails": OutboundEmailsPage,
+  "pref-link-in-bio": LinkInBioPage,
+  "pref-link-in-bio-edit": LinkInBioPage,
+  "pref-delegation": DelegationPage,
+  "pref-delegate-details": DelegateDetailsPage,
+  "pref-delegate-add": AddDelegatePage,
+  "pref-topic-tags": TopicTagsPage,
+  "pref-topic-tags-add": TopicTagFormPage,
+  "pref-topic-tags-edit": TopicTagFormPage,
+  "pref-groups": GroupsPage,
+  "pref-groups-add": GroupFormPage,
+  "pref-groups-edit": GroupFormPage,
+  "pref-gamification": EarnPointsPage,
+  "pref-gamification-buy": BuyPointsPage,
+  "pref-gamification-badges": BadgesPage,
 };

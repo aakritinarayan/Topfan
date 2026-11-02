@@ -8,6 +8,7 @@ import { siteAddress, usePlatform } from "../../state/platformStore";
 import { Button, CopyField, IconCircle, Input, InfoIcon, OutlineButton, Radio, Select } from "../ui/controls";
 import { ActiveBadge, DarkBadge, Modal } from "../ui/surfaces";
 import { useToast } from "../ui/toast";
+import { act } from "../../store/store";
 import { GoDaddySteps, useRecords } from "./DnsRecordsStep";
 import { SitePreview } from "./SitePreview";
 
@@ -182,7 +183,15 @@ export function ManageWls() {
         </div>
       </div>
 
-      <Button className="mt-10" onClick={() => toast("White Label site updated and published successfully")}>
+      <Button
+        className="mt-10"
+        data-testid="wls-update-publish"
+        onClick={() => {
+          // Records the publish in the mock store (owner only) so progress and the assistant see it.
+          const res = act("wls.publish", (d) => void (d.account.whiteLabel.lastPublishedAt = new Date().toISOString()), { need: "account.admin" });
+          toast(res.ok ? "White Label site updated and published successfully" : res.reason);
+        }}
+      >
         Update &amp; Publish
       </Button>
 

@@ -8,7 +8,10 @@ import { ArrowUp, Bell, BellOff, Check, ChevronDown, ChevronRight, CircleAlert, 
 import { useAssistant, type Msg, type MsgStatus } from "../state/assistantStore";
 import { isOnboarding, usePlatform, type PlatformState } from "../state/platformStore";
 import { LiveMascot } from "./LiveMascot";
+import { ActiveTaskCard, PlatformWelcome } from "./platform/TaskCard";
 import { useChat } from "./chat/ChatEngine";
+import { AutopilotView } from "./platform/Autopilot";
+import { useAPView } from "./platform/autopilotView";
 import { useVoice, type VoiceState } from "./chat/useVoice";
 import { Answer, ListenButton } from "./chat/Answer";
 
@@ -39,6 +42,8 @@ const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce
 
 export function AssistantPanel() {
   const { state } = usePlatform();
+  const onboarding = isOnboarding(state.screen);
+  const apView = useAPView();
   const { open, setOpen, messages, working, stop, muted, setMuted, intro, setMood } = useAssistant();
   const chat = useChat();
   const voice = useVoice();
@@ -98,7 +103,8 @@ export function AssistantPanel() {
 
   return (
     <aside
-      aria-label="TopFan Assistant"
+      aria-label="TopFan AI"
+      data-testid="ai-panel"
       className="sticky top-0 flex h-screen w-[clamp(340px,27vw,420px)] shrink-0 flex-col border-l border-line bg-bg"
     >
       {/* Header — same height as the page header */}
@@ -116,7 +122,17 @@ export function AssistantPanel() {
           <Mascot size={36} />
         </motion.span>
         <motion.div {...reveal(0.05)} className="flex flex-1 items-center gap-3" inert={waiting}>
-          <span className="flex-1 text-base font-bold">TopFan Assistant</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-base font-bold leading-tight">TopFan AI</span>
+            <span className="truncate text-[11px] text-soft">
+              Your Creator Companion
+              {chat.connected === false && !onboarding && (
+                <span data-testid="ai-demo-mode" title="No AI model is connected: I can find features, guide tasks and show what needs attention." className="ml-2 rounded-full border border-line px-1.5 py-px text-[10px] font-bold uppercase tracking-caps text-white">
+                  Demo mode
+                </span>
+              )}
+            </span>
+          </span>
         <button
           onClick={() => setMuted(!muted)}
           aria-label={muted ? "Resume suggestions" : "Pause suggestions"}
@@ -145,14 +161,21 @@ export function AssistantPanel() {
       )}
 
       <motion.div {...reveal(0.15)} className="shrink-0 px-5 pb-1 pt-3" inert={waiting}>
-        <Checklist state={state} />
+        {onboarding ? <Checklist state={state} /> : <ActiveTaskCard />}
       </motion.div>
 
       {/* Conversation */}
       <motion.div {...reveal(0.25)} ref={scroller} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 pb-4 pt-5 [mask-image:linear-gradient(to_bottom,transparent_0,#000_20px)]" inert={waiting}>
-        {messages.map((m) => (
-          <MessageView key={m.id} m={m} />
-        ))}
+        {!onboarding && apView ? (
+          <AutopilotView />
+        ) : (
+          <>
+            {!onboarding && messages.every((m) => m.dismissible) && <PlatformWelcome onAsk={(t) => chat.ask(t)} />}
+            {messages.map((m) => (
+              <MessageView key={m.id} m={m} />
+            ))}
+          </>
+        )}
       </motion.div>
 
       <AnimatePresence>
@@ -216,8 +239,9 @@ export function AssistantPanel() {
           value={listening ? voice.transcript : draft}
           readOnly={listening}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={listening ? "Listening…" : "Ask the assistant…"}
-          aria-label="Message the assistant"
+          placeholder={listening ? "Listening…" : "Ask TopFan AI…"}
+          aria-label="Message TopFan AI"
+          data-testid="ai-input"
           maxLength={2000}
           className="h-11 min-w-0 flex-1 rounded-pill bg-surface px-5 text-sm text-white outline-none placeholder:text-muted focus:ring-1 focus:ring-accent"
         />
@@ -350,7 +374,8 @@ function Launcher() {
   return (
     <button
       onClick={() => setOpen(true)}
-      aria-label="Open TopFan Assistant"
+      aria-label="Open TopFan AI"
+      data-testid="ai-launcher"
       className="fixed right-0 top-1/2 z-50 flex -translate-y-1/2 flex-col items-center gap-3 rounded-l-[20px] border border-r-0 border-accent bg-surface px-2.5 py-4 shadow-lg hover:brightness-125"
     >
       <span className="relative">
@@ -361,13 +386,13 @@ function Launcher() {
           </span>
         )}
       </span>
-      <span className="text-xs font-bold uppercase tracking-caps [writing-mode:vertical-rl]">Assistant</span>
+      <span className="text-xs font-bold uppercase tracking-caps [writing-mode:vertical-rl]">TopFan AI</span>
       {working && <Loader2 size={14} className="animate-spin text-accent" />}
     </button>
   );
 }
 
-/* ---------- Checklist: onboarding-only steps, then a separate dashboard list ---------- */
+/* ---------- Checklist: account setup steps (platform pages show the active task card instead) ---------- */
 
 type StepStatus = "done" | "now" | "next";
 
@@ -384,23 +409,15 @@ function onboardingSteps(s: PlatformState) {
   ];
 }
 
-const dashboardSteps = [
-  { label: "Brand your site", owner: "You", status: "now" as StepStatus },
-  { label: "Create your first post", owner: "You", status: "next" as StepStatus },
-  { label: "Set up payouts", owner: "You", status: "next" as StepStatus },
-  { label: "Share your link", owner: "You", status: "next" as StepStatus },
-];
-
 function Checklist({ state }: { state: PlatformState }) {
   const [expanded, setExpanded] = useState(true);
-  const onboarding = isOnboarding(state.screen);
-  const steps = onboarding ? onboardingSteps(state) : dashboardSteps;
+  const steps = onboardingSteps(state);
   const done = steps.filter((s) => s.status === "done").length;
   return (
     <div className="rounded-inner bg-surface px-4 py-3">
       <button onClick={() => setExpanded((e) => !e)} className="flex w-full items-center gap-2 text-left">
         {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-        <span className="flex-1 text-[13px] font-bold uppercase tracking-caps">{onboarding ? "Account setup" : "Get ready for fans"}</span>
+        <span className="flex-1 text-[13px] font-bold uppercase tracking-caps">Account setup</span>
         <span className="text-xs text-soft">
           {done} of {steps.length} done
         </span>
@@ -418,7 +435,6 @@ function Checklist({ state }: { state: PlatformState }) {
           ))}
         </ol>
       )}
-      {!onboarding && expanded && <p className="mt-3 text-[11px] text-muted">Account setup: done</p>}
     </div>
   );
 }

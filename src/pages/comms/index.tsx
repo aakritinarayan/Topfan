@@ -1,18 +1,21 @@
 /**
- * Page map for this area: route id → component. Replace Pending with the real screen as it is built.
+ * Page map for the Comms area: route id → component.
  */
-import { Pending } from "../Pending";
 import type { PageMap } from "../types";
+import { ActivityPage } from "./Activity";
+import { MessagesPage } from "./messages/MessagesPage";
+import { AnnouncementsPage, GuidesPage, ProvidersPage, SupportPage } from "./Resources";
+import { HelpFaqPage, PrivacyPage, TermsPage } from "./HelpLegal";
 
 export const pages: PageMap = {
-  "activity": Pending,
-  "messages": Pending,
-  "resources": Pending,
-  "resources-announcements": Pending,
-  "resources-guides": Pending,
-  "resources-providers": Pending,
-  "resources-support": Pending,
-  "help-faq": Pending,
-  "terms": Pending,
-  "privacy-policy": Pending,
+  "activity": ActivityPage,
+  "messages": MessagesPage,
+  "resources": AnnouncementsPage, // redirects to /resources/announcements (route.redirect)
+  "resources-announcements": AnnouncementsPage,
+  "resources-guides": GuidesPage,
+  "resources-providers": ProvidersPage,
+  "resources-support": SupportPage,
+  "help-faq": HelpFaqPage,
+  "terms": TermsPage,
+  "privacy-policy": PrivacyPage,
 };

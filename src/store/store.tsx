@@ -16,6 +16,7 @@ import { initialMonetize, type MonetizeState } from "./slices/monetize";
 import { initialMoney, type MoneyState } from "./slices/money";
 import { initialComms, type CommsState } from "./slices/comms";
 import { initialSocial, type SocialState } from "./slices/social";
+import { initialAutopilot, type AutopilotState } from "./slices/autopilot";
 import { can, type Capability } from "./permissions";
 
 export interface AppData {
@@ -26,6 +27,8 @@ export interface AppData {
   money: MoneyState;
   comms: CommsState;
   social: SocialState;
+  /** Content Autopilot (assistant-prepared drafts; see slices/autopilot.ts). */
+  autopilot: AutopilotState;
 }
 
 export const initialData = (): AppData =>
@@ -37,6 +40,7 @@ export const initialData = (): AppData =>
     money: initialMoney,
     comms: initialComms,
     social: initialSocial,
+    autopilot: initialAutopilot,
   });
 
 const KEY = "topfan-mock-v1";
@@ -120,18 +124,21 @@ const shallowEqual = (a: unknown, b: unknown) => {
 };
 
 /**
- * Select data. Safe for selectors that build objects/arrays: the result is cached per store version
- * and shallow-compared, so it only re-renders when the selected values really change.
+ * Select data. Safe for selectors that build objects/arrays and for selectors that use props/state:
+ * results are shallow-compared, so a component only re-renders when the selected values change.
  */
 export function useData<T>(sel: (d: AppData) => T): T {
   const selRef = useRef(sel);
   selRef.current = sel;
-  const cache = useRef<{ src: AppData; v: T } | null>(null);
+  const cache = useRef<{ src: AppData; sel: (d: AppData) => T; v: T } | null>(null);
+  // Cached per store version AND selector, so selectors that close over props/state stay current;
+  // shallow-equal results keep their previous reference (no extra renders).
   const snap = () => {
     const c = cache.current;
-    if (c && c.src === data) return c.v;
-    const v = selRef.current(data);
-    cache.current = { src: data, v: c && shallowEqual(c.v, v) ? c.v : v };
+    const s = selRef.current;
+    if (c && c.src === data && c.sel === s) return c.v;
+    const v = s(data);
+    cache.current = { src: data, sel: s, v: c && shallowEqual(c.v, v) ? c.v : v };
     return cache.current.v;
   };
   return useSyncExternalStore(subscribe, snap);

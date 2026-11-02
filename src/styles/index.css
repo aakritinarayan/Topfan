@@ -13,7 +13,7 @@ body {
 }
 
 body {
-  min-width: 1280px; /* desktop-first: 1440 primary, 1280 minimum */
+  min-width: 1100px; /* desktop-first; the reference pack captures 1126×797 and 1512×805 */
 }
 
 ::-webkit-scrollbar {

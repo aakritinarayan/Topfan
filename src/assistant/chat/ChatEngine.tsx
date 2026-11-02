@@ -7,10 +7,16 @@
  * The model can only PROPOSE actions. Each proposal is re-validated here against the current state;
  * anything that changes the form or opens another site waits for the creator's approval.
  */
+import { AutopilotDirector, useAutopilotCommands } from "../platform/Autopilot";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { dnsProviders } from "../../config/demo";
 import { useAssistant } from "../../state/assistantStore";
-import { usePlatform, type PlatformState } from "../../state/platformStore";
+import { isOnboarding, usePlatform, type PlatformState } from "../../state/platformStore";
+import { getData } from "../../store/store";
+import { buildPlatformContext } from "../../app/agent-context/agent-context";
+import { getWorkflow } from "../../app/agent-context/workflow-state";
+import { DRAFT_LABEL, type DraftKind } from "../platform/drafts";
+import { usePlatformAgent } from "../platform/PlatformAgent";
 import { useDomainFinder } from "../../state/domainFinderStore";
 import { useQuest } from "../../state/questStore";
 import { registrarById } from "../../services/domainService";
@@ -62,12 +68,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const platform = usePlatform();
   const finder = useDomainFinder();
   const quest = useQuest();
+  const agent = usePlatformAgent();
+  const autopilot = useAutopilotCommands();
   const [connected, setConnected] = useState<boolean | null>(null);
   const [status, setStatus] = useState<ChatStatus>("idle");
 
   // Async callbacks always read the latest app state ("latest state wins").
-  const live = useRef({ a, platform, finder, quest, messages: a.messages });
-  live.current = { a, platform, finder, quest, messages: a.messages };
+  const live = useRef({ a, platform, finder, quest, agent, messages: a.messages });
+  live.current = { a, platform, finder, quest, agent, messages: a.messages };
   const inflight = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -80,6 +88,36 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const { a, platform, finder } = live.current;
     const s = platform.state;
     const input = p.input;
+
+    /* ---- platform actions (outside account setup) ---- */
+    const { agent } = live.current;
+    if (p.name === "navigate_to_feature") {
+      if (typeof input.featureId === "string") agent.navigateTo(input.featureId, { quiet: true, params: validParams(input.params) });
+      return;
+    }
+    if (p.name === "start_task") {
+      if (typeof input.taskId === "string") agent.beginTask(input.taskId);
+      return;
+    }
+    if (p.name === "task_control") {
+      const c = input.action;
+      if (c === "pause" || c === "resume" || c === "cancel" || c === "back" || c === "status") agent.taskControl(c);
+      return;
+    }
+    if (p.name === "show_attention") {
+      agent.showAttention();
+      return;
+    }
+    if (p.name === "prepare_draft") {
+      const kind = input.kind as DraftKind;
+      if (typeof input.text === "string" && input.text.trim() && input.text.length <= 2000 && kind in DRAFT_LABEL) agent.offerDraft(kind, input.text.trim());
+      return;
+    }
+    if (p.name === "highlight_element") {
+      // Points at something already on screen; changes nothing.
+      if (typeof input.target === "string" && onScreenTargets().includes(input.target)) a.highlight(input.target);
+      return;
+    }
 
     if (p.name === "highlight_field") {
       // Pointing at something changes nothing: no approval needed.
@@ -190,7 +228,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const ctl = new AbortController();
       inflight.current = ctl;
 
-      const context = buildContext(platform.state, finder.live.current, a.decisions, quest);
+      const platformMode = !isOnboarding(platform.state.screen);
+      const context = platformMode
+        ? { mode: "platform", ...buildPlatformContext(getData(), window.location.pathname, text, getWorkflow(), onScreenTargets()) }
+        : buildContext(platform.state, finder.live.current, a.decisions, quest);
       let answer = "";
       let frame = 0;
       const actions: ProposedAction[] = [];
@@ -199,7 +240,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       try {
         await streamChat(
-          { history, message: text, context },
+          { history, message: text, context, mode: platformMode ? "platform" : "onboarding" },
           {
             text: (t) => {
               if (!answer) {
@@ -228,6 +269,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (e.code === "aborted") {
           a.update(replyId, { text: answer ? `${answer}\n\n_(Stopped)_` : "Stopped.", plain: answer || "", streaming: false });
           a.setMood("idle");
+        } else if (platformMode && !answer && ["not_configured", "network", "unavailable", "timeout", "busy", "auth"].includes(e.code)) {
+          // The model isn't reachable: answer with the labeled demo mode instead of failing.
+          if (e.code === "not_configured") setConnected(false);
+          a.dismiss(replyId);
+          a.setMood("idle");
+          demoAnswer(text, e.code === "not_configured" ? null : ERROR_COPY[e.code]);
         } else {
           if (e.code === "not_configured") setConnected(false);
           a.update(replyId, {
@@ -274,9 +321,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     (raw: string) => {
       const text = raw.trim();
       if (!text) return;
-      const { a, messages } = live.current;
+      const { a, messages, platform } = live.current;
       const history = historyOf(messages);
       a.userSays(text);
+      // Content Autopilot review commands are deterministic and never wait on the model.
+      if (!isOnboarding(platform.state.screen) && autopilot(text)) return;
+      if (connected !== true && !isOnboarding(platform.state.screen)) {
+        demoAnswer(text, null);
+        if (connected === false) getChatStatus().then((s) => setConnected(s.configured));
+        return;
+      }
       if (connected === false) {
         a.say({ status: "problem", text: ERROR_COPY.not_configured, details: "Add ANTHROPIC_API_KEY to the server environment (.env.local) and restart the server." });
         // Check again in case the server was configured since.
@@ -286,8 +340,31 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const id = a.say({ text: "", llm: true, streaming: true });
       void runAsk(text, id, history);
     },
-    [connected, runAsk],
+    [connected, runAsk, autopilot],
   );
+
+  /** Labeled demo mode: the deterministic agent. Never pretends to answer open questions. */
+  const demoAnswer = useCallback((text: string, problem: string | null) => {
+    const { a, agent } = live.current;
+    if (problem) a.say({ status: "problem", text: `${problem} Meanwhile, here's what I can do without it.` });
+    if (agent.handle(text)) return;
+    a.say({
+      text: "In demo mode I can find any feature, guide you through a goal, and tell you what needs attention, but I can't answer open questions without the AI model connected.",
+      plain: "Demo mode: can't answer open questions.",
+      choice: {
+        instant: true,
+        options: [
+          { value: "What needs my attention?", label: "What needs my attention?" },
+          { value: "I want to start earning", label: "I want to start earning" },
+          { value: "Where are my fans?", label: "Where are my fans?" },
+        ],
+        onPick: (v) => {
+          live.current.a.userSays(v);
+          live.current.agent.handle(v);
+        },
+      },
+    });
+  }, []);
 
   const cancel = useCallback(() => inflight.current?.abort(), []);
 
@@ -297,8 +374,29 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [a.messages.length]);
 
   const value = useMemo(() => ({ connected, status, ask, cancel }), [connected, status, ask, cancel]);
-  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
+  return (
+    <ChatContext.Provider value={value}>
+      {children}
+      <AutopilotDirector active={!isOnboarding(platform.state.screen)} connected={connected} />
+    </ChatContext.Provider>
+  );
 }
+
+/** data-testid targets visible on the page (not inside the assistant), for highlight_element. */
+function onScreenTargets() {
+  return [...document.querySelectorAll<HTMLElement>("[data-testid]")]
+    .filter((el) => !el.closest("[data-testid='ai-panel']") && el.offsetParent !== null)
+    .map((el) => el.dataset.testid!)
+    .filter((v, i, all) => all.indexOf(v) === i)
+    .slice(0, 60);
+}
+
+const validParams = (p: unknown) => {
+  if (!p || typeof p !== "object") return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(p as Record<string, unknown>)) if (/^[a-zA-Z]{1,20}$/.test(k) && typeof v === "string" && /^[\w-]{1,40}$/.test(v)) out[k] = v;
+  return out;
+};
 
 /** Keep only valid, actually-different Step 1 values. */
 function validFormPatch(input: Record<string, unknown>, s: PlatformState): Partial<PlatformState> | null {

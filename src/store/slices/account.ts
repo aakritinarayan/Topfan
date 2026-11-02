@@ -13,7 +13,7 @@ export interface AccountState {
   creatorCategory: string; // e.g. "Athletes"
   /** White-label theme (per creator). Changing these restyles the app. */
   theme: { bg: string; secondaryBg: string; accent: string; text: string; buttonText: string };
-  whiteLabel: { status: "active" | "not-set-up" | "provisioning"; domain: string; siteUrl: string; coverEnabled: boolean };
+  whiteLabel: { status: "active" | "not-set-up" | "provisioning"; domain: string; siteUrl: string; coverEnabled: boolean; lastPublishedAt?: string | null };
   /** Developer-only demo session (never shown in the original UI). */
   session: { role: Role; delegateId: string | null; fanView: "creator" | "fan" | "logged-out"; profileId: string };
 }

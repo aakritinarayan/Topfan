@@ -11,6 +11,7 @@ import { useRouter } from "../app/router";
 import { openOverlay } from "../app/ui";
 import type { Section } from "../app/routes/types";
 import { AvatarMenu, LanguageMenu } from "../pages/comms/HeaderMenus";
+import { LoggedOutHeaderActions } from "../pages/social/AuthHeader";
 import { Avatar, VerifiedBadge } from "./ui/surfaces";
 import { IconCircle } from "./ui/controls";
 
@@ -50,14 +51,18 @@ export function Logo({ size = 36 }: { size?: number }) {
 
 export function Header({ wide = false }: { wide?: boolean }) {
   const avatar = useData((d) => d.account.avatar);
+  // Logged-out fans (demo session) see SIGN IN / JOIN instead of the creator's menus.
+  const fanView = useData((d) => d.account.session.fanView);
   return (
     <header className="sticky top-0 z-40 bg-bg">
       <div className={`mx-auto flex h-[75px] items-center justify-between ${wide ? "max-w-[1512px] px-5" : "max-w-[1280px] px-[26px]"}`}>
         <Logo />
-        <div className="flex items-center gap-3">
-          <LanguageMenu />
-          <AvatarMenu avatar={avatar} />
-        </div>
+        {fanView === "logged-out" ? <LoggedOutHeaderActions /> : (
+          <div className="flex items-center gap-3">
+            <LanguageMenu />
+            <AvatarMenu avatar={avatar} />
+          </div>
+        )}
       </div>
     </header>
   );

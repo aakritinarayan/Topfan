@@ -181,9 +181,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const highlight = useCallback((field: string) => {
-    // Overlay only: briefly ring an existing field (data-field attribute) without changing it.
+    // Overlay only: briefly ring an existing field (data-field or data-testid) without changing it.
     requestAnimationFrame(() => {
-      const el = document.querySelector<HTMLElement>(`[data-field="${field}"]`);
+      const el = document.querySelector<HTMLElement>(`[data-field="${CSS.escape(field)}"], [data-testid="${CSS.escape(field)}"]`);
       if (!el) return;
       // Only scroll when needed: Chrome cancels concurrent smooth scrolls (e.g. the panel's own).
       const r = el.getBoundingClientRect();
