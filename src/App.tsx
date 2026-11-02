@@ -1,66 +1,87 @@
-import { useEffect, useState } from "react";
-import { isOnboarding, screenOrder, usePlatform } from "./state/platformStore";
+import { useEffect, useState, type ReactNode } from "react";
+import { screenOrder, usePlatform } from "./state/platformStore";
+import { useRouter } from "./app/router";
+import { pathFor, resolve } from "./app/routeCatalog";
+import { PAGES } from "./app/pages";
+import { Pending } from "./pages/Pending";
+import { SocialOverlays } from "./pages/social/Overlays";
+import { useData } from "./store/store";
 import { useAssistant } from "./state/assistantStore";
-import { DashboardLayout, FullWidthLayout, OnboardingLayout } from "./platform/Shell";
-import { PreferencesPage } from "./platform/PreferencesPage";
-import { DomainInfoStep } from "./platform/wls/DomainInfoStep";
-import { DnsRecordsStep } from "./platform/wls/DnsRecordsStep";
-import { ProvisioningStep } from "./platform/wls/ProvisioningStep";
+import { BleedLayout, DashboardLayout, FullWidthLayout, MarketingLayout, OnboardingLayout, PublicLayout } from "./platform/Shell";
 import { SpaceBackdrop } from "./platform/wls/SpaceBackdrop";
 import { AssistantIntro } from "./assistant/AssistantIntro";
 import { DomainFinderDirector } from "./assistant/DomainFinder";
 import { useDomainFinder } from "./state/domainFinderStore";
-import { ManageWls } from "./platform/wls/ManageWls";
-import { CoverPageEditor } from "./platform/wls/CoverPageEditor";
 import { AssistantPanel } from "./assistant/AssistantPanel";
 import { AssistantDirector } from "./assistant/Director";
 import { QuestCompanion } from "./assistant/QuestCompanion";
 import { useQuest } from "./state/questStore";
 
 export default function App() {
-  const { state } = usePlatform();
   const assistant = <AssistantPanel />;
-
-  let page;
-  if (isOnboarding(state.screen)) {
-    // Account setup: TopFan header + setup form + assistant. No creator dashboard components render here.
-    const body = {
-      step1: <DomainInfoStep />,
-      step2: <DnsRecordsStep />,
-      provisioning: <ProvisioningStep />,
-      // Same component (and instance) as provisioning: completion is its resolved state.
-      complete: <ProvisioningStep />,
-    }[state.screen as "step1" | "step2" | "provisioning" | "complete"];
-    page = (
-      <OnboardingLayout assistant={assistant} backdrop={state.screen === "provisioning" || state.screen === "complete" ? <SpaceBackdrop /> : undefined}>
-        {body}
-      </OnboardingLayout>
-    );
-  } else if (state.screen === "coverEditor") {
-    page = (
-      <FullWidthLayout assistant={assistant}>
-        <CoverPageEditor />
-      </FullWidthLayout>
-    );
-  } else {
-    page = (
-      <DashboardLayout assistant={assistant}>
-        <PreferencesPage>
-          <ManageWls />
-        </PreferencesPage>
-      </DashboardLayout>
-    );
-  }
-
   return (
     <>
-      {page}
+      <AppRoutes assistant={assistant} />
+      <SocialOverlays />
       <AssistantDirector />
       <QuestCompanion />
       <AssistantIntro />
       <DomainFinderDirector />
       <ReviewNav />
     </>
+  );
+}
+
+/** Resolve the URL to a route, enforce access for the demo role, and wrap the page in its layout. */
+function AppRoutes({ assistant }: { assistant: ReactNode }) {
+  const { path, query, navigate } = useRouter();
+  const { route, params } = resolve(path);
+  const role = useData((d) => d.account.session.role);
+  const name = useData((d) => d.account.name);
+  useEffect(() => {
+    if (route.redirect) navigate(pathFor(route.redirect, params), { replace: true });
+  }, [route.id]);
+  useEffect(() => {
+    document.title = `${route.title} | ${name}`;
+  }, [route.id, name]);
+  if (route.redirect) return null;
+
+  const Page = PAGES[route.id] ?? Pending;
+  const allowed = route.access.includes(role) || route.access.includes("public");
+  const page = (
+    <div data-route={route.id} className="contents">
+      {allowed ? <Page route={route} params={params} query={query} /> : <NoAccess title={route.title} />}
+    </div>
+  );
+  switch (route.layout) {
+    case "onboarding":
+      return (
+        <OnboardingLayout assistant={assistant} backdrop={route.id === "wls-setup-provisioning" || route.id === "wls-setup-complete" ? <SpaceBackdrop /> : undefined}>
+          {page}
+        </OnboardingLayout>
+      );
+    case "bleed":
+      return <BleedLayout assistant={assistant} section={route.section}>{page}</BleedLayout>;
+    case "narrow":
+      return <DashboardLayout assistant={assistant} section={route.section} narrow>{page}</DashboardLayout>;
+    case "public":
+      return <PublicLayout assistant={assistant}>{page}</PublicLayout>;
+    case "marketing":
+      return <MarketingLayout assistant={assistant}>{page}</MarketingLayout>;
+    case "wide":
+      return <FullWidthLayout assistant={assistant}>{page}</FullWidthLayout>;
+    default:
+      return <DashboardLayout assistant={assistant} section={route.section}>{page}</DashboardLayout>;
+  }
+}
+
+/** Shown when the demo role (e.g. a Content delegate) can't open a screen. INFERRED copy. */
+function NoAccess({ title }: { title: string }) {
+  return (
+    <div data-testid="page-no-access" className="py-10">
+      <h4 className="text-2xl font-bold">{title}</h4>
+      <p className="mt-2 text-sm text-muted">Your delegate access doesn't include this section. Ask the account owner if you need it.</p>
+    </div>
   );
 }
 
@@ -73,11 +94,13 @@ function ReviewNav() {
   const finder = useDomainFinder();
   const quest = useQuest();
   const assistant = useAssistant();
-  const [open, setOpen] = useState(true);
+  // Developer review bar: shown by default on the White Label demo routes only; "R" toggles it anywhere.
+  const [forced, setForced] = useState<boolean | null>(null);
+  const open = forced ?? state.screen !== "app";
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if ((e.key === "r" || e.key === "R") && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
-        setOpen((o) => !o);
+        setForced((f) => !(f ?? state.screen !== "app"));
       }
     };
     window.addEventListener("keydown", k);
@@ -102,6 +125,7 @@ function ReviewNav() {
           assistant.reset();
           finder.reset();
           quest.reset();
+          go("step1");
         }}
         className="rounded-full px-3 py-1.5 text-muted hover:text-white"
       >

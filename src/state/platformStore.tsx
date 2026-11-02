@@ -1,7 +1,20 @@
-import { createContext, useCallback, useContext, useReducer, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useReducer, type ReactNode } from "react";
+import { useRouter } from "../app/router";
 import { domain as demoDomain } from "../config/demo";
 
-export type Screen = "step1" | "step2" | "provisioning" | "complete" | "manage" | "coverEditor";
+export type Screen = "step1" | "step2" | "provisioning" | "complete" | "manage" | "coverEditor" | "app";
+
+/** White Label screens ↔ routes. Any other route is "app" (the rest of the platform). */
+export const SCREEN_PATH: Record<Exclude<Screen, "app">, string> = {
+  step1: "/edit-preference/whitelabel/setup/domain",
+  step2: "/edit-preference/whitelabel/setup/dns",
+  provisioning: "/edit-preference/whitelabel/setup/provisioning",
+  complete: "/edit-preference/whitelabel/setup/complete",
+  manage: "/edit-preference/whitelabel",
+  coverEditor: "/edit-preference/whitelabel-cover-page",
+};
+export const screenForPath = (path: string): Screen =>
+  ((Object.entries(SCREEN_PATH) as [Screen, string][]).find(([, p]) => p === path)?.[0] ?? "app");
 
 export const screenOrder: { id: Screen; label: string }[] = [
   { id: "step1", label: "Step 1 · Domain" },
@@ -95,14 +108,29 @@ interface Ctx {
 const PlatformContext = createContext<Ctx | null>(null);
 
 export function PlatformProvider({ children }: { children: ReactNode }) {
+  const { path, navigate } = useRouter();
   const [state, dispatch] = useReducer(reducer, initialPlatformState, (init) => {
-    const q = new URLSearchParams(window.location.search).get("screen") as Screen | null;
-    return q && screenOrder.some((s) => s.id === q) ? reducer(init, { type: "go", screen: q }) : init;
+    const legacy = new URLSearchParams(window.location.search).get("screen");
+    const screen = legacy && legacy in SCREEN_PATH ? (legacy as Screen) : screenForPath(window.location.pathname.replace(/\/+$/, "") || "/");
+    return screen === "step1" ? init : reducer(init, { type: "go", screen });
   });
-  const go = useCallback((screen: Screen) => {
-    dispatch({ type: "go", screen });
-    window.scrollTo({ top: 0 });
+  // Legacy deep links (?screen=provisioning) → the real route.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("screen") as Screen | null;
+    if (q && q !== "app" && q in SCREEN_PATH) navigate(SCREEN_PATH[q as keyof typeof SCREEN_PATH], { replace: true });
   }, []);
+  // The URL is the source of truth: entering a White Label route runs the same transition logic.
+  useEffect(() => {
+    const screen = screenForPath(path);
+    dispatch({ type: "go", screen });
+  }, [path]);
+  const go = useCallback(
+    (screen: Screen) => {
+      if (screen === "app") return;
+      navigate(SCREEN_PATH[screen]);
+    },
+    [navigate],
+  );
   const patch = useCallback((p: Partial<PlatformState>) => dispatch({ type: "patch", patch: p }), []);
   const reset = useCallback(() => dispatch({ type: "reset" }), []);
   return <PlatformContext.Provider value={{ state, go, patch, reset }}>{children}</PlatformContext.Provider>;

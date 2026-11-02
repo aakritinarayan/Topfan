@@ -43,6 +43,7 @@ const STEP_NAMES: Record<PlatformState["screen"], string> = {
   complete: "Account setup › Site activated (provisioning complete; website address shown)",
   manage: "Dashboard › Preferences › White Label Site (Manage)",
   coverEditor: "Dashboard › Preferences › White Label Site › Cover page editor",
+  app: "Creator platform (see currentPage)",
 };
 
 export function recordsFor(s: PlatformState) {

@@ -15,9 +15,13 @@ import { AssistantProvider } from "./state/assistantStore";
 import { DomainFinderProvider } from "./state/domainFinderStore";
 import { ChatProvider } from "./assistant/chat/ChatEngine";
 import { QuestProvider } from "./state/questStore";
+import { RouterProvider } from "./app/router";
+import { StoreProvider } from "./store/store";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
+    <RouterProvider>
+    <StoreProvider>
     <PlatformProvider>
       <AssistantProvider>
         <DomainFinderProvider>
@@ -31,5 +35,7 @@ createRoot(document.getElementById("root")!).render(
         </DomainFinderProvider>
       </AssistantProvider>
     </PlatformProvider>
+    </StoreProvider>
+    </RouterProvider>
   </StrictMode>,
 );

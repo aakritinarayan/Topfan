@@ -476,7 +476,7 @@ function OrbitLoader({ left, overrun, complete, animate, dim }: { left: number; 
                 animate={{ opacity: 1, scale: 1 }}
                 transition={animate ? { type: "spring", stiffness: 260, damping: 18, delay: 1.05 } : { duration: 0 }}
               >
-                <Check size={52} strokeWidth={2} className="text-accent" />
+                <Check size={52} strokeWidth={2} className="text-white" />
               </motion.span>
             ) : overrun ? (
               <>

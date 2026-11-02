@@ -1,0 +1,12 @@
+import { ANYONE, OWNER, type RouteDef } from "./types";
+
+/** Shell-level and White Label routes (owned by the core/assistant team). */
+export const coreRoutes: RouteDef[] = [
+  { id: "pref-whitelabel", pattern: "/edit-preference/whitelabel", title: "White Label Site", section: "preferences", menu: "Avatar menu › Edit Preferences › White Label Site", layout: "dashboard", access: OWNER, status: "captured", spec: "50-pref-white-label-site.md", shots: ["50-", "50a-", "50b-", "50c-", "50d-", "50e-"] },
+  { id: "pref-whitelabel-cover", pattern: "/edit-preference/whitelabel-cover-page", title: "Cover Page editor", section: "preferences", parent: "pref-whitelabel", menu: "White Label Site › EDIT COVER PAGE", layout: "wide", access: OWNER, status: "captured", spec: "50f-wls-cover-page-editor.md", shots: ["50f-", "50g-"] },
+  { id: "wls-setup-domain", pattern: "/edit-preference/whitelabel/setup/domain", title: "White Label Site setup · Domain Information", section: "onboarding", parent: "pref-whitelabel", menu: "White Label Site (before a domain is set up)", layout: "onboarding", access: OWNER, status: "existing", spec: "50-pref-white-label-site.md", note: "Approved AI-assisted onboarding. URL is inferred (the live app shows setup at /edit-preference/whitelabel)." },
+  { id: "wls-setup-dns", pattern: "/edit-preference/whitelabel/setup/dns", title: "White Label Site setup · Add DNS Records", section: "onboarding", parent: "pref-whitelabel", menu: "White Label Site setup, step 2 of 3", layout: "onboarding", access: OWNER, status: "existing", spec: "50-pref-white-label-site.md", note: "URL inferred." },
+  { id: "wls-setup-provisioning", pattern: "/edit-preference/whitelabel/setup/provisioning", title: "White Label Site setup · Provisioning", section: "onboarding", parent: "pref-whitelabel", menu: "White Label Site setup, provisioning", layout: "onboarding", access: OWNER, status: "existing", spec: "50-pref-white-label-site.md", note: "URL inferred. Includes Creator Quest." },
+  { id: "wls-setup-complete", pattern: "/edit-preference/whitelabel/setup/complete", title: "White Label Site setup · Site activated", section: "onboarding", parent: "pref-whitelabel", menu: "White Label Site setup, complete", layout: "onboarding", access: OWNER, status: "existing", spec: "50-pref-white-label-site.md", note: "URL inferred." },
+  { id: "not-found", pattern: "/__not-found", title: "Page not found", section: "help", menu: "(fallback)", layout: "dashboard", access: ANYONE, status: "inferred", note: "Unobtrusive fallback for unknown routes." },
+];

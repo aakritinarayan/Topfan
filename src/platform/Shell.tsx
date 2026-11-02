@@ -5,7 +5,12 @@ import type { ReactNode } from "react";
 import {
   Bell, ChartColumn, CircleDollarSign, Globe, House, Lightbulb, MessageCircle, Plus, SquarePlay, Video, Wallet,
 } from "lucide-react";
-import { assets, creator, sidebarNav } from "../config/demo";
+import { assets } from "../config/demo";
+import { useData } from "../store/store";
+import { useRouter } from "../app/router";
+import { openOverlay } from "../app/ui";
+import type { Section } from "../app/routes/types";
+import { AvatarMenu, LanguageMenu } from "../pages/comms/HeaderMenus";
 import { Avatar, VerifiedBadge } from "./ui/surfaces";
 import { IconCircle } from "./ui/controls";
 
@@ -21,63 +26,106 @@ const navIcons = {
 };
 
 export function Logo({ size = 36 }: { size?: number }) {
-  if (assets.logoImage) return <img src={assets.logoImage} alt={creator.name} style={{ height: size }} />;
-  return (
+  const name = useData((d) => d.account.name);
+  const { navigate } = useRouter();
+  const handle = useData((d) => d.account.handle);
+  const label = (
     <span className="whitespace-nowrap font-logo leading-none text-accent" style={{ fontSize: size }}>
-      {creator.name}
+      {name}
     </span>
+  );
+  return (
+    <a
+      href={`/${handle}`}
+      data-testid="header-logo"
+      onClick={(e) => {
+        e.preventDefault();
+        navigate(`/${handle}`);
+      }}
+    >
+      {assets.logoImage ? <img src={assets.logoImage} alt={name} style={{ height: size }} /> : label}
+    </a>
   );
 }
 
 export function Header({ wide = false }: { wide?: boolean }) {
+  const avatar = useData((d) => d.account.avatar);
   return (
     <header className="sticky top-0 z-40 bg-bg">
       <div className={`mx-auto flex h-[75px] items-center justify-between ${wide ? "max-w-[1512px] px-5" : "max-w-[1280px] px-[26px]"}`}>
         <Logo />
         <div className="flex items-center gap-3">
-          <IconCircle aria-label="Language">
-            <Globe size={22} />
-          </IconCircle>
-          <button aria-label="Account menu">
-            <Avatar src={assets.avatar} size={42} ring={2} />
-          </button>
+          <LanguageMenu />
+          <AvatarMenu avatar={avatar} />
         </div>
       </div>
     </header>
   );
 }
 
-function Sidebar() {
+/** Sidebar destinations (labels are the product's own; do not rename). */
+const NAV: { id: string; label: string; icon: keyof typeof navIcons; to: (handle: string) => string; section: Section[] }[] = [
+  { id: "home", label: "Home", icon: "home", to: () => "/", section: ["home"] },
+  { id: "feed", label: "Feed", icon: "feed", to: (h) => `/${h}`, section: ["feed"] },
+  { id: "activity", label: "Activity", icon: "activity", to: () => "/dashboard/activity", section: ["activity"] },
+  { id: "messages", label: "Messages", icon: "messages", to: () => "/messages", section: ["messages"] },
+  { id: "monetize", label: "Monetize", icon: "monetize", to: () => "/monetize/subscription", section: ["monetize"] },
+  { id: "wallet", label: "Wallet", icon: "wallet", to: () => "/wallet/current-balance", section: ["wallet"] },
+  { id: "insights", label: "Insights & Fans", icon: "insights", to: () => "/insights", section: ["insights"] },
+  { id: "resources", label: "Resources", icon: "resources", to: () => "/resources/announcements", section: ["resources"] },
+];
+
+export function Sidebar({ section }: { section?: Section }) {
+  const { navigate } = useRouter();
+  const account = useData((d) => d.account);
+  const badges = useData((d) => ({
+    resources: d.comms.announcements.filter((a) => !a.read).length,
+    messages: d.comms.unreadMessages,
+  }));
   return (
-    <aside className="sticky top-[75px] w-[268px] shrink-0 self-start pt-9">
+    <aside className="sticky top-[75px] w-[268px] shrink-0 self-start pt-9" data-testid="sidebar">
       <div className="flex flex-col items-center">
-        <Avatar src={assets.avatar} size={104} ring={3} />
+        <Avatar src={account.avatar} size={104} ring={3} />
         <div className="mt-3 flex items-center gap-1.5">
-          <span className="text-2xl font-bold">{creator.name}</span>
-          <VerifiedBadge />
+          <span className="text-2xl font-bold">{account.name}</span>
+          {account.verified && <VerifiedBadge />}
         </div>
       </div>
       <div className="mt-[42px] flex flex-col gap-2.5">
-        <SidebarCta field="new-post" icon={<Plus size={20} />}>New Post</SidebarCta>
-        <SidebarCta icon={<Video size={20} />}>Livestream</SidebarCta>
+        <SidebarCta field="new-post" testid="nav-new-post" icon={<Plus size={20} />} onClick={() => navigate("/dashboard/newpost")}>
+          New Post
+        </SidebarCta>
+        <SidebarCta field="livestream" testid="nav-livestream" icon={<Video size={20} />} onClick={() => openOverlay("livestream")}>
+          Livestream
+        </SidebarCta>
       </div>
-      <nav className="mt-2.5">
+      <nav className="mt-2.5" aria-label="Main">
         <ul>
-          {sidebarNav.map((item) => {
+          {NAV.map((item) => {
             const Icon = navIcons[item.icon];
+            const active = !!section && item.section.includes(section);
+            const badge = item.id === "resources" ? badges.resources : item.id === "messages" ? badges.messages : 0;
+            const to = item.to(account.handle);
             return (
-              <li key={item.label}>
+              <li key={item.id}>
                 <a
-                  href="#"
-                  data-field={`nav-${item.label.toLowerCase()}`}
-                  onClick={(e) => e.preventDefault()}
-                  className="group flex h-[39px] items-center gap-4 rounded-[20px] pb-[7px] pl-6 pr-2 pt-1.5 text-base text-white hover:bg-accent-tint hover:text-accent"
+                  href={to}
+                  data-field={`nav-${item.label.toLowerCase().split(" ")[0]}`}
+                  data-testid={`nav-${item.id}`}
+                  aria-current={active ? "page" : undefined}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate(to);
+                  }}
+                  className={`group flex h-[39px] items-center gap-4 rounded-[20px] pb-[7px] pl-6 pr-2 pt-1.5 text-base hover:bg-accent-tint hover:text-accent ${
+                    active ? "bg-accent-tint text-accent" : "text-white"
+                  }`}
                 >
                   <Icon size={22} className="shrink-0" />
                   <span className="flex-1">{item.label}</span>
-                  {"badge" in item && (
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-danger text-xs text-white">
-                      {item.badge}
+                  {badge > 0 && (
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-danger text-xs text-white" aria-label={`${badge} new`}>
+                      {badge}
                     </span>
                   )}
                 </a>
@@ -90,9 +138,14 @@ function Sidebar() {
   );
 }
 
-function SidebarCta({ icon, children, field }: { icon: ReactNode; children: ReactNode; field?: string }) {
+function SidebarCta({ icon, children, field, testid, onClick }: { icon: ReactNode; children: ReactNode; field?: string; testid?: string; onClick?: () => void }) {
   return (
-    <button data-field={field} className="relative flex h-[37px] w-[268px] items-center justify-center rounded-pill bg-accent px-5 pb-1.5 pt-[7px] text-sm font-black uppercase tracking-caps text-white hover:brightness-110">
+    <button
+      data-field={field}
+      data-testid={testid}
+      onClick={onClick}
+      className="relative flex h-[37px] w-[268px] items-center justify-center rounded-pill bg-accent px-5 pb-1.5 pt-[7px] text-sm font-black uppercase tracking-caps text-white hover:brightness-110"
+    >
       <span className="absolute left-5">{icon}</span>
       {children}
     </button>
@@ -185,17 +238,56 @@ export function OnboardingLayout({
   );
 }
 
-/** Creator dashboard layout with the left column (only after setup is complete). */
-export function DashboardLayout({ children, assistant }: { children: ReactNode; assistant?: ReactNode }) {
+/** Creator dashboard layout with the left column (REF › App shell). `narrow` = New Post (~850px content). */
+export function DashboardLayout({ children, assistant, section, narrow }: { children: ReactNode; assistant?: ReactNode; section?: Section; narrow?: boolean }) {
   return (
     <div className="flex min-h-screen bg-bg">
       <div className="min-w-0 flex-1">
         <Header />
         <div className="mx-auto flex max-w-[1280px] gap-[37px] px-3 pb-24">
-          <Sidebar />
+          <Sidebar section={section} />
+          <main className={`min-w-0 flex-1 pt-10 ${narrow ? "max-w-[850px]" : ""}`}>{children}</main>
+        </div>
+      </div>
+      {assistant}
+    </div>
+  );
+}
+
+/** Activity / Messages: the sidebar snaps to x=0 and content runs full-bleed (REF › Exceptions). */
+export function BleedLayout({ children, assistant, section }: { children: ReactNode; assistant?: ReactNode; section?: Section }) {
+  return (
+    <div className="flex min-h-screen bg-bg">
+      <div className="min-w-0 flex-1">
+        <Header />
+        <div className="flex gap-[25px] pb-24">
+          <Sidebar section={section} />
           <main className="min-w-0 flex-1 pt-10">{children}</main>
         </div>
       </div>
+      {assistant}
+    </div>
+  );
+}
+
+/** Public fan pages (Feed, Store, Events, Videos…): creator header; the page lays out its own columns. */
+export function PublicLayout({ children, assistant }: { children: ReactNode; assistant?: ReactNode }) {
+  return (
+    <div className="flex min-h-screen bg-bg">
+      <div className="min-w-0 flex-1">
+        <Header />
+        <main className="mx-auto max-w-[1280px] px-3 pb-24">{children}</main>
+      </div>
+      {assistant}
+    </div>
+  );
+}
+
+/** Public Home: marketing layout with no sidebar; the page renders its own top nav. */
+export function MarketingLayout({ children, assistant }: { children: ReactNode; assistant?: ReactNode }) {
+  return (
+    <div className="flex min-h-screen bg-bg">
+      <div className="min-w-0 flex-1">{children}</div>
       {assistant}
     </div>
   );
