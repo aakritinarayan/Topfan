@@ -454,7 +454,7 @@ function GridPost({ post }: { post: Post }) {
         )}
         {post.type === "fundraiser" && x.fundraiser && (
           <div className="mt-[12px]">
-            <div className="flex justify-between text-[14px] font-bold">
+            <div className="flex flex-wrap justify-between gap-x-[8px] text-[14px] font-bold">
               <span>{money(x.fundraiser.raised)} Raised So Far</span>
               <span>{money(x.fundraiser.goal)} Goal</span>
             </div>
@@ -499,7 +499,7 @@ function StayConnected() {
         Keep your community engaged with fresh updates, exclusive posts, photos, videos, announcements, and everyday moments. Share what matters, spark
         conversations, and turn followers into a connected community.
       </p>
-      <div className="mt-[48px] columns-3 gap-[24px]">
+      <div className="mt-[48px] columns-4 gap-[24px]">
         {posts.map((p) => (
           <GridPost key={p.id} post={p} />
         ))}
