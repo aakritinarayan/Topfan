@@ -6,3 +6,5 @@ References/_ref_extracted
 .env.local
 .env.*.local
 References/
+.vercel
+tsconfig.tsbuildinfo

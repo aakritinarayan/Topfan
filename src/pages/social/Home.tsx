@@ -228,7 +228,7 @@ function Experience() {
         This journey is built through daily practice, repeated attempts, failed landings, small wins, and the excitement of finally landing a trick that once felt
         impossible.
       </p>
-      <div className="mt-[47px] grid grid-cols-4 gap-[32px]">
+      <div className="mt-[47px] grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-[32px]">
         {cards.map(([t, b], i) => (
           <div key={t} className="min-h-[362px] rounded-[18px] border border-accent p-[8px]">
             <ImageSlot src={HOME_MEDIA.experience[i]} label={t} className="h-[170px] w-full" rounded="rounded-tile" />
@@ -312,7 +312,7 @@ function Collaborate() {
           Partner with a snowboarding creator who brings together visual storytelling, authentic mountain culture, and an engaged audience. From brand campaigns and
           product showcases to event coverage and community activations, every collaboration is shaped around real movement and credible creator-led content.
         </p>
-        <div className="mt-[46px] grid grid-cols-4 gap-[16px]">
+        <div className="mt-[46px] grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-[16px]">
           {cards.map(([Icon, t, b]) => (
             <div key={t} className="min-h-[183px] rounded-tile bg-accent p-[24px]">
               <span className="flex h-[44px] w-[44px] items-center justify-center rounded-popover border border-white/40 bg-black">
@@ -384,7 +384,7 @@ function Merchandise() {
           View All
         </ArrowPill>
       </div>
-      <div className="mt-[35px] grid grid-cols-4 gap-[24px]">
+      <div className="mt-[35px] grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-[24px]">
         {items.map((it) => (
           <div key={it.id} data-testid={`home-product-${it.id}`} className="overflow-hidden rounded-[20px] border border-transparent bg-surface">
             <ImageSlot src={it.image} kind="product" label={it.title} className="aspect-square w-full !bg-[#efefef] !text-black/25" />
@@ -603,7 +603,7 @@ function Stats() {
     <section data-testid="home-stats" className={`${WRAP} pb-[40px] pt-[78px]`}>
       <h2 className="text-center font-display text-[48px] font-bold leading-[58px]">Global Audience</h2>
       <p className="mt-[8px] text-center text-[18px]">AJ White Fan Reach Around the World</p>
-      <div className="mt-[35px] grid grid-cols-3 gap-[16px]">
+      <div className="mt-[35px] grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-[16px]">
         {stats.map(([n, l]) => (
           <div key={l} className="flex h-[145px] flex-col items-center justify-center rounded-inner bg-surface">
             <span className="font-display text-[40px] font-bold leading-[48px] text-accent">

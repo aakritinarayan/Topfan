@@ -1357,5 +1357,41 @@
   "width": 1600,
   "height": 520,
   "alt": "Red stage curtain (illustration)"
+ },
+ "generated/training-cinematic": {
+  "file": "assets/generated/training-cinematic.webp",
+  "source": "original (scripts/media/generate-ai-visuals.mjs)",
+  "author": "TopFan POC",
+  "license": "Original demo artwork",
+  "width": 1600,
+  "height": 1000,
+  "alt": "Original illustration: mountain ridges at dusk with a red sun and a snowboard line (simulated AI image)"
+ },
+ "generated/training-minimal": {
+  "file": "assets/generated/training-minimal.webp",
+  "source": "original (scripts/media/generate-ai-visuals.mjs)",
+  "author": "TopFan POC",
+  "license": "Original demo artwork",
+  "width": 1600,
+  "height": 1000,
+  "alt": "Original illustration: minimal line mountains with a red sun (simulated AI image)"
+ },
+ "generated/training-dark": {
+  "file": "assets/generated/training-dark.webp",
+  "source": "original (scripts/media/generate-ai-visuals.mjs)",
+  "author": "TopFan POC",
+  "license": "Original demo artwork",
+  "width": 1600,
+  "height": 1000,
+  "alt": "Original illustration: darker mountain ridges with a dim red sun (simulated AI image)"
+ },
+ "generated/training-wide": {
+  "file": "assets/generated/training-wide.webp",
+  "source": "original (scripts/media/generate-ai-visuals.mjs)",
+  "author": "TopFan POC",
+  "license": "Original demo artwork",
+  "width": 1920,
+  "height": 900,
+  "alt": "Original illustration: wide mountain scene with open space on the left for text (simulated AI image)"
  }
 }

@@ -146,11 +146,11 @@ export function AssistantIntro() {
             initial={{ opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: leaving ? 0.35 : 0.15 } }}
           >
-            {/* very light dim, never blocks the form */}
+            {/* dims the page so the card stands out; clears as the mascot flies to the panel */}
             <motion.div
               className="absolute inset-0 bg-black"
               initial={{ opacity: 0 }}
-              animate={{ opacity: flight ? 0 : 0.22 }}
+              animate={{ opacity: flight ? 0 : 0.55 }}
               transition={{ duration: 0.4 }}
             />
             <motion.div

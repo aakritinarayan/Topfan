@@ -19,6 +19,10 @@ export interface FundraiserLevel {
   title: string;
   amount: number;
   gift: string | null;
+  /** Where the gift comes from (New Post › Optional Gift): a Store item, or a custom gift the creator fulfils. */
+  giftKind?: "store" | "custom";
+  /** Custom gift description. */
+  giftNote?: string;
 }
 /** Shape of Post.extra used by this area. Every field is optional. */
 export interface PostExtra {
@@ -42,6 +46,8 @@ export interface PostExtra {
   collaborators?: string[];
   /** Unlabeled DISABLE / ENABLE control on New Post (inferred meaning). */
   featureEnabled?: boolean;
+  /** New Post › Lock options besides Individual Purchase (Post.price): loyalty points and NFT contracts. */
+  lock?: { purchase: boolean; points: number | null; nftContracts: string[] };
 }
 
 export const extraOf = (p: Post) => (p.extra ?? {}) as PostExtra;

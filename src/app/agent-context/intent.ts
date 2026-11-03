@@ -7,6 +7,7 @@
  */
 import { AMBIGUITIES, FEATURES, featureById, type Feature } from "./features";
 import { TASKS, type TaskDef } from "./tasks";
+import { matchEarning, type EarnIntent } from "./earning";
 
 export const normalizeText = (s: string) =>
   ` ${s
@@ -95,6 +96,7 @@ export type Intent =
   | { kind: "control"; control: "pause" | "resume" | "cancel" | "back" | "status" }
   | { kind: "page-help" }
   | { kind: "goal"; goal: GoalId }
+  | { kind: "earn"; earn: EarnIntent }
   | { kind: "smalltalk"; reply: "greeting" | "thanks" }
   | { kind: "unknown" };
 
@@ -237,6 +239,11 @@ export function classify(raw: string, ctx: { hasActiveTask: boolean }): Intent {
   if (any(HEALTH)) return { kind: "health" };
   if (any(NEXT)) return { kind: "next" };
   if (any(PAGE_HELP) || /^ (help|help me|\?) $/.test(text)) return { kind: "page-help" };
+
+  // Earning: broad question, all options, help deciding, or a recommendation for a specific goal.
+  // "Take me to Merchandise" stays direct navigation.
+  const earn = matchEarning(raw);
+  if (earn && !(earn.kind === "recommend" && isImperativeNav(raw))) return { kind: "earn", earn };
 
   const goal = matchGoal(raw);
   if (goal) return { kind: "goal", goal };

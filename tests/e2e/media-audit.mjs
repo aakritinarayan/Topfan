@@ -3,6 +3,7 @@
 // Usage: node tests/e2e/media-audit.mjs [1512|1126] [--json out.json]   (dev server on :5173)
 import fs from "node:fs";
 import puppeteer from "../../node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js";
+const BASE = process.env.BASE_URL || "http://localhost:5173";
 const W = Number(process.argv[2]) || 1512, H = W === 1126 ? 797 : 805;
 const jsonOut = process.argv.includes("--json") ? process.argv[process.argv.indexOf("--json") + 1] : null;
 const routes = JSON.parse(fs.readFileSync(new URL("../../docs/agent-context/routes.json", import.meta.url)));
@@ -13,7 +14,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const failed = [];
 p.on("requestfailed", (r) => /\.(png|jpe?g|webp|avif|svg|mp4|webm)(\?|$)/.test(r.url()) && failed.push(r.url()));
 p.on("response", (r) => r.status() >= 400 && /\.(png|jpe?g|webp|avif|svg|mp4|webm)(\?|$)/.test(r.url()) && failed.push(`${r.status()} ${r.url()}`));
-await p.goto("http://localhost:5173/?noDelay=1&resetMock=1", { waitUntil: "networkidle0" });
+await p.goto(`${BASE}/?noDelay=1&resetMock=1`, { waitUntil: "networkidle0" });
 // The default seed has no events (per spec); add the Bandsintown sample event (same data as the in-app import) so event detail is audited.
 const d = await p.evaluate(() => {
   const d = JSON.parse(localStorage.getItem("topfan-mock-v1"));
@@ -32,7 +33,7 @@ const rows = [];
 for (const r of list) {
   const path = r.pattern.replace(/:(\w+)/g, (_, k) => (k === "productId" ? productFor(r.id) : P[k]) ?? "missing");
   failed.length = 0;
-  await p.goto(`http://localhost:5173${path}${path.includes("?") ? "&" : "?"}noDelay=1`, { waitUntil: "networkidle0" }).catch(() => {});
+  await p.goto(`${BASE}${path}${path.includes("?") ? "&" : "?"}noDelay=1`, { waitUntil: "networkidle0" }).catch(() => {});
   await sleep(300);
   await p.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 40)); } window.scrollTo(0, 0); });
   await sleep(250);

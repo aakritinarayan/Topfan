@@ -3,7 +3,7 @@
  */
 import type { ReactNode } from "react";
 import {
-  Bell, ChartColumn, CircleDollarSign, House, Lightbulb, MessageCircle, Plus, SquarePlay, Video, Wallet,
+  Bell, ChartColumn, CircleDollarSign, House, Lightbulb, MessageCircle, Plus, SlidersHorizontal, SquarePlay, Video, Wallet,
 } from "lucide-react";
 import { assets } from "../config/demo";
 import { previewFromUrl, useData, useLogoDraft } from "../store/store";
@@ -96,8 +96,24 @@ export function Sidebar({ section }: { section?: Section }) {
           <span className="text-2xl font-bold">{account.name}</span>
           {account.verified && <VerifiedBadge />}
         </div>
+        {/* Shortcut to Edit Preferences (also in the avatar menu): a quiet secondary action, not a CTA. */}
+        <a
+          href="/edit-preference"
+          data-field="nav-edit-preferences"
+          data-testid="nav-edit-preferences"
+          aria-current={section === "preferences" ? "page" : undefined}
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; // new tab/window: let the browser handle it
+            e.preventDefault();
+            navigate("/edit-preference");
+          }}
+          className="mt-3 inline-flex h-8 items-center gap-2 rounded-pill border border-line bg-surface px-4 text-[13px] font-medium text-soft transition-colors hover:border-white/40 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent aria-[current=page]:border-white/40 aria-[current=page]:text-white"
+        >
+          <SlidersHorizontal size={14} aria-hidden />
+          Edit Preferences
+        </a>
       </div>
-      <div className="mt-[42px] flex flex-col gap-2.5">
+      <div className="mt-8 flex flex-col gap-2.5">
         <SidebarCta field="new-post" testid="nav-new-post" icon={<Plus size={20} />} onClick={() => navigate("/dashboard/newpost")}>
           New Post
         </SidebarCta>

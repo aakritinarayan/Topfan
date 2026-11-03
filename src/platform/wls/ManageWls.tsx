@@ -9,6 +9,7 @@ import { Button, CopyField, IconCircle, Input, InfoIcon, OutlineButton, Radio, S
 import { ActiveBadge, DarkBadge, Modal } from "../ui/surfaces";
 import { useToast } from "../ui/toast";
 import { act, getData, setLogoDraft, useData } from "../../store/store";
+import { takePendingTheme } from "../../store/slices/cover";
 import { fontStack, LOGO_FONTS, type AccountState } from "../../store/slices/account";
 import { ConfirmModal } from "../../pages/prefs-b/ui";
 import { useRouter } from "../../app/router";
@@ -52,7 +53,8 @@ export function ManageWls() {
   const [tab, setTab] = useState<"cover" | "feed">("cover");
   const [palette, setPalette] = useState(appearance.palette);
   // Unsaved appearance: shown in the preview right away, saved by Update & Publish.
-  const [theme, setTheme] = useState<Theme>({ postText: savedTheme.text, ...savedTheme });
+  // Colors the creator accepted from the assistant arrive here unsaved, like a preset click.
+  const [theme, setTheme] = useState<Theme>(() => ({ postText: savedTheme.text, ...savedTheme, ...takePendingTheme() }));
   const [logoMode, setLogoMode] = useState<"text" | "image">("text");
   const [logoText, setLogoText] = useState(savedLogo.text);
   const [font, setFont] = useState(Math.max(0, LOGO_FONTS.indexOf(savedLogo.font)));
@@ -133,7 +135,7 @@ export function ManageWls() {
               Enable
             </button>
           </div>
-          <Button onClick={() => go("coverEditor")}>Edit Cover Page</Button>
+          <Button onClick={() => go("coverEditor")} data-field="edit-cover">Edit Cover Page</Button>
         </div>
       </div>
 

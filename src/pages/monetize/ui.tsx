@@ -163,10 +163,9 @@ const TABS: { id: string; label: string }[] = [
   { id: "monetize-advertisements", label: "Advertisements" },
 ];
 
-// inferred: the Monetize info icon's popover text was not captured; this paraphrases the product
-// note recorded in the build brief (store order is set from the Store button on the profile).
+// Monetize info tip (reference: shell-monetize-info-tip).
 const MONETIZE_INFO =
-  "Everything you add here is sold on your Store and profile. To set the order fans see your Store items in, open the Store button on your profile and drag the items.";
+  "To set the order of your Store items or feature items on your profile, click the Store button on your Profile and use the controls on that screen.";
 
 /** Monetize page frame: title + info, the 12 sub-tab pills (router links), then the section. */
 export function MonetizeFrame({ routeId, active, children }: { routeId: string; active: string; children: ReactNode }) {
@@ -756,5 +755,179 @@ function ChevronDownIcon({ open }: { open: boolean }) {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden>
       <path d="m6 9 6 6 6-6" />
     </svg>
+  );
+}
+
+/* ------------------------------------------------------------ reference form primitives (Experience, Newsletter) */
+
+/** Back arrow + title + DISABLE/ENABLE segmented control (reference form header, under the Monetize pills). */
+export function RefFormHeader({ title, backTo, enabled, onEnabled, what, testid }: { title: string; backTo: string; enabled: boolean; onEnabled: (on: boolean) => void; what: string; testid: string }) {
+  const { navigate } = useRouter();
+  return (
+    <div className="flex min-h-[40px] items-center justify-between gap-4">
+      <div className="flex items-center gap-[20px]">
+        <button type="button" aria-label="Back" data-testid="monetize-form-back" onClick={() => navigate(backTo)} className="text-white hover:text-accent">
+          <ArrowLeft size={24} />
+        </button>
+        <h1 className="text-[24px] font-bold leading-[30px]">{title}</h1>
+      </div>
+      <div role="group" aria-label={`${what} status`} data-testid={testid} className="flex h-[40px] shrink-0 overflow-hidden rounded-pill bg-surface text-[13px] font-black uppercase tracking-caps">
+        {([false, true] as const).map((on) => (
+          <button
+            key={String(on)}
+            type="button"
+            aria-pressed={enabled === on}
+            aria-label={`${on ? "Enable" : "Disable"} ${what}`}
+            data-testid={`${testid}-${on ? "on" : "off"}`}
+            onClick={() => onEnabled(on)}
+            className={`px-[18px] uppercase tracking-caps ${enabled === on ? "rounded-pill bg-accent text-white" : "text-white hover:text-accent"}`}
+          >
+            {on ? "Enable" : "Disable"}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Round selector (option rows): accent outline; filled accent + check when selected (the reference left these empty: not copied). */
+export function RoundCheck({ on, onClick, label, testid, children }: { on: boolean; onClick: () => void; label: string; testid: string; children?: ReactNode }) {
+  return (
+    <button type="button" role="checkbox" aria-checked={on} aria-label={label} data-testid={testid} onClick={onClick} className="inline-flex items-center gap-[20px] text-left text-[16px] text-white">
+      <span className={`flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full ${on ? "bg-accent" : "border border-accent"}`}>{on && <Check size={15} strokeWidth={3} />}</span>
+      {children}
+    </button>
+  );
+}
+
+/** "$ Option Price" pill input. */
+export function MoneyInput({ value, onChange, label, testid, placeholder = "Option Price", invalid }: { value: string; onChange: (v: string) => void; label: string; testid?: string; placeholder?: string; invalid?: boolean }) {
+  return (
+    <label className={`flex h-[55px] w-full items-center rounded-pill bg-bg px-[24px] text-[14px] font-black focus-within:ring-1 focus-within:ring-accent ${invalid ? "ring-1 ring-danger" : ""}`}>
+      $
+      <input aria-label={label} data-testid={testid} inputMode="decimal" value={value} onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ""))} placeholder={placeholder} className="ml-[6px] w-full bg-transparent outline-none placeholder:font-bold placeholder:text-muted" />
+    </label>
+  );
+}
+
+/** Dashed Upload tile; shows the chosen image (local object URL, nothing is uploaded). */
+export function UploadTile({ src, name, onPick, testid, label = "Upload" }: { src?: string | null; name?: string; onPick: (name: string, file: File) => void; testid: string; label?: string }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex items-end gap-[16px]">
+      <input ref={ref} type="file" accept="image/*" className="hidden" data-testid={`${testid}-input`} onChange={(e) => e.target.files?.[0] && onPick(e.target.files[0].name, e.target.files[0])} />
+      <button
+        type="button"
+        data-testid={testid}
+        aria-label={src ? "Change image" : "Upload image"}
+        onClick={() => ref.current?.click()}
+        className="relative flex h-[90px] w-[78px] shrink-0 flex-col items-center justify-center gap-[6px] overflow-hidden rounded-[10px] border border-dashed border-accent text-[14px] text-accent hover:bg-accent-tint"
+      >
+        {src ? (
+          <ImageSlot src={src} label={name || "Preview image"} className="absolute inset-0 h-full w-full" />
+        ) : (
+          <>
+            <Plus size={24} strokeWidth={1.8} />
+            {label}
+          </>
+        )}
+      </button>
+      {src && <span className="pb-[4px] text-[13px] text-muted">{name || "Image selected"} · click to change</span>}
+    </div>
+  );
+}
+
+/** NFT contract address list: input + ADD, added addresses with remove. */
+export function NftContracts({ value, onChange, testid }: { value: string[]; onChange: (v: string[]) => void; testid: string }) {
+  const [draft, setDraft] = useState("");
+  const [err, setErr] = useState("");
+  const add = () => {
+    const v = draft.trim();
+    if (!/^0x[0-9a-fA-F]{10,64}$/.test(v)) return setErr("Enter a contract address that starts with 0x (letters a–f and numbers only)");
+    if (value.includes(v)) return setErr("Already added");
+    onChange([...value, v]);
+    setDraft("");
+    setErr("");
+  };
+  return (
+    <div data-testid={testid}>
+      <label className="flex h-[55px] items-center rounded-pill bg-bg pl-[24px] pr-[18px] focus-within:ring-1 focus-within:ring-accent">
+        <input
+          value={draft}
+          aria-label="NFT contract address"
+          data-testid={`${testid}-input`}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add())}
+          placeholder="Paste the NFT Contract ID here"
+          className="min-w-0 flex-1 bg-transparent text-[14px] font-black text-white outline-none placeholder:font-bold placeholder:text-muted"
+        />
+        <button type="button" data-testid={`${testid}-add`} onClick={add} className="ml-[10px] flex items-center gap-[4px] text-[14px] font-black uppercase text-accent hover:brightness-125">
+          <Plus size={16} strokeWidth={3} />
+          Add
+        </button>
+      </label>
+      {err && <p className="mt-[8px] pl-[24px] text-[13px] font-medium text-danger">{err}</p>}
+      {value.length > 0 && (
+        <ul className="mt-[10px] flex flex-col gap-[6px]">
+          {value.map((a) => (
+            <li key={a} className="flex items-center justify-between gap-[10px] rounded-pill bg-bg px-[20px] py-[8px] text-[12px]" data-testid={`${testid}-item`}>
+              <span className="truncate font-mono">{a}</span>
+              <button type="button" aria-label={`Remove ${a}`} onClick={() => onChange(value.filter((x) => x !== a))} className="text-[12px] font-bold uppercase text-accent hover:underline">
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export const NFT_TIP =
+  "You can find the Contract Address of your NFT by going to https://portfolio.metamask.io, choosing the correct Portfolio and NFT, and viewing its Token Details. The NFT Contract Address will look something like this example: 0x81c960679bd68D0095ed3A6325FA9b26043eFE9";
+
+/** Dropdown whose options can carry a small outline tag (Type of Experience › "Calendar Scheduling"). */
+export function TagSelect({ value, options, onChange, testid, invalid, label, placeholder = "" }: { value: string | null; options: { value: string; label: string; tag?: string }[]; onChange: (v: string) => void; testid: string; invalid?: boolean; label: string; placeholder?: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useOutside(ref, () => setOpen(false), open);
+  const cur = options.find((o) => o.value === value);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-label={label}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        data-testid={testid}
+        onClick={() => setOpen((o) => !o)}
+        className={`flex h-[55px] w-full items-center justify-between rounded-pill bg-bg pl-[24px] pr-[20px] text-left text-[14px] font-black text-white ${invalid ? "ring-1 ring-danger" : ""} ${open ? "ring-1 ring-accent" : ""}`}
+      >
+        <span className={cur ? "" : "font-bold text-muted"}>{cur?.label ?? placeholder}</span>
+        <ChevronDownIcon open={open} />
+      </button>
+      {open && (
+        <ul role="listbox" aria-label={label} className="absolute left-0 right-0 top-[63px] z-30 max-h-[280px] overflow-y-auto rounded-panel bg-bg py-[10px] shadow-[0_4px_12px_rgba(0,0,0,.4)]">
+          {options.map((o) => (
+            <li key={o.value}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={o.value === value}
+                data-testid={`${testid}-opt-${o.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-$/, "")}`}
+                onClick={() => {
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+                className={`flex min-h-[35px] w-full items-center gap-[10px] px-[20px] text-left text-[14px] hover:bg-accent ${o.value === value ? "bg-accent font-bold" : ""}`}
+              >
+                {o.label}
+                {o.tag && <span className="rounded-pill border border-white px-[8px] py-[1px] text-[11px] font-medium">{o.tag}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

@@ -853,7 +853,7 @@
   },
   {
     "id": "monetize-newsletter-new",
-    "pattern": "/monetize/newsletters/new-newsletter",
+    "pattern": "/monetize/newsletters/add",
     "title": "New Newsletter",
     "section": "monetize",
     "parent": "monetize-newsletters",
@@ -870,7 +870,7 @@
   },
   {
     "id": "monetize-newsletter-edit",
-    "pattern": "/monetize/newsletters/edit-newsletter/:newsletterId",
+    "pattern": "/monetize/newsletters/edit/:newsletterId",
     "title": "Edit Newsletter",
     "section": "monetize",
     "parent": "monetize-newsletters",
@@ -904,8 +904,8 @@
   },
   {
     "id": "monetize-experience-add",
-    "pattern": "/monetize/experience/add-experience",
-    "title": "Add Experience",
+    "pattern": "/monetize/experience/create-experience",
+    "title": "Create Experiences",
     "section": "monetize",
     "parent": "monetize-experience",
     "menu": "Sidebar › Monetize › EXPERIENCES › Add Another Experience",

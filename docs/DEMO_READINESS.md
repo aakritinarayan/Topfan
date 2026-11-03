@@ -24,9 +24,10 @@ WORKING = real local behavior, verified · MOCKED = simulated by design (labeled
 | 5 | Post-setup welcome "Your site is ready…" with ≤4 state-based suggestions | WORKING | scenarios F |
 | 6 | Direct navigation from the creator's words, offered as a button, chat preserved | WORKING | scenarios A, B; demo-script |
 | 7 | Ambiguity questions (settings, wallet) | WORKING | scenarios G; demo-script |
-| 8 | Goal-based help ("start earning") with three paths and an explanation | WORKING | scenarios C |
-| 9 | Persistent tasks with steps verified against app state | WORKING | scenarios C, E, Email |
-| 10 | Resume a task from another page | WORKING | scenarios E |
+| 8 | Earning discovery: broad question (4 groups + all 12), "help me decide", recommendations for specific goals, direct "Take me to …" | WORKING | monetize (101 checks), scenarios C |
+| 8a | All 12 Monetize features open their own screen and guided setup step (real control highlighted) | WORKING | monetize |
+| 9 | Persistent tasks with steps verified against app state | WORKING | scenarios C, E, Email; task-resume |
+| 10 | Resume a task from another page; each paused task resumes its own workflow, step and typed input | WORKING | scenarios E; task-resume (34 checks) |
 | 11 | Outbound Email fix, Failed → Verified (protected domain confirm) | WORKING (simulated DNS check) | scenarios Email |
 | 12 | "What should I focus on?" priorities | WORKING | demo-script |
 | 13 | Approval-gated small changes (groups, tags, automated messages) | WORKING | demo-script |
@@ -42,6 +43,7 @@ WORKING = real local behavior, verified · MOCKED = simulated by design (labeled
 | 23 | Every button on every route does something (or is honestly labeled) | see section F | click-audit |
 | 24 | Images and video posters on every route | WORKING | media-audit: 102 routes, 0 issues |
 | 25 | Live LLM answers for open questions | NOT VERIFIED | no API key |
+| 26 | Demo 2 intent-driven content: post, image (simulated), Lock/tier honesty, newsletter with email blocker, experience, whole week, continuity, Autopilot hand-off | WORKING (simulated image/email/timing) | content-agent (7 scenarios); see `docs/DEMO2_CONTENT_AGENT.md` |
 
 ## C. Walkthrough
 
@@ -56,11 +58,19 @@ The presenter's script is `docs/demo-run-sheet.md`. Automated equivalents:
 | 5 Task continuation | scenarios C, E, Email | PASS |
 | 6 Content Autopilot | plan-week, autopilot | PASS |
 | 7 General assistant | chat-corpus (194 questions) | PASS |
+| Two demo links (journeys, isolation, page guidance on 11 screens × 2) | two-demos, demo-links | PASS |
+| GoDaddy DNS setup (states, errors, refresh, no duplicate setup) | dns-setup | PASS |
+| Demo 2 content agent (7 scenarios: post+image, Gold/Platinum + teaser, newsletter blocker, experience, entire week, continue, Autopilot + page guidance + reset) | content-agent (1512×805 and 1126×797) | PASS |
+| Demo 2 Smart Link in Bio (setup, promote, improve, relevance, "add this", week link, save failure + retry, invalid URL refused, Demo 1 untouched) | link-in-bio | PASS |
+| Edit Cover Page with prefill (Demo 1: draft, dirty fields, undo, image/colors, refresh, publish, fixtures; Demo 2 isolation) | cover-page | PASS |
 
 Also run at 1126×797: demo-script and plan-week pass.
 
 ## D. Limitations (honest labels in the product)
 
+- Two demo links: `/demo/setup-navigation` (setup, navigation, monetization discovery) and `/demo/ai-content` (writing help, Content Autopilot). Gating is in code: the other demo's workflows aren't suggested, Autopilot can't open in Demo 1, setup guidance doesn't run in Demo 2, and explicit requests get "That workflow is available in the … demo." Conversations are in memory per tab; a full reload starts a new conversation (tasks and data persist per demo).
+- Cover page prefill: the existing editor has only SEO Title, Keywords and Description, plus sections and sub-pages, so only those fields are prefilled. Headline and intro copy are shown as Draft text to copy, because the editor has no field for them. Colors go to Customize Appearance as unsaved changes. The image suggestion replaces the cover-page hero image only after an explicit click. The website (`ajwhite-riding.example`) and Instagram data are a fictional fixture labelled simulated; Facebook and X links are kept but never read. Nothing is fetched.
+- The DNS error stories need `?dnsFixture=…`; the simulated verification passes once the simulated setup is prepared (no real DNS lookup).
 - Simulated, and labeled where shown: GoDaddy connection, DNS verification, provisioning time, Outbound Email verification, payments and withdrawals, Creator Quest numbers, "Draft them now" (the product would draft each post the day before).
 - Regular TopFan posts can't be scheduled in the references, so suggested times stay suggestions and publishing is one click per post in New Post.
 - Preview-only controls explain themselves instead of acting: fan-side buttons in previews (Link in Bio "Get Your Own Platform", course "Enroll" cards in Messages, site preview buttons), and the Feed audio post (no audio file in the demo).
@@ -68,6 +78,14 @@ Also run at 1126×797: demo-script and plan-week pass.
 - Voice: US English only; in Chrome, audio is processed by Google (the panel says so).
 
 ## E. Fixes in this pass
+
+- Two distinct demos with shared page guidance: a page intro and up to three actions chosen per demo (Feed, New Post, Subscriptions, Newsletters, Experiences, Courses, Wallet, Insights & Fans, White Label Site, Link in Bio, Groups), a quiet context row once the chat has started, more on request.
+- GoDaddy DNS setup: Connect → Review (the actual records) → Processing → Success modal, always labelled Simulated, no credential fields; refresh mid-setup is reported as unconfirmed with Try again; a second Prepare never re-runs the setup.
+- Post-setup: "Your site is ready. Let's make it yours." with five priority actions (three shown). **Edit my cover page** goes through White Label Site to the existing editor, where the assistant prepares a sourced draft. It applies the draft only on review, never over the creator's own edits, and offers Undo. Publishing happens only through the editor's Update & Publish. Cover editor values now persist in the mock store across navigation and refresh.
+- Account setup screens use the live product's setup colors (teal accent and buttons, teal mascot); the platform after setup stays red and black.
+
+- Paused tasks: every Resume opened the most recently paused task (the button passed no task id). Each task now has its own id; Resume/Cancel act on exactly that task; a missing task shows a recovery message instead of opening another. The VIP group form keeps what was typed. Tasks finished by hand leave the Paused list. The list is compact (3 shown, "Show all").
+- Monetization: discovery covers all 12 features (was 3). New guided tasks for Experiences, NFTs, VIP Offers, Portfolios, Discount Codes and Advertisements. Fixed: the Course, Downloadable and Merchandise tasks could never detect a created item (they read the wrong data), and the Merchandise, Newsletter and Events steps pointed at controls that don't exist.
 
 - Content Autopilot: new **Plan my week** flow; completion screen no longer a dead end (shows which draft is open, **Open next draft**, **Back to chat**).
 - Logo font and text changes show live in the header; unpublished changes revert on leaving.
@@ -101,4 +119,4 @@ None for the scripted demo. Click audit results: see below.
 
 - **During a demo:** press **R**, click **Reset** in the review bar. It reloads on setup Step 1 with clean demo data.
 - **Any page:** add `?resetMock=1` to the URL.
-- What it clears (this browser only): `topfan-mock-v1` (mock data), `topfan-tasks-v1` (assistant tasks), `topfan-autopilot-view-v1` (review screen), plus in-memory chat, setup and Creator Quest state. It never touches real accounts or services; the demo has none.
+- What it clears (this browser only, and only for the demo you're in; demo links suffix the keys with `:setup-navigation` or `:ai-content`): `topfan-mock-v1` (mock data), `topfan-tasks-v1` (assistant tasks), `topfan-autopilot-view-v1` (review screen), `topfan-setup-v1` (setup progress), plus in-memory chat, setup and Creator Quest state. It never touches real accounts or services; the demo has none.

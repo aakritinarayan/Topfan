@@ -9,6 +9,7 @@ import { useAssistant } from "../../state/assistantStore";
 import { Button, CopyField, TextButton } from "../ui/controls";
 import { InnerBox, Modal } from "../ui/surfaces";
 import { WizardFrame } from "./DomainInfoStep";
+import { dnsFixture } from "../../assistant/dnsCopy";
 
 /** Records for the entered host (sub-domain or "www"); values are the demo values. */
 export function useRecords() {
@@ -45,17 +46,23 @@ export function DnsRecordsStep() {
   const [failed, setFailed] = useState(false);
   const assistant = useAssistant();
 
-  // Simulated check: passes once the records are in place (assistant connected / fixed them).
-  // Without the assistant, the first VERIFY fails like the real flow often does and the second succeeds.
+  // Simulated check (deterministic demo result, no DNS lookup): passes once the records are in place
+  // (the assistant's simulated setup was prepared, or the records were fixed). With ?dnsFixture=
+  // propagation-pending the first check after the setup isn't visible yet. Without the assistant, the
+  // first VERIFY fails like the real flow often does and the second succeeds.
   // While the assistant panel is open, it explains the failure instead of the generic modal.
   const verify = () => {
     setVerifying(true);
     setTimeout(() => {
       setVerifying(false);
       const attempts = state.verifyAttempts + 1;
+      const prepared = state.dnsSetup === "prepared" || state.dnsSetup === "applied";
+      const pending = prepared && dnsFixture === "propagation-pending" && attempts === 1;
       patch({ verifyAttempts: attempts });
-      if (state.recordsVerified || (attempts >= 2 && !assistant.open)) go("provisioning");
-      else if (!assistant.open) setFailed(true);
+      if (!pending && (state.recordsVerified || prepared || (attempts >= 2 && !assistant.open))) {
+        patch({ recordsVerified: true });
+        go("provisioning");
+      } else if (!assistant.open) setFailed(true);
     }, 1500);
   };
 

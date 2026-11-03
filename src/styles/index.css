@@ -91,8 +91,8 @@ body {
   animation: mascot-think 1.8s ease-in-out infinite;
 }
 @keyframes mascot-think {
-  0%, 100% { filter: drop-shadow(0 0 3px rgba(255, 30, 30, 0.5)) brightness(1); }
-  50% { filter: drop-shadow(0 0 6px rgba(255, 60, 60, 0.85)) brightness(1.08); }
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(var(--mascot-glow), 0.5)) brightness(1); }
+  50% { filter: drop-shadow(0 0 6px rgba(var(--mascot-glow), 0.85)) brightness(1.08); }
 }
 @media (prefers-reduced-motion: reduce) {
   .mascot-think { animation: none; }
@@ -119,3 +119,12 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .quest-enter, .quest-meter { animation: none; }
 }
+
+/* Fan-site preview (White Label Site): a thin, quiet scrollbar inside the phone card. */
+.preview-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+}
+.preview-scroll::-webkit-scrollbar { width: 6px; }
+.preview-scroll::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.18); border-radius: 999px; }
+.preview-scroll::-webkit-scrollbar-track { background: transparent; }

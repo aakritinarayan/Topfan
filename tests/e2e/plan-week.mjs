@@ -1,6 +1,7 @@
 // Content Autopilot › Plan my week, end to end: brief → plan → approve → drafts → review → saved.
 // Usage: node tests/e2e/plan-week.mjs [1512|1126]   (dev server on :5173)
 import puppeteer from "../../node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js";
+const BASE = process.env.BASE_URL || "http://localhost:5173";
 const W = Number(process.argv[2]) || 1512, H = W === 1126 ? 797 : 805;
 const b = await puppeteer.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true, defaultViewport: { width: W, height: H } });
 const p = await b.newPage();
@@ -17,7 +18,7 @@ const screen = () => p.evaluate(() => { const v = document.querySelector('[data-
 const ap = () => p.evaluate(() => JSON.parse(localStorage.getItem("topfan-mock-v1")).autopilot);
 const ask = async (q) => { await p.click('[data-testid="ai-input"]', { clickCount: 3 }); await p.keyboard.press("Backspace"); await p.type('[data-testid="ai-input"]', q); await p.keyboard.press("Enter"); await sleep(700); };
 
-await p.goto("http://localhost:5173/?resetMock=1&noDelay=1", { waitUntil: "networkidle0" });
+await p.goto(`${BASE}/?resetMock=1&noDelay=1`, { waitUntil: "networkidle0" });
 await sleep(1200);
 if (!(await $("ai-panel"))) await click("ai-launcher");
 await p.evaluate(() => document.querySelector('[data-testid="ap-close"]')?.click());
@@ -56,6 +57,13 @@ await click("ap-plan-next");
 // Step 4: media
 const assets = await p.$$('[data-testid^="ap-plan-asset-"]');
 check("step 4: library files shown with thumbnails", assets.length >= 2 && (await p.$$eval('[data-testid^="ap-plan-asset-"] img', (x) => x.filter((i) => i.complete && i.naturalWidth > 0).length)) >= 2);
+// Add a photo and a video from the device (local only). Each is picked and goes first in the plan.
+const file = await p.$('[data-testid="ap-plan-media-file"]');
+await file.uploadFile(new URL("../../public/assets/posts/contest-1.webp", import.meta.url).pathname); await sleep(1500);
+await file.uploadFile(new URL("../../public/assets/videos/big-air.mp4", import.meta.url).pathname); await sleep(3000);
+const addedAssets = (await ap()).assets.filter((a) => a.added);
+check("added photo and video join the library, picked", addedAssets.length === 2 && addedAssets.every((a) => a.approved && a.poster?.startsWith("data:image/")) && (await ap()).plan.brief.assetIds.filter((id) => addedAssets.some((a) => a.id === id)).length === 2, JSON.stringify(addedAssets.map((a) => [a.label, a.kind])));
+check("added files show thumbnails", (await p.$$eval('[data-testid^="ap-plan-asset-"] img', (x) => x.filter((i) => i.complete && i.naturalWidth > 0).length)) === assets.length + 2);
 await click("ap-plan-next");
 
 // Step 5: plan
@@ -66,6 +74,7 @@ const dayOf = (idea) => { const s = plan.slots.find((x) => x.idea === idea); ret
 check("a line that names a day lands on that day (Sat, Wed)", dayOf("brief-0") === 6 && dayOf("brief-1") === 3, JSON.stringify(plan.slots.map((s) => [s.idea, new Date(s.at).getDay()])));
 check("Saturday was added because it was mentioned", plan.brief.days.includes(6));
 check("every slot names its source", (await text("ap-plan-slots")).split("From:").length - 1 === slots.length);
+check("files the creator added are in the plan", ["New photos", "New clip"].every((t) => plan.slots.some((s) => s.title === t)), JSON.stringify(plan.slots.map((s) => s.title)));
 const i0 = plan.slots.findIndex((x) => x.pillar !== "coming-up");
 const t0 = plan.slots[i0]?.title;
 await p.evaluate((i) => document.querySelectorAll('[data-testid="ap-plan-slot"]')[i]?.querySelector('[title="Try another idea"]')?.click(), i0);
@@ -73,7 +82,7 @@ await sleep(300);
 check("Try another idea swaps a post", (await ap()).plan.slots[i0]?.title !== t0, t0);
 const n0 = (await ap()).plan.slots.length;
 // Remove a post that isn't from the brief.
-await p.evaluate(() => [...document.querySelectorAll('[data-testid="ap-plan-slot"]')].filter((x) => !/Your weekly brief/.test(x.innerText)).pop().querySelector('[title="Remove"]').click());
+await p.evaluate(() => [...document.querySelectorAll('[data-testid="ap-plan-slot"]')].filter((x) => !/Your weekly brief|New photos|New clip/.test(x.innerText)).pop().querySelector('[title="Remove"]').click());
 await sleep(300);
 check("Remove takes a post out", (await ap()).plan.slots.length === n0 - 1);
 check("nothing drafted or published before approval", (await ap()).plan.status === "draft");
@@ -90,6 +99,7 @@ check("one draft per planned post", batch.drafts.length === n0 - 1, `${batch.dra
 const briefDraft = batch.drafts.find((x) => x.idea === "brief-0");
 check("brief draft uses only the creator's words and passes the checks", briefDraft?.status === "ready" && /Copper Ridge rail jam on Saturday/.test(briefDraft.text), JSON.stringify(briefDraft && { s: briefDraft.status, r: briefDraft.holdReason, t: briefDraft.text }));
 check("nothing published", batch.drafts.every((x) => x.status !== "published"));
+check("added clip draft has the file and its still", batch.drafts.some((x) => x.title === "New clip" && x.status === "ready" && x.media?.src?.startsWith("blob:") && x.media?.poster?.startsWith("data:image/")));
 
 // Review → approve → save, via the existing flow
 await ask("Approve the good ones");

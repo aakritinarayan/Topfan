@@ -1,5 +1,6 @@
 // Content Autopilot scenarios A–G (demo mode, deterministic).
 import puppeteer from "/Users/unthinkable-mac/Documents/topfan-assistant-poc/node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js";
+const BASE = process.env.BASE_URL || "http://localhost:5173";
 const W = Number(process.argv[2] ?? 1512), H = W === 1126 ? 797 : 805;
 const b = await puppeteer.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true, defaultViewport: { width: W, height: H } });
 const p = await b.newPage(); const errs = []; p.on("pageerror", (e) => errs.push(e.message)); p.on("console", (m) => m.type() === "error" && errs.push(m.text()));
@@ -16,7 +17,7 @@ const ap = async () => (await data()).autopilot ?? (await data()).data?.autopilo
 const draft = async (idea) => (await ap()).batch.drafts.find((x) => x.idea === idea);
 const posts = async () => { const d = await data(); return (d.social ?? d.data?.social).posts; };
 const fresh = async (path = "/ajwhite", extra = "") => {
-  await p.goto(`http://localhost:5173${path}?noDelay=1&resetMock=1${extra}`, { waitUntil: "networkidle0" });
+  await p.goto(`${BASE}${path}?noDelay=1&resetMock=1${extra}`, { waitUntil: "networkidle0" });
   await p.evaluate(() => localStorage.removeItem("tf-fail-save"));
   await sleep(1200);
   if (!(await $("ai-panel"))) await click("ai-launcher");
@@ -27,7 +28,7 @@ const shot = (n) => p.screenshot({ path: `/tmp/ap-${W}-${n}.png` });
 await fresh();
 let t = await text("ap-notice");
 check("one batch notice", /4 posts are ready for review/.test(t) && (await p.$$('[data-testid="ap-notice"]')).length === 1, t);
-await p.goto("http://localhost:5173/ajwhite?noDelay=1", { waitUntil: "networkidle0" }); await sleep(1200); // direct visits start collapsed
+await p.goto(`${BASE}/ajwhite?noDelay=1`, { waitUntil: "networkidle0" }); await sleep(1200); // direct visits start collapsed
 if (!(await $("ai-panel"))) await click("ai-launcher");
 check("notice survives reload", !!(await $("ap-notice")));
 await click("ap-notice-review");
@@ -177,7 +178,7 @@ const n0 = (await posts()).length;
 await ask("Review my posts");
 await click("ap-dismiss");
 check("G: dismissed, nothing published", (await ap()).batch.dismissed && (await posts()).length === n0 && (await ap()).batch.drafts.every((x) => !["published", "saved", "approved"].includes(x.status)));
-await p.goto("http://localhost:5173/ajwhite?noDelay=1", { waitUntil: "networkidle0" }); await sleep(600);
+await p.goto(`${BASE}/ajwhite?noDelay=1`, { waitUntil: "networkidle0" }); await sleep(600);
 if (!(await $("ai-panel"))) await click("ai-launcher");
 check("G: no notice after dismiss", !(await $("ap-notice")));
 
@@ -188,7 +189,7 @@ await p.evaluate(() => localStorage.setItem("tf-fail-save", "1"));
 await click("ap-save");
 check("save failure shown", (await draft("training-update")).status === "failed" && /retry saving/i.test(await text("ap-complete")));
 await p.evaluate(() => localStorage.removeItem("tf-fail-save"));
-await p.goto("http://localhost:5173/ajwhite?noDelay=1", { waitUntil: "networkidle0" }); await sleep(600);
+await p.goto(`${BASE}/ajwhite?noDelay=1`, { waitUntil: "networkidle0" }); await sleep(600);
 if (!(await $("ai-panel"))) await click("ai-launcher");
 check("view survives refresh", (await screen()) === "complete", String(await screen()));
 await click("ap-save");
@@ -199,7 +200,7 @@ check("pause", (await ap()).paused === true);
 /* ---------- role: a Content delegate may review and approve (pack: delegates have Content access) ---------- */
 await fresh();
 await p.evaluate(() => { const d = JSON.parse(localStorage.getItem("topfan-mock-v1")); (d.account ?? d.data.account).session.role = "content"; localStorage.setItem("topfan-mock-v1", JSON.stringify(d)); });
-await p.goto("http://localhost:5173/ajwhite?noDelay=1", { waitUntil: "networkidle0" }); await sleep(600);
+await p.goto(`${BASE}/ajwhite?noDelay=1`, { waitUntil: "networkidle0" }); await sleep(600);
 const role = (await data()).account?.session.role ?? (await data()).data?.account.session.role;
 if (!(await $("ai-panel"))) await click("ai-launcher");
 await ask("Approve the good ones");

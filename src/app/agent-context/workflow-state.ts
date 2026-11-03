@@ -9,8 +9,12 @@ import { getData, onStoreEvent } from "../../store/store";
 import { onNavigate } from "../router";
 import { resolve } from "../routeCatalog";
 import { currentStep, metrics, taskById, type Metrics, type StepCtx, type TaskDef } from "./tasks";
+import { storageKey } from "../demo";
 
 export interface ActiveTask {
+  /** Unique id of this task instance (Resume and Cancel act on exactly this one). */
+  id: string;
+  /** Which workflow it is (TaskDef id), e.g. "vip-group". */
   taskId: string;
   startedAt: number;
   status: "active" | "paused";
@@ -24,6 +28,8 @@ export interface ActiveTask {
   goal?: string;
   /** Last start, step change, pause or resume. Old tasks expire (TASK_TTL_MS). */
   updatedAt?: number;
+  /** What the creator typed into this task's form so far (restored when they come back). */
+  input?: Record<string, string>;
 }
 
 export interface WorkflowState {
@@ -37,7 +43,8 @@ export interface WorkflowState {
 /** A task untouched for this long is cleared instead of resumed (its screens may have changed). */
 export const TASK_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
-const KEY = "topfan-tasks-v1";
+const KEY = storageKey("topfan-tasks-v1");
+const newId = () => `task-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 const empty: WorkflowState = { active: null, paused: [], finished: [] };
 
 function load(): WorkflowState {
@@ -51,6 +58,8 @@ function load(): WorkflowState {
     // Drop anything unreadable (an old shape or a task that no longer exists), and expire old tasks.
     const now = Date.now();
     const valid = (t: ActiveTask | null | undefined): t is ActiveTask => !!t && typeof t === "object" && !!taskById(t.taskId) && Array.isArray(t.visited) && !!t.base;
+    // Tasks saved before instance ids existed get one now.
+    for (const t of [s.active, ...(Array.isArray(s.paused) ? s.paused : [])]) if (t && typeof t === "object" && !t.id) t.id = newId();
     const fresh = (t: ActiveTask) => now - (t.updatedAt ?? t.startedAt ?? 0) < TASK_TTL_MS;
     const all = [s.active, ...(Array.isArray(s.paused) ? s.paused : [])].filter(valid);
     const expired = all.filter((t) => !fresh(t)).map((t) => t.taskId);
@@ -120,7 +129,7 @@ export function startTask(taskId: string, goal?: string): TaskDef | null {
   const now = Date.now();
   const active: ActiveTask = resumed
     ? { ...resumed, status: "active", visited: [...new Set([...resumed.visited, here])], updatedAt: now, goal: goal ?? resumed.goal }
-    : { taskId, startedAt: now, updatedAt: now, status: "active", visited: [here], base: metrics(getData()), seenStep: 0, goal };
+    : { id: newId(), taskId, startedAt: now, updatedAt: now, status: "active", visited: [here], base: metrics(getData()), seenStep: 0, goal };
   set({
     ...state,
     active,
@@ -138,17 +147,46 @@ export function pauseTask() {
   emit({ type: "paused", task: taskById(a.taskId)! });
 }
 
-export function resumeTask(taskId?: string) {
-  const p = taskId ? state.paused.find((x) => x.taskId === taskId) : state.paused[state.paused.length - 1];
-  if (p) startTask(p.taskId);
-  return p ? taskById(p.taskId)! : null;
+/**
+ * Resume exactly the paused task with this instance id. Without an id ("resume" said in chat) it
+ * picks the most recently paused one. An id that isn't paused (or whose workflow no longer exists)
+ * returns null: the caller shows a recovery message and never opens a different task instead.
+ */
+export function resumeTask(id?: string) {
+  const p = id ? state.paused.find((x) => x.id === id) : state.paused[state.paused.length - 1];
+  if (!p) return null;
+  if (!taskById(p.taskId)) {
+    set({ ...state, paused: state.paused.filter((x) => x.id !== p.id) });
+    return null;
+  }
+  return startTask(p.taskId);
 }
 
-export function cancelTask() {
-  const a = state.active;
-  if (!a) return;
-  set({ ...state, active: null, finished: [...state.finished, { taskId: a.taskId, status: "cancelled" as const, at: Date.now() }].slice(-20) });
-  emit({ type: "cancelled", task: taskById(a.taskId)! });
+/** Cancel the active task, or a paused one by instance id. It's no longer offered for resuming. */
+export function cancelTask(id?: string) {
+  const t = id ? (state.active?.id === id ? state.active : state.paused.find((x) => x.id === id)) : state.active;
+  if (!t) return;
+  set({
+    ...state,
+    active: state.active?.id === t.id ? null : state.active,
+    paused: state.paused.filter((x) => x.id !== t.id),
+    finished: [...state.finished, { taskId: t.taskId, status: "cancelled" as const, at: Date.now() }].slice(-20),
+  });
+  emit({ type: "cancelled", task: taskById(t.taskId)! });
+}
+
+/** Does this task hold anything the creator typed (so cancelling would lose it)? */
+export const hasUnsavedWork = (t: ActiveTask) => !!t.draft || Object.values(t.input ?? {}).some((v) => v.trim());
+
+/** The active or paused task of this workflow, if any. */
+export const taskOfType = (taskId: string) => (state.active?.taskId === taskId ? state.active : state.paused.find((x) => x.taskId === taskId)) ?? null;
+
+/** Keep what the creator typed in a task's form with that task (cleared when the task ends). */
+export function setTaskInput(taskId: string, input: Record<string, string>) {
+  const t = taskOfType(taskId);
+  if (!t) return;
+  const next = { ...t, input: { ...t.input, ...input } };
+  set({ ...state, active: state.active?.id === t.id ? next : state.active, paused: state.paused.map((x) => (x.id === t.id ? next : x)) });
 }
 
 /** Keep a draft with the task (survives pause/cancel, per brief §14). */
@@ -167,6 +205,12 @@ export function backStep() {
 
 /** Re-evaluate after a change. `manual` = the creator did it on the page (not via the assistant). */
 function check(manual: boolean) {
+  // A paused task whose required steps were all done on the page is complete, not paused.
+  const doneNow = state.paused.filter((t) => progressOf(t).complete);
+  if (doneNow.length) {
+    set({ ...state, paused: state.paused.filter((t) => !doneNow.includes(t)), finished: [...state.finished, ...doneNow.map((t) => ({ taskId: t.taskId, status: "done" as const, at: Date.now() }))].slice(-20) });
+    doneNow.forEach((t) => emit({ type: "complete", task: taskById(t.taskId)! }));
+  }
   const a = state.active;
   if (!a || a.status !== "active") return;
   const p = progressOf(a);
@@ -195,7 +239,13 @@ export function takeExpired(): string[] {
 export function taskSnapshot(t: ActiveTask) {
   const p = progressOf(t);
   return {
+    id: t.id,
     taskId: t.taskId,
+    taskType: t.taskId,
+    title: p.def.name,
+    targetRoute: p.step?.routeId ?? p.def.steps[0].routeId,
+    workflowData: { goal: t.goal ?? null, draft: t.draft ?? null, input: t.input ?? {} },
+    createdAt: new Date(t.startedAt).toISOString(),
     goal: t.goal ?? p.def.name,
     feature: p.def.name,
     route: p.step?.routeId ?? p.def.steps[0].routeId,

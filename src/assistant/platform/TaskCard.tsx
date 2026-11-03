@@ -1,24 +1,37 @@
 /**
  * Panel pieces for the platform (outside account setup):
  * - ActiveTaskCard: the compact summary of the goal in progress (brief §14 "Active task card").
- * - PausedTasks: one line per paused task with Resume.
- * - PlatformWelcome: empty-conversation state with ≈4 suggestions from the account and task state.
+ * - Paused tasks: one compact list; each row resumes or cancels exactly its own task (by instance id).
+ * - PlatformWelcome: empty-conversation state with ≈4 suggestions from the account and task state
+ *   (demo links: the page intro and up to three actions for the demo, more on request).
+ * - PageContextBar: demo links, conversation started: the page and its actions above the input.
  */
+import { useEffect, useState } from "react";
+import { useRouter } from "../../app/router";
+import { demoId, inScope } from "../../app/demo";
+import { pageActions, pageIntro } from "./pageGuide";
 import { Pause, Play, X } from "lucide-react";
-import { useData } from "../../store/store";
-import { taskById } from "../../app/agent-context/tasks";
-import { cancelTask, pauseTask, progressOf, useWorkflow } from "../../app/agent-context/workflow-state";
+import { getData, useData } from "../../store/store";
+import { hasUnsavedWork, pauseTask, progressOf, useWorkflow, type ActiveTask } from "../../app/agent-context/workflow-state";
 import { usePlatformAgent } from "./PlatformAgent";
 import { usePlatform } from "../../state/platformStore";
+import { resolve } from "../../app/routeCatalog";
+import { POST_SETUP_HEADING, POST_SETUP_LINE, PostSetupActions } from "./CoverAssistant";
+import { contentActions, CREATE_ACTIONS, CREATE_HEADING, CREATE_LINE, unfinishedWork } from "./ContentAgent";
+
+const PAUSED_SHOWN = 3;
 
 export function ActiveTaskCard() {
   const wf = useWorkflow();
   useData((d) => d); // re-check progress when data changes
   const agent = usePlatformAgent();
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   if (!wf.active && !wf.paused.length) return null;
   const p = wf.active ? progressOf(wf.active) : null;
   return (
     <div className="flex flex-col gap-2">
+      {confirm && confirm === wf.active?.id && <ConfirmCancel onYes={() => (setConfirm(null), agent.taskControl("cancel"))} onNo={() => setConfirm(null)} />}
       {p && (
         <section data-testid="ai-task-card" aria-label="Current task" className="rounded-inner bg-surface px-4 py-3">
           <div className="flex items-center gap-2">
@@ -26,7 +39,7 @@ export function ActiveTaskCard() {
             <button onClick={pauseTask} aria-label="Pause task" title="Pause" data-testid="ai-task-pause" className="flex h-7 w-7 items-center justify-center rounded-full text-soft hover:bg-bg hover:text-white">
               <Pause size={14} />
             </button>
-            <button onClick={cancelTask} aria-label="Cancel task" title="Cancel" data-testid="ai-task-cancel" className="flex h-7 w-7 items-center justify-center rounded-full text-soft hover:bg-bg hover:text-white">
+            <button onClick={() => (hasUnsavedWork(wf.active!) ? setConfirm(wf.active!.id) : agent.taskControl("cancel"))} aria-label="Cancel task" title="Cancel" data-testid="ai-task-cancel" className="flex h-7 w-7 items-center justify-center rounded-full text-soft hover:bg-bg hover:text-white">
               <X size={15} />
             </button>
           </div>
@@ -55,16 +68,62 @@ export function ActiveTaskCard() {
           )}
         </section>
       )}
-      {wf.paused.map((t) => (
-        <div key={t.taskId} data-testid="ai-task-paused" className="flex items-center gap-2 rounded-inner border border-line px-3 py-2 text-[12px]">
-          <span className="flex-1 truncate text-soft">
-            Paused: <span className="text-white">{taskById(t.taskId)?.name}</span>
-          </span>
-          <button onClick={() => agent.taskControl("resume")} className="flex items-center gap-1 font-bold text-accent" data-testid="ai-task-resume">
-            <Play size={12} /> Resume
-          </button>
-        </div>
-      ))}
+      {wf.paused.length > 0 && (
+        <section aria-label="Paused tasks" data-testid="ai-paused-list" className="rounded-inner border border-line px-3 py-1.5">
+          <h3 className="py-1 text-[11px] font-bold uppercase tracking-caps text-soft">Paused{wf.paused.length > 1 ? ` (${wf.paused.length})` : ""}</h3>
+          <ul className="flex flex-col">
+            {/* Most recent first; only three until the creator asks for the rest (keeps the chat visible). */}
+            {[...wf.paused].reverse().slice(0, showAll ? undefined : PAUSED_SHOWN).map((t) => (
+              <PausedRow
+                key={t.id}
+                t={t}
+                confirming={confirm === t.id}
+                onResume={() => agent.taskControl("resume", t.id)}
+                onCancel={() => (hasUnsavedWork(t) ? setConfirm(t.id) : agent.taskControl("cancel", t.id))}
+                onConfirm={(yes) => (setConfirm(null), yes && agent.taskControl("cancel", t.id))}
+              />
+            ))}
+          </ul>
+          {wf.paused.length > PAUSED_SHOWN && (
+            <button onClick={() => setShowAll((v) => !v)} data-testid="ai-paused-more" className="py-1 text-[12px] font-bold text-soft hover:text-white">
+              {showAll ? "Show fewer" : `Show all ${wf.paused.length}`}
+            </button>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+function PausedRow({ t, confirming, onResume, onCancel, onConfirm }: { t: ActiveTask; confirming: boolean; onResume: () => void; onCancel: () => void; onConfirm: (yes: boolean) => void }) {
+  const p = progressOf(t);
+  const name = p.def.name;
+  if (confirming) return <li className="py-1.5"><ConfirmCancel name={name} onYes={() => onConfirm(true)} onNo={() => onConfirm(false)} /></li>;
+  return (
+    <li data-testid="ai-task-paused" data-task-id={t.id} data-task-type={t.taskId} className="flex items-center gap-2 border-t border-line py-1.5 text-[12px] first:border-t-0">
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-white">{name}</span>
+        <span className="block text-[11px] text-soft">{p.step ? `Step ${p.index + 1} of ${p.def.steps.length}` : "Ready to finish"}</span>
+      </span>
+      <button onClick={onResume} aria-label={`Resume ${name}`} className="flex items-center gap-1 font-bold text-accent" data-testid="ai-task-resume">
+        <Play size={12} /> Resume
+      </button>
+      <button onClick={onCancel} aria-label={`Cancel ${name}`} title="Cancel" data-testid="ai-task-paused-cancel" className="flex h-6 w-6 items-center justify-center rounded-full text-soft hover:bg-bg hover:text-white">
+        <X size={13} />
+      </button>
+    </li>
+  );
+}
+
+/** Cancelling would drop text the creator typed for this task: ask first. */
+function ConfirmCancel({ name, onYes, onNo }: { name?: string; onYes: () => void; onNo: () => void }) {
+  return (
+    <div data-testid="ai-task-cancel-confirm" className="rounded-inner bg-surface px-3 py-2 text-[12px]">
+      <p>Cancel {name ? <b>{name}</b> : "this task"}? What you typed for it will be discarded. Anything already saved on the page stays.</p>
+      <div className="mt-2 flex gap-3">
+        <button onClick={onYes} data-testid="ai-task-cancel-yes" className="font-bold text-accent">Cancel task</button>
+        <button onClick={onNo} data-testid="ai-task-cancel-no" className="font-bold text-soft hover:text-white">Keep it</button>
+      </div>
     </div>
   );
 }
@@ -76,17 +135,113 @@ export function PlatformWelcome() {
   useWorkflow();
   const setupDone = usePlatform().state.provisionDone;
   const agent = usePlatformAgent();
+  const { path } = useRouter();
+  const [more, setMore] = useState(false);
+  const coverPublished = useData((d) => !!d.cover?.publishedAt);
+  const heading = setupDone && inScope("setup") ? POST_SETUP_HEADING : `Hi ${first}! What would you like to do next?`;
+  // Right after setup (until the cover page is published): the priority next steps, outside the editor.
+  if (setupDone && inScope("setup") && !coverPublished && resolve(path).route.id !== "pref-whitelabel-cover")
+    return (
+      <div data-testid="ai-welcome" className="flex flex-col gap-3">
+        <p className="text-[14px]">{heading}</p>
+        <p className="text-[13px] text-soft">{POST_SETUP_LINE}</p>
+        <PostSetupActions prefix="ai-suggestion-" />
+      </div>
+    );
+  // AI-Assisted Content, on the Feed (home): what would you like to create?
+  if (demoId === "ai-content" && resolve(path).route.id === "feed") {
+    // Looked up on click: the content assistant mounts alongside this panel.
+    const c = { show: (id: string) => contentActions()?.show(id), plan: () => contentActions()?.plan(), post: () => contentActions()?.post(), newsletter: () => contentActions()?.newsletter(), experience: () => contentActions()?.experience(), week: () => contentActions()?.week() };
+    const work = unfinishedWork(getData());
+    const ideas = [
+      ...(work ? [{ id: `resume-work-${work.id}`, label: `Continue my ${work.kind === "week" ? "week" : work.label.toLowerCase()}`, run: () => c.show(work.id) }] : []),
+      ...CREATE_ACTIONS.map((x) => ({ id: `create-${x.id}`, label: x.label, run: () => (x.id === "plan" ? c.plan() : c[x.id]()) })),
+    ];
+    return (
+      <div data-testid="ai-welcome" className="flex flex-col gap-3">
+        <p className="text-[14px]">{CREATE_HEADING}</p>
+        <p className="text-[13px] text-soft" data-testid="ai-page-intro">
+          {CREATE_LINE}
+        </p>
+        <Chips items={more ? ideas : ideas.slice(0, MAIN_SHOWN)} agent={agent} prefix="ai-suggestion-" />
+        {!more && ideas.length > MAIN_SHOWN && (
+          <button data-testid="ai-more-suggestions" onClick={() => setMore(true)} className="self-start text-[12px] font-bold text-accent">
+            More ideas
+          </button>
+        )}
+      </div>
+    );
+  }
+  // Demo links: what this page is for, then up to three actions for this demo (more on request).
+  if (demoId) {
+    const intro = pageIntro(path);
+    const items = pageActions(path, agent);
+    return (
+      <div data-testid="ai-welcome" className="flex flex-col gap-3">
+        <p className="text-[14px]">{heading}</p>
+        {intro.line && (
+          <p className="text-[13px] text-soft" data-testid="ai-page-intro">
+            {intro.line}
+          </p>
+        )}
+        <Chips items={more ? items : items.slice(0, MAIN_SHOWN)} agent={agent} prefix="ai-suggestion-" />
+        {!more && items.length > MAIN_SHOWN && (
+          <button data-testid="ai-more-suggestions" onClick={() => setMore(true)} className="self-start text-[12px] font-bold text-accent">
+            More suggestions
+          </button>
+        )}
+      </div>
+    );
+  }
   const items = agent.suggestions();
   return (
     <div data-testid="ai-welcome" className="flex flex-col gap-3">
-      <p className="text-[14px]">{setupDone ? "Your site is ready. What would you like to do next?" : `Hi ${first}! What would you like to do next?`}</p>
-      <div className="flex flex-wrap gap-2">
-        {items.map((s) => (
-          <button key={s.id} data-testid={`ai-suggestion-${s.id}`} onClick={() => agent.pickSuggestion(s)} className="rounded-full border border-line px-3 py-1.5 text-left text-[12px] hover:border-accent">
-            {s.label}
-          </button>
-        ))}
-      </div>
+      <p className="text-[14px]">{heading}</p>
+      <Chips items={items} agent={agent} prefix="ai-suggestion-" />
     </div>
+  );
+}
+
+const MAIN_SHOWN = 3;
+
+function Chips({ items, agent, prefix }: { items: { id: string; label: string; run: () => void }[]; agent: ReturnType<typeof usePlatformAgent>; prefix: string }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((s) => (
+        <button key={s.id} data-testid={`${prefix}${s.id}`} onClick={() => agent.pickSuggestion(s)} className="rounded-full border border-line px-3 py-1.5 text-left text-[12px] hover:border-accent">
+          {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Demo links, once the conversation has started: the current page and its next actions in one quiet
+ * row above the input. It follows navigation without adding messages (no repeated page explanations).
+ */
+export function PageContextBar() {
+  useData((d) => d);
+  useWorkflow();
+  const agent = usePlatformAgent();
+  const { path } = useRouter();
+  const [more, setMore] = useState(false);
+  useEffect(() => setMore(false), [path]);
+  if (!demoId) return null;
+  const intro = pageIntro(path);
+  const items = pageActions(path, agent);
+  if (!items.length) return null;
+  return (
+    <section aria-label="Suggestions for this page" data-testid="ai-context-bar" className="mx-5 mb-3 flex shrink-0 flex-col gap-2">
+      <p className="text-[11px] font-bold uppercase tracking-caps text-soft" title={intro.line ?? undefined} data-testid="ai-context-page">
+        {intro.name}
+      </p>
+      <Chips items={more ? items : items.slice(0, MAIN_SHOWN)} agent={agent} prefix="ai-context-" />
+      {!more && items.length > MAIN_SHOWN && (
+        <button data-testid="ai-context-more" onClick={() => setMore(true)} className="self-start text-[12px] font-bold text-accent">
+          More suggestions
+        </button>
+      )}
+    </section>
   );
 }

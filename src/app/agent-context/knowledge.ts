@@ -3,7 +3,7 @@
  * cross-section relationships in the md brief §3.6. The server sends this to the model; the model is
  * told to say it isn't sure about anything not written here. Runs in Node and the browser (no DOM).
  */
-import { AMBIGUITIES, FEATURES } from "./features";
+import { AMBIGUITIES, FEATURES } from "./features.js";
 
 const RELATIONSHIPS = `
 - Groups: create in Preferences › Groups → assign fans in Insights & Fans (Fan Relationship Management) → restrict posts, products, offers, portfolios, chat or DMs to the group.

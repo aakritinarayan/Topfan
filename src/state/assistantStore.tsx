@@ -3,6 +3,7 @@
  * (approved) operation survive collapsing the panel and the move from account setup to the dashboard.
  * Everything here is simulated.
  */
+import { inScope } from "../app/demo";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 export type MsgStatus = "done" | "confirm" | "problem";
@@ -103,7 +104,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [unread, setUnread] = useState(0);
   const [muted, setMutedState] = useState(false);
   const [draftPost, setDraftPost] = useState<string | null>(null);
-  const [intro, setIntro] = useState<IntroState>("pending");
+  const [intro, setIntro] = useState<IntroState>(inScope("setup") ? "pending" : "none"); // the setup intro is Account Setup demo only
   const [mood, setMoodState] = useState<Mood>("idle");
   const moodTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const setMood = useCallback((m: Mood, ms?: number) => {

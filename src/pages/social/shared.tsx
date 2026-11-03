@@ -90,6 +90,8 @@ export function SocialModal({
   centered,
   top = 170,
   bodyClass = "px-[30px] py-[30px]",
+  hideClose,
+  titleClass = "text-[20px] font-bold",
 }: {
   open: boolean;
   onClose: () => void;
@@ -100,6 +102,9 @@ export function SocialModal({
   centered?: boolean;
   top?: number;
   bodyClass?: string;
+  /** No ✕ in the header (dialogs that close with their own CANCEL, e.g. New Post › Lock). */
+  hideClose?: boolean;
+  titleClass?: string;
 }) {
   const reduce = useReducedMotion();
   useEffect(() => {
@@ -131,10 +136,12 @@ export function SocialModal({
             transition={{ duration: reduce ? 0 : 0.2 }}
           >
             <div className="flex h-[61px] items-center justify-between border-b border-white/[.12] px-[30px]">
-              <h4 className="text-[20px] font-bold">{title}</h4>
-              <button aria-label="Close" data-testid={`${testid}-close`} onClick={onClose} className="text-white hover:text-accent">
-                <X size={24} strokeWidth={2.5} />
-              </button>
+              <h4 className={titleClass}>{title}</h4>
+              {!hideClose && (
+                <button aria-label="Close" data-testid={`${testid}-close`} onClick={onClose} className="text-white hover:text-accent">
+                  <X size={24} strokeWidth={2.5} />
+                </button>
+              )}
             </div>
             <div className={bodyClass}>{children}</div>
           </motion.div>

@@ -7,9 +7,14 @@
  * The model can only PROPOSE actions. Each proposal is re-validated here against the current state;
  * anything that changes the form or opens another site waits for the creator's approval.
  */
+import { otherDemoRequest, sayOtherDemo } from "../demoGate";
+import { handleDnsRequest } from "../Director";
+import { handleCoverRequest } from "../platform/CoverAssistant";
+import { handleContentRequest } from "../platform/ContentAgent";
+import { DEMOS, demoId, inScope } from "../../app/demo";
 import { AutopilotDirector, useAutopilotCommands } from "../platform/Autopilot";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { dnsProviders } from "../../config/demo";
+import { ASSISTANT_REGISTRAR, dnsProviders } from "../../config/demo";
 import { useAssistant } from "../../state/assistantStore";
 import { isOnboarding, usePlatform, type PlatformState } from "../../state/platformStore";
 import { getData } from "../../store/store";
@@ -65,6 +70,9 @@ const FIELD_LABEL: Record<string, string> = {
 };
 const show = (k: string, v: unknown) =>
   k === "hasDomain" ? (v ? "I already have a Domain Name" : "I don't have a Domain Name") : k === "urlPreference" ? (v === "subdomain" ? "Sub-domain" : "Root domain & www") : String(v ?? "empty");
+
+/** Demo 1 phrasings that mean the Edit Preferences page itself. */
+const PREFS_ASK = /\b(where|how) (can|do) i (edit|change|find|open|get to) (my )?(preferences|settings)\b|\bedit (my )?preferences\b|\b(change|edit|update) (my )?website settings\b|\b(customi[sz]e|edit|update) my profile\b/;
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const a = useAssistant();
@@ -210,7 +218,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (p.name === "open_registrar") {
       const id = String(input.registrar);
       const reg = registrarById(id);
-      if (!reg) return;
+      if (!reg || reg.id !== ASSISTANT_REGISTRAR) return; // the assistant hands off to GoDaddy only
       const dom = typeof input.domain === "string" && ROOT_DOMAIN.test(input.domain) ? input.domain.toLowerCase() : null;
       a.say({
         text: dom ? `Want to open ${reg.name} to look at ${dom}? It opens in a new tab.` : `Want to open ${reg.name}? It opens in a new tab.`,
@@ -244,7 +252,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       const platformMode = !isOnboarding(platform.state.screen);
       const context = platformMode
-        ? { mode: "platform", ...buildPlatformContext(getData(), window.location.pathname, text, getWorkflow(), onScreenTargets()) }
+        ? { mode: "platform", demo: demoId ? { id: demoId, focus: DEMOS[demoId].pitch, scope: DEMOS[demoId].scope } : null, ...buildPlatformContext(getData(), window.location.pathname, text, getWorkflow(), onScreenTargets()) }
         : buildContext(platform.state, finder.live.current, a.decisions, quest);
       let answer = "";
       let frame = 0;
@@ -340,6 +348,28 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const { a, messages, platform } = live.current;
       const history = historyOf(messages);
       a.userSays(text);
+      // A workflow from the other demo link: one short answer with a link, never a silent switch.
+      const other = otherDemoRequest(text);
+      if (other) return sayOtherDemo(a.say, other);
+      // Account Setup & Navigation: "where are my preferences?" → the Edit Preferences page (sidebar shortcut).
+      if (inScope("setup") && !isOnboarding(platform.state.screen) && PREFS_ASK.test(text.toLowerCase())) {
+        const website = /website settings/i.test(text);
+        a.say({
+          text: "Edit Preferences is under your name in the left sidebar, and in the avatar menu at the top right. It opens on Profile; each settings area is a tab there.",
+          actions: [
+            { label: "Open Edit Preferences", variant: "primary", onClick: () => live.current.agent.navigateTo("profile", { quiet: true }) },
+            ...(website ? [{ label: "Open White Label Site", variant: "outline" as const, onClick: () => live.current.agent.navigateTo("white-label", { quiet: true }) }] : []),
+          ],
+        });
+        a.highlight("nav-edit-preferences");
+        return;
+      }
+      // DNS step: "prepare it for me" / "walk me through it" work any time, model or not.
+      if (isOnboarding(platform.state.screen) && handleDnsRequest(text)) return;
+      // Cover page: "edit / prepare my cover page" and the editor's suggestions, model or not.
+      if (!isOnboarding(platform.state.screen) && handleCoverRequest(text)) return;
+      // Content requests (post, newsletter, experience, whole week, edits to them): deterministic routing.
+      if (!isOnboarding(platform.state.screen) && handleContentRequest(text)) return;
       // Content Autopilot review commands are deterministic and never wait on the model.
       if (!isOnboarding(platform.state.screen) && autopilot(text)) return;
       if (connected !== true) {

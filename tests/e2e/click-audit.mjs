@@ -8,7 +8,7 @@ import fs from "node:fs";
 import puppeteer from "../../node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js";
 const arg = (k, d) => (process.argv.includes(k) ? process.argv[process.argv.indexOf(k) + 1] : d);
 const jsonOut = arg("--json", null), only = arg("--only", null)?.split(","), WORKERS = Number(arg("--workers", 6));
-const MAX_DEPTH = 2, PER_SIG = 2, BASE = "http://localhost:5173";
+const MAX_DEPTH = 2, PER_SIG = 2, BASE = process.env.BASE_URL || "http://localhost:5173";
 const routes = JSON.parse(fs.readFileSync(new URL("../../docs/agent-context/routes.json", import.meta.url)));
 const list = (Array.isArray(routes) ? routes : routes.routes).filter((r) => !only || only.includes(r.id));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

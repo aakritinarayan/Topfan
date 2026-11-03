@@ -92,3 +92,14 @@ type order (Content; Financial, Content; Content; Financial, Content), no Topic 
 - Should a Content delegate see Outbound Emails / Delegation at all? Routes are OWNER-only (shell blocks them); writes also need account.admin.
 - Buy Points prices are display-only in the capture; if they become editable they need Confirm + finance.write.
 - `localStorage` from an earlier session keeps the old delegate order until `?resetMock=1`.
+
+## Link In Bio: reference-pack decisions (creator-platform-screens §7–9)
+
+- **Empty state** ("Create Your Link in Bio", GET STARTED) shows only while `linkInBio.created === false` (never saved). Reach it with `?resetMock=1&bioFixture=empty`. Both demo seeds are `created: true`. The first SAVE CHANGES sets it to true. DISCARD returns to the empty state only before that.
+- **Action cards (none in the reference):** each card in the editor has ↑ (move up), trash (remove), a drag handle (drag, or Alt+↑/↓) and ↓ (move down). All of these change the draft only, and SAVE CHANGES publishes it. Order in the preview = saved order.
+- **NEW ACTION dialogs:** General offers "Join My Chatroom" (links to `/{handle}/chat-room`). The Store, Feed, Portfolio and Event pickers list published store items, unlocked published posts (Feed adds type pills after ALL), portfolios and upcoming events from the mock store. When nothing matches, they show the reference's empty message (events are empty by default: "No Events Found"). Items already on the page are shown as "Already on your page" and can't be picked again. The External dialog validates the title and the URL before adding.
+- **SAVE ACTIONS / ADD / SAVE LINKS / SAVE CUSTOM COLORS** only edit the editor draft. The single commit is SAVE CHANGES, behind the "Publish Link In Bio" confirmation, which goes through `act()` → `saveLinkInBio`. The service refuses invalid action URLs and invalid social URLs.
+- **Social links** are prefilled from the setup links fixture (`socialFixture` + `websiteFixture`; fictional, labelled simulated). Only filled networks show as icons, and they are never linked out from the preview.
+- **Referral toggle** writes mock state. While it's on, "Get Your Own Platform" shows above "Powered By" (app branding).
+- **DISABLE/ENABLE** keeps the existing mock flag (the reference doesn't define its purpose).
+- **Camera buttons** open a local file picker → object URL preview only (nothing uploaded, not saved).

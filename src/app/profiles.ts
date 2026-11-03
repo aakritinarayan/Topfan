@@ -43,6 +43,18 @@ const identity = (d: AppData, name: string, handle: string, category: string, pr
   d.account.whiteLabel.siteUrl = `https://fans.${handle}.com`;
 };
 
+/** The demo creators on the platform (name + handle), e.g. New Post's "Tag Collaborating Creators" list. */
+export const DEMO_CREATORS: { name: string; handle: string }[] = [
+  { name: "AJ White", handle: "ajwhite" },
+  { name: "Rae Calder", handle: "raecalder" },
+  { name: "Nina Oduya", handle: "ninaoduya" },
+  { name: "Marco Reyes", handle: "marcoreyesfit" },
+  { name: "Jules Brennan", handle: "julesbrennan" },
+  { name: "Kai Morrow", handle: "kaimorrow" },
+  { name: "Lena Whitfield", handle: "lenawhitfield" },
+  { name: "North Ridge Collective", handle: "northridge" },
+];
+
 export const PROFILES: Profile[] = [
   { id: "athlete", label: "Athlete · AJ White", apply: (d) => identity(d, "AJ White", "ajwhite", "Athletes", "athlete") },
   {

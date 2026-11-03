@@ -10,6 +10,7 @@ import type { AppData } from "../../store/store";
 import { roleCan, type Capability } from "../../store/permissions";
 import { pendingRefunds } from "../../store/slices/money";
 import { readyDrafts } from "../../store/slices/autopilot";
+import { inScope } from "../demo";
 
 export type Priority = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -109,7 +110,7 @@ export function getAccountState(d: AppData, now = Date.now()): AccountState {
     });
 
   /* 3 · unfinished work */
-  const apReady = d.autopilot.batch && !d.autopilot.batch.dismissed ? readyDrafts(d).length : 0;
+  const apReady = inScope("autopilot") && d.autopilot.batch && !d.autopilot.batch.dismissed ? readyDrafts(d).length : 0;
   if (apReady)
     items.push({ id: "autopilot-ready", priority: 3, title: `${plural(apReady, "prepared post")} ready for your review`, why: "Checked for repetition and accuracy. Nothing posts until you approve.", featureId: "new-post", need: "content.write", cta: "Review posts", count: apReady });
   const drafts = d.social.posts.filter((p) => p.status === "draft");

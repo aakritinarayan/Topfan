@@ -74,6 +74,10 @@ export interface Asset {
   approved: boolean;
   /** Media key (src/media) of the file. */
   src: string;
+  /** Thumbnail for a file the creator added from their device (a still for videos). */
+  poster?: string;
+  /** The creator added it during planning (its name is a file name, so posts don't quote it). */
+  added?: boolean;
 }
 
 /**
@@ -98,7 +102,7 @@ export interface APDraft {
   text: string;
   pollOptions?: string[];
   /** Required media, if any (resolved by runChecks; never fabricated). */
-  media?: { need: string; assetId: string | null; state?: MediaState; src?: string | null };
+  media?: { need: string; assetId: string | null; state?: MediaState; src?: string | null; poster?: string | null };
   sourceIds: ID[];
   /** Factual statements in the text, each tied to an approved source fact (or null = unsupported). */
   claims: { text: string; sourceId: ID | null }[];
@@ -413,7 +417,7 @@ export function runChecks(d: AppData, x: Pick<APDraft, "text" | "claims" | "medi
       Object.assign(m, { assetId: asset.id, state: "unapproved", src: asset.src });
       return { status: "missing-asset", reason: `The photo from "${m.need}" hasn't been approved for posting yet.` };
     }
-    Object.assign(m, { assetId: asset.id, state: m.state === "attached" ? "attached" : "suggested", src: asset.src });
+    Object.assign(m, { assetId: asset.id, state: m.state === "attached" ? "attached" : "suggested", src: asset.src, poster: asset.poster ?? null });
   }
   if (x.text.trim().length < 10 || x.text.length > 600) return { status: "needs-info", reason: "The text needs more detail." };
   return { status: "ready" };
@@ -645,6 +649,19 @@ export function approveAsset(d: AppData, assetId: ID) {
   d.autopilot.batch?.drafts.filter((x) => x.status === "missing-asset").forEach((x) => unparkDraft(d, x.id));
 }
 
+/**
+ * The creator adds a photo or video from their device while planning. Choosing it is their approval to
+ * use it, so it's added to the library as approved and picked for this week. Local only: never uploaded.
+ */
+export function addPlanAsset(d: AppData, file: { label: string; kind: Asset["kind"]; src: string; poster?: string }) {
+  const p = d.autopilot.plan;
+  if (!p || p.status !== "draft") return;
+  const a: Asset = { id: nid("as"), approved: true, added: true, ...file };
+  d.autopilot.assets.push(a);
+  p.brief.assetIds = [...p.brief.assetIds, a.id];
+  if (!p.brief.pillars.includes("behind-scenes")) p.brief.pillars = [...p.brief.pillars, "behind-scenes"];
+}
+
 /* ------------------------------------------------------------------ saving & status read-back */
 
 /** Actual status of a draft's TopFan post (read back from the app; used before any retry). */
@@ -672,7 +689,7 @@ export function saveApproved(d: AppData, ids: ID[]) {
       title: x.type === "text" ? undefined : x.title,
       text: x.text,
       status: "draft",
-      ...(x.media?.src ? { media: [{ kind: x.type === "video" ? ("video" as const) : ("image" as const), placeholder: x.media.need, src: x.type === "video" ? null : x.media.src, video: x.type === "video" ? x.media.src : null }] } : {}),
+      ...(x.media?.src ? { media: [{ kind: x.type === "video" ? ("video" as const) : ("image" as const), placeholder: x.media.need, src: x.type === "video" ? (x.media.poster ?? null) : x.media.src, video: x.type === "video" ? x.media.src : null }] } : {}),
       extra: { autopilotDraftId: x.id, ...(x.type === "poll" ? { poll: { question: x.text, options: (x.pollOptions ?? []).map((label) => ({ label, votes: 0 })), endsAt: null } } : {}) },
     });
     x.status = "saved";
@@ -784,6 +801,12 @@ export function updateBrief(d: AppData, patch: Partial<WeekBrief>) {
   }
 }
 
+/** Wording for files the creator added (no facts claimed; varied so several don't read as repeats). */
+const ADDED_TEXT = {
+  images: ["Fresh shots to share. Which one is your pick?", "Here are a few more photos. Tell me your favorite in the comments.", "More photos for you. Which one do you like most?"],
+  video: ["Hit play and tell me what you think of this clip.", "Turn the sound up for this one. What should I film next?", "Quick clip for you. Want more like this?"],
+};
+
 /** Idea pool per pillar, built only from approved sources, the brief and allowed library files. */
 function planIdeas(d: AppData, brief: WeekBrief): (Candidate & { pillar: Pillar; basis: string })[] {
   const ap = d.autopilot;
@@ -820,7 +843,11 @@ function planIdeas(d: AppData, brief: WeekBrief): (Candidate & { pillar: Pillar;
   if (brief.pillars.includes("behind-scenes")) {
     for (const a of assets)
       out.push(
-        a.kind === "image"
+        a.added
+          ? a.kind === "image"
+            ? { pillar: "behind-scenes", basis: a.label, idea: `photos-${a.id}`, type: "images", title: "New photos", text: ADDED_TEXT.images[assets.filter((o) => o.added && o.kind === "image").indexOf(a) % 3], media: { need: a.label, assetId: null }, sourceIds: [], claims: [], tags: ["behind-the-scenes"] }
+            : { pillar: "behind-scenes", basis: a.label, idea: `clips-${a.id}`, type: "video", title: "New clip", text: ADDED_TEXT.video[assets.filter((o) => o.added && o.kind === "video").indexOf(a) % 3], media: { need: a.label, assetId: null }, sourceIds: [], claims: [], tags: ["behind-the-scenes"] }
+          : a.kind === "image"
           ? { pillar: "behind-scenes", basis: a.label, idea: `photos-${a.id}`, type: "images", title: `Photos: ${a.label}`, text: `Some favorite shots from the ${a.label.charAt(0).toLowerCase()}${a.label.slice(1)}.`, media: { need: a.label, assetId: null }, sourceIds: [], claims: [], tags: ["behind-the-scenes"] }
           : { pillar: "behind-scenes", basis: a.label, idea: `clips-${a.id}`, type: "video", title: "Clips coming", text: "Filming new clips for the season. First edit drops soon.", media: { need: a.label, assetId: null }, sourceIds: ["src-notes"], claims: [{ text: "filming new clips for the season", sourceId: "src-notes" }], tags: ["behind-the-scenes"] },
       );
@@ -836,12 +863,14 @@ export function buildPlan(d: AppData) {
   const ideas = planIdeas(d, p.brief);
   const byPillar = new Map<Pillar, typeof ideas>();
   ideas.forEach((c) => byPillar.set(c.pillar, [...(byPillar.get(c.pillar) ?? []), c]));
-  const order: typeof ideas = [...(byPillar.get("coming-up") ?? [])];
+  // The creator's own input comes first: their lines, then files they just added for this week.
+  const fresh = new Set(d.autopilot.assets.filter((a) => a.added).flatMap((a) => [`photos-${a.id}`, `clips-${a.id}`]));
+  const order: typeof ideas = [...(byPillar.get("coming-up") ?? []), ...ideas.filter((c) => fresh.has(c.idea))];
   const rest = p.brief.pillars.filter((x) => x !== "coming-up");
   for (let round = 0; order.length < ideas.length; round++) {
     let added = false;
     for (const pl of rest) {
-      const c = byPillar.get(pl)?.[round];
+      const c = byPillar.get(pl)?.filter((x) => !fresh.has(x.idea))[round];
       if (c) (order.push(c), (added = true));
     }
     if (!added) break;

@@ -7,6 +7,7 @@
  * replaced with made-up equivalents of the same shape and length (see src/pages/monetize/NOTES.md).
  */
 import type { AppData } from "../store";
+import { Refused } from "../refused";
 import type { AdBrand, EventItem, ID, SubscriptionPlan } from "../model";
 
 /* ------------------------------------------------------------------ types */
@@ -39,12 +40,31 @@ export interface Product {
   experienceType?: string;
   /** Experience duration options (e.g. 1:1 video call: 15/30/45 minutes). */
   durations?: { label: string; price: number }[];
+  /** Non-scheduled experiences: "Experience Options" rows (description + price). price = lowest. */
+  experienceOptions?: { label: string; price: number }[];
+  /** Calendar-scheduled experiences (1:1 call, in-person meetup): availability. No calendar is linked in this demo. */
+  schedule?: ExperienceSchedule;
+  /** In-Person Meetup location. */
+  address?: { street: string; country: string; state: string; city: string; postal: string };
+  /** Custom Experience: optional instructions for the fan. */
+  customInstructions?: string;
+  /** "Restrict Ability to Purchase this Experience": chosen plans (Subscribers) and NFT contract addresses. */
+  restrict?: { planIds: ID[]; nftContracts: string[] };
   /** Merch option groups (Product Detail › Color / Board Size chips). */
   options?: { name: string; values: string[] }[];
   /** Shopify collection (Merchandise filter). */
   collection?: string;
   source?: "shopify" | "external" | "native";
   createdAt: string;
+}
+
+export interface ExperienceSchedule {
+  /** "SUN" … "SAT" */
+  days: string[];
+  from: string;
+  to: string;
+  minNotice: string;
+  maxAdvance: string;
 }
 
 export type NewsletterStatus = "Draft" | "Sent" | "Scheduled";
@@ -67,6 +87,20 @@ export interface Newsletter {
   scheduledAt?: string | null;
   sentAt?: string | null;
   createdAt: string;
+  /** Last time the draft was saved (Edit › "Draft Auto-Saved", Preview › "Last Saved on"). */
+  updatedAt?: string;
+  /** Rich body from the editor (body keeps the plain text). */
+  bodyHtml?: string;
+  interests?: string[];
+  /** Pricing options: plans whose subscribers read for free; NFT contracts whose holders read for free. */
+  freePlanIds?: ID[];
+  freeNftContracts?: string[];
+  /** "Restrict Ability to Individually Purchase Newsletter to:" (only with a price). */
+  buyRestrict?: { planIds: ID[]; nftContracts: string[] };
+  /** Loyalty Points needed to unlock (pricing option; mirrors the post Lock dialog's Points input). */
+  points?: number;
+  /** DISABLE / ENABLE: disabled newsletters are hidden from the public Newsletters page. Default enabled. */
+  enabled?: boolean;
 }
 
 export interface Recipient {
@@ -462,7 +496,8 @@ export function deletePlan(d: AppData, id: ID) {
 
 /* ------------------------------------------------------------------ actions: newsletters */
 
-export type NewsletterInput = Pick<Newsletter, "title" | "body" | "lock" | "price" | "audience" | "planIds" | "groupIds" | "image">;
+export type NewsletterInput = Pick<Newsletter, "title" | "body" | "lock" | "price" | "audience" | "planIds" | "groupIds" | "image"> &
+  Partial<Pick<Newsletter, "bodyHtml" | "interests" | "freePlanIds" | "freeNftContracts" | "buyRestrict" | "points" | "enabled">>;
 
 /** Audience size for a newsletter (recipients, or subscribers of chosen plans; groups use fans in money.fans). */
 export function audienceSize(d: AppData, n: Pick<Newsletter, "audience" | "planIds" | "groupIds">) {
@@ -475,16 +510,23 @@ export function audienceSize(d: AppData, n: Pick<Newsletter, "audience" | "planI
 export function saveNewsletterDraft(d: AppData, input: NewsletterInput, id?: ID) {
   const existing = id ? d.monetize.newsletters.find((n) => n.id === id) : undefined;
   if (existing) {
-    Object.assign(existing, input);
+    Object.assign(existing, input, { updatedAt: new Date().toISOString() });
     return existing.id;
   }
   const nid = uid("nl");
-  d.monetize.newsletters.unshift({ id: nid, ...input, status: "Draft", sent: 0, opened: 0, unlocked: 0, createdAt: today() });
+  d.monetize.newsletters.unshift({ id: nid, ...input, status: "Draft", sent: 0, opened: 0, unlocked: 0, createdAt: today(), updatedAt: new Date().toISOString() });
   return nid;
+}
+
+/** Emails can only go out from a verified sender (Preferences › Outbound Emails). Enforced here, not in the UI. */
+export const EMAIL_NOT_VERIFIED = "Email sending isn't verified yet, so nothing was sent. Save this as a draft, or fix it in Edit Preferences › Outbound Emails.";
+function requireVerifiedSender(d: AppData) {
+  if (d.prefsB.outboundEmail.status !== "verified") throw new Refused(EMAIL_NOT_VERIFIED);
 }
 
 /** Send now (Confirm tier; need content.write). Sent count = audience size; opens start at 0. */
 export function sendNewsletter(d: AppData, input: NewsletterInput, id?: ID) {
+  requireVerifiedSender(d);
   const nid = saveNewsletterDraft(d, input, id);
   const n = d.monetize.newsletters.find((x) => x.id === nid)!;
   n.status = "Sent";
@@ -496,6 +538,7 @@ export function sendNewsletter(d: AppData, input: NewsletterInput, id?: ID) {
 
 /** Schedule for later (Confirm tier; need content.write). */
 export function scheduleNewsletter(d: AppData, input: NewsletterInput, at: string, id?: ID) {
+  requireVerifiedSender(d);
   const nid = saveNewsletterDraft(d, input, id);
   const n = d.monetize.newsletters.find((x) => x.id === nid)!;
   n.status = "Scheduled";
@@ -508,7 +551,7 @@ export function duplicateNewsletter(d: AppData, id: ID) {
   const n = d.monetize.newsletters.find((x) => x.id === id);
   if (!n) return;
   const i = d.monetize.newsletters.indexOf(n);
-  d.monetize.newsletters.splice(i, 0, { ...structuredClone(n), id: uid("nl"), status: "Draft", sent: 0, opened: 0, unlocked: 0, sentAt: null, scheduledAt: null, createdAt: today() });
+  d.monetize.newsletters.splice(i, 0, { ...structuredClone(n), id: uid("nl"), status: "Draft", sent: 0, opened: 0, unlocked: 0, sentAt: null, scheduledAt: null, createdAt: today(), updatedAt: new Date().toISOString() });
 }
 
 /** Delete a newsletter (need content.write). */

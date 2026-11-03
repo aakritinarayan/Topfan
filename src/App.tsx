@@ -11,6 +11,8 @@ import { BleedLayout, DashboardLayout, FullWidthLayout, MarketingLayout, Onboard
 import { SpaceBackdrop } from "./platform/wls/SpaceBackdrop";
 import { AssistantIntro } from "./assistant/AssistantIntro";
 import { DomainFinderDirector } from "./assistant/DomainFinder";
+import { CoverAssistant } from "./assistant/platform/CoverAssistant";
+import { ContentAgent } from "./assistant/platform/ContentAgent";
 import { useDomainFinder } from "./state/domainFinderStore";
 import { AssistantPanel } from "./assistant/AssistantPanel";
 import { AssistantDirector } from "./assistant/Director";
@@ -18,6 +20,7 @@ import { QuestCompanion } from "./assistant/QuestCompanion";
 import { useQuest } from "./state/questStore";
 import { DevSwitcher } from "./app/DevSwitcher";
 import { resetWorkflow } from "./app/agent-context/workflow-state";
+import { demoId, inScope, resetPath } from "./app/demo";
 
 export default function App() {
   const assistant = <AssistantPanel />;
@@ -33,10 +36,18 @@ export default function App() {
     <>
       <AppRoutes assistant={assistant} />
       <SocialOverlays />
-      <AssistantDirector />
-      <QuestCompanion />
-      <AssistantIntro />
-      <DomainFinderDirector />
+      {/* Website setup guidance (domain, DNS, provisioning, Creator Quest): Account Setup demo only. */}
+      {inScope("setup") && (
+        <>
+          <AssistantDirector />
+          <QuestCompanion />
+          <AssistantIntro />
+          <DomainFinderDirector />
+          <CoverAssistant />
+        </>
+      )}
+      {/* Intent-driven posts, newsletters, experiences and weekly plans: AI-Assisted Content demo only. */}
+      {demoId === "ai-content" && <ContentAgent />}
       <ReviewNav />
     </>
   );
@@ -49,11 +60,15 @@ function AppRoutes({ assistant }: { assistant: ReactNode }) {
   const role = useData((d) => d.account.session.role);
   const name = useData((d) => d.account.name);
   useEffect(() => {
-    if (route.redirect) navigate(pathFor(route.redirect, params), { replace: true });
+    if (route.redirect) navigate(`${pathFor(route.redirect, params)}${window.location.search}`, { replace: true });
   }, [route.id]);
   useEffect(() => {
     document.title = `${route.title} | ${name}`;
   }, [route.id, name]);
+  // Account setup screens use the setup colors (teal); everything after setup stays red and black.
+  // Set during render (idempotent) so pages that read theme colors on mount, like the space
+  // backdrop's canvas, already see the right theme.
+  document.body.classList.toggle("setup-theme", route.id.startsWith("wls-setup-"));
   if (route.redirect) return null;
 
   const Page = PAGES[route.id] ?? Pending;
@@ -137,14 +152,14 @@ function ReviewNav() {
           assistant.reset();
           finder.reset();
           quest.reset();
-          // Full demo reset: reload on setup Step 1 with ?resetMock=1, which clears the local mock data,
-          // tasks and Autopilot review state (this browser only; nothing real is touched).
+          // Full demo reset: reload on the starting screen with ?resetMock=1, which clears the local mock
+          // data, tasks and Autopilot review state of this demo only (this browser; nothing real is touched).
           try {
             localStorage.removeItem("tf-fail-save");
           } catch {
             /* storage blocked: the reload still resets */
           }
-          window.location.assign("/edit-preference/whitelabel/setup/domain?resetMock=1");
+          window.location.assign(`${resetPath()}?resetMock=1`);
         }}
         title="Reset the whole demo (local mock data only)"
         data-testid="review-reset"

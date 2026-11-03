@@ -42,6 +42,10 @@ import { isOnboarding, usePlatform } from "../../state/platformStore";
 import type { HealthItem } from "../../app/agent-context/account-state";
 import { CopyLine } from "../AssistantPanel";
 import { DRAFT_LABEL, makeDraft, type DraftKind } from "./drafts";
+import { DECIDE_OPTIONS, EARN_GROUPS, EARN_OPTIONS, type EarnIntent } from "../../app/agent-context/earning";
+import { EarnList } from "./EarnList";
+import { inScope } from "../../app/demo";
+import { sayOtherDemo } from "../demoGate";
 
 interface Ctx {
   /** Deterministic handling of a typed/spoken request (demo mode). Returns false if not understood. */
@@ -55,9 +59,13 @@ interface Ctx {
   /** "Your site is ready. What would you like to do next?" with suggestions. */
   welcome: (heading?: string) => void;
   showGoal: (goal: GoalId) => void;
+  showEarn: (e: EarnIntent) => void;
+  /** "<Feature>: what it is" with an Open action. */
+  explainFeature: (featureId: string) => void;
   /** Run a suggestion as if the creator said it. */
   pickSuggestion: (s: Suggestion) => void;
-  taskControl: (c: "pause" | "resume" | "cancel" | "back" | "status") => void;
+  /** `id` = the exact task instance (Resume/Cancel on a paused row). */
+  taskControl: (c: "pause" | "resume" | "cancel" | "back" | "status", id?: string) => void;
   showAttention: (intro?: string) => void;
   showNext: () => void;
   offerDraft: (kind: DraftKind, text?: string) => void;
@@ -74,7 +82,7 @@ interface TaskOpts {
   /** The creator's goal, kept with the task. */
   goal?: string;
   /** Replaces the task summary (e.g. the explanation for a chosen goal). */
-  intro?: string;
+  intro?: ReactNode;
   /** Primary action label (default: the step's CTA). */
   cta?: string;
 }
@@ -282,6 +290,7 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
   const beginTask = useCallback((taskId: string, opts: TaskOpts = {}) => {
     const def = taskById(taskId);
     if (!def) return false;
+    if ((taskId === "first-time-setup" || taskId === "cover-page") && !inScope("setup")) return sayOtherDemo(live.current.a.say, "setup"), true;
     const navigateNow = opts.navigate ?? true;
     if (blocked(def.need)) {
       noAccess(def.name);
@@ -324,16 +333,28 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
   const beginTaskRef = useRef(beginTask);
   beginTaskRef.current = beginTask;
 
-  const taskControl = useCallback((c: "pause" | "resume" | "cancel" | "back" | "status") => {
+  const taskControl = useCallback((c: "pause" | "resume" | "cancel" | "back" | "status", id?: string) => {
     const { a } = live.current;
     const w = getWorkflow();
     if (c === "resume") {
-      const def = resumeTask();
-      if (!def) return void a.say({ text: "There's no paused task to pick up." });
+      const def = resumeTask(id);
+      // Never fall back to a different task: say so and let the creator choose.
+      if (!def)
+        return void a.say(
+          id
+            ? { text: "I couldn't find that task anymore, so I haven't opened anything. Pick another paused task, or tell me what you'd like to do.", plain: "Paused task not found." }
+            : { text: "There's no paused task to pick up." },
+        );
       const p = getWorkflow().active ? progressOf(getWorkflow().active!) : null;
       a.say({ text: <>Picking up <b>{def.name}</b>. {p ? stepLine(def, p.index) : ""}</>, plain: `Resumed ${def.name}.` });
       goToStep();
       return;
+    }
+    if (c === "cancel" && id && id !== w.active?.id) {
+      const t = w.paused.find((x) => x.id === id);
+      if (!t) return;
+      cancelTask(id);
+      return void a.say({ text: <>Removed <b>{taskById(t.taskId)?.name}</b> from your paused tasks. Anything you already saved on the page stays as it is.</>, plain: `Cancelled ${taskById(t.taskId)?.name}.` });
     }
     if (!w.active) return void a.say({ text: "You don't have a task in progress." });
     const def = taskById(w.active.taskId)!;
@@ -429,6 +450,11 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
       actions: [{ label: `Open ${f.name}`, variant: "outline", onClick: () => navigateTo(f.id, { quiet: true }) }],
     });
 
+  const explainFeature = (id: string) => {
+    const f = featureById(id);
+    if (f) explain(f);
+  };
+
   const pageHelp = () => {
     const d = getData();
     const { a, path } = live.current;
@@ -470,6 +496,7 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
   };
 
   const showGoal = useCallback((goal: GoalId) => {
+    if (goal === "earn") return showEarnRef.current({ kind: "broad", question: "What kind of earning fits you best?" });
     const g = GOALS[goal];
     live.current.a.say({
       text: <>{g.intro} {g.question}</>,
@@ -484,7 +511,7 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
           if (o.primary.taskId) {
             beginTaskRef.current(o.primary.taskId, {
               navigate: false,
-              goal: `${goal === "earn" ? "Earn from my fans" : "Engage my fans"}: ${o.label}`,
+              goal: `Engage my fans: ${o.label}`,
               intro: o.explain,
               cta: o.primary.label,
             });
@@ -502,6 +529,95 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
       },
     });
   }, []);
+
+  /* ---------------- earning: discover, compare, recommend, then the feature's own guided task ---------------- */
+
+  /** Open one Monetize feature through its guided task (verified route; chat and goal kept). */
+  const startEarn = (featureId: string, goal: string) => {
+    const o = EARN_OPTIONS[featureId];
+    const f = featureById(featureId);
+    if (!o || !f) return;
+    if (blocked(f.need)) return noAccess(f.name);
+    beginTaskRef.current(o.taskId, { navigate: true, goal, intro: <><b>{f.name}.</b> {o.line}</> });
+  };
+  const startEarnRef = useRef(startEarn);
+  startEarnRef.current = startEarn;
+  const earnList = (ids: string[], goal: string, grouped = false) => (
+    <EarnList groups={grouped ? EARN_GROUPS : [{ id: "pick", label: "", ids }]} onOpen={(id) => startEarnRef.current(id, goal)} />
+  );
+
+  const showEarn = useCallback((e: EarnIntent) => {
+    const { a } = live.current;
+    if (!inScope("discovery")) {
+      // Comparing all the ways to earn is the Account Setup & Navigation demo; here, one specific
+      // option gets help with its content (a draft to start from) and the page to use it on.
+      if (e.kind !== "recommend" || e.ids.length !== 1) return sayOtherDemo(a.say, "discovery");
+      const f = featureById(e.ids[0])!;
+      if (blocked(f.need)) return noAccess(f.name);
+      const kind = CONTENT_DRAFT[e.ids[0]];
+      a.say({
+        text: <>{e.why}{kind ? " Want help with the content? I can draft a starting point you can edit." : ""}</>,
+        plain: e.why,
+        actions: [
+          ...(kind ? [{ label: `Draft a ${DRAFT_LABEL[kind].toLowerCase()}`, variant: "primary" as const, onClick: () => offerDraft(kind) }] : []),
+          { label: `Open ${f.name}`, variant: kind ? ("outline" as const) : ("primary" as const), onClick: () => navigateTo(f.id) },
+        ],
+      });
+      return;
+    }
+    const all = { label: "Explore all earning options", variant: "outline" as const, onClick: () => showEarnRef.current({ kind: "all" }) };
+    if (e.kind === "all") {
+      a.say({
+        text: <>Here are all 12 ways to earn on TopFan, grouped by what you'd offer. Most earn directly; Portfolios and Discount Codes help you show your work and sell more.</>,
+        plain: "All 12 earning options: Subscriptions, Newsletters, VIP Offers, Courses, Experiences, Downloadables, Merchandise, Portfolios, NFTs, Events & Ticketing, Advertisements, Discount Codes.",
+        body: earnList([], "Earn from my fans: explored all options", true),
+      });
+      return;
+    }
+    if (e.kind === "broad") {
+      a.say({
+        text: <>There are several ways to earn from your fans on TopFan. Most earn directly; a few help you sell more or show your work. {e.question}</>,
+        plain: `Ways to earn. ${e.question}`,
+        choice: {
+          instant: true,
+          options: [...EARN_GROUPS.map((g) => ({ value: g.id, label: g.label })), { value: "all", label: "Explore all earning options" }],
+          onPick: (id, label) => {
+            if (id === "all") return showEarnRef.current({ kind: "all" });
+            const g = EARN_GROUPS.find((x) => x.id === id)!;
+            live.current.a.say({ text: <>{g.label}: pick one to open it and I'll guide you through setting it up.</>, plain: `${g.label}: ${g.ids.join(", ")}`, body: earnList(g.ids, `Earn from my fans: ${label}`), actions: [all] });
+          },
+        },
+      });
+      return;
+    }
+    if (e.kind === "decide") {
+      a.say({
+        text: "Happy to help you choose. What matters most to you right now?",
+        choice: {
+          instant: true,
+          options: DECIDE_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+          onPick: (id, label) => {
+            const o = DECIDE_OPTIONS.find((x) => x.id === id)!;
+            showEarnRef.current({ kind: "recommend", ids: o.ids, why: o.why, note: o.note, goal: `Earn from my fans: ${label}` });
+          },
+        },
+      });
+      return;
+    }
+    // A specific goal: one recommendation goes straight to its guided task (no extra question).
+    const goal = e.goal ?? "Earn from my fans";
+    if (e.ids.length === 1) {
+      const o = EARN_OPTIONS[e.ids[0]];
+      const f = featureById(e.ids[0])!;
+      if (blocked(f.need)) return noAccess(f.name);
+      beginTaskRef.current(o.taskId, { navigate: false, goal, intro: <>{e.why}{e.note ? ` ${e.note}` : ""}</> });
+      a.say({ text: "Want to compare other ways to earn?", actions: [all] });
+      return;
+    }
+    a.say({ text: <>{e.why}{e.note ? ` ${e.note}` : ""}{e.question ? ` ${e.question}` : ""}</>, plain: `${e.why} ${e.note ?? ""}`, body: earnList(e.ids, goal), actions: [all] });
+  }, []);
+  const showEarnRef = useRef(showEarn);
+  showEarnRef.current = showEarn;
 
   /* ---------------- suggestions from the real account and task state ---------------- */
 
@@ -529,6 +645,7 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     const w = getWorkflow();
     const ps = live.current.platform.state;
     const out: Suggestion[] = [];
+    if (!inScope("discovery")) return contentSuggestions(d, w);
     const doneTasks = new Set(w.finished.filter((f) => f.status === "done").map((f) => f.taskId));
     if (w.active) {
       const def = taskById(w.active.taskId)!;
@@ -537,10 +654,10 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     const paused = w.paused[w.paused.length - 1];
     if (paused) {
       const def = taskById(paused.taskId)!;
-      out.push({ id: `resume-${def.id}`, label: def.resumeLabel ?? `Continue: ${def.name}`, run: () => taskControl("resume") });
+      out.push({ id: `resume-${def.id}`, label: def.resumeLabel ?? `Continue: ${def.name}`, run: () => taskControl("resume", paused.id) });
     }
     // Account setup really started in this session (Step 2 or later reached) but not finished.
-    if (setupReached.current && !ps.provisionDone && !isOnboarding(ps.screen)) {
+    if (inScope("setup") && setupReached.current && !ps.provisionDone && !isOnboarding(ps.screen)) {
       const step = ps.provisionStartedAt ? "provisioning" : ps.recordsVerified || ps.screen === "step2" ? "dns" : "domain";
       out.push({ id: "finish-setup", label: "Finish setting up my website", run: () => (markAssistantNavigation(), live.current.navigate(SETUP_PATH + step)) });
     }
@@ -550,8 +667,14 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     const brandingActive = w.active?.taskId === "white-label" || w.paused.some((t) => t.taskId === "white-label");
     if (!brandingActive && !doneTasks.has("white-label")) out.push({ id: "customize", label: "Customize my website", run: () => beginTaskRef.current("white-label", { goal: "Customize my website" }) });
     const posts = metrics(d).posts;
-    out.push({ id: "post", label: posts ? "Create a post" : "Create my first post", run: () => beginTaskRef.current("create-post", { goal: posts ? "Create a post" : "Create my first post" }) });
-    out.push({ id: "earn", label: "Start earning from fans", run: () => showGoal("earn") });
+    // Writing help is the content demo's story; here the post suggestion is about finding your way.
+    const postLabel = inScope("content") ? (posts ? "Create a post" : "Create my first post") : "Explore how to create a post";
+    out.push({ id: "post", label: postLabel, run: () => beginTaskRef.current("create-post", { goal: postLabel }) });
+    // Once the creator has created an offering, the next step is telling fans, not "start earning".
+    const earnTasks = new Set(Object.values(EARN_OPTIONS).map((o) => o.taskId));
+    const offered = w.finished.some((f) => f.status === "done" && earnTasks.has(f.taskId));
+    if (offered) out.push({ id: "announce", label: "Tell fans about my new offer", run: () => beginTaskRef.current("create-post", { goal: "Tell fans about my new offer" }) });
+    else out.push({ id: "earn", label: "Start earning from fans", run: () => showEarnRef.current({ kind: "broad", question: "What kind of earning fits you best?" }) });
     out.push({ id: "engage", label: "Explore fan engagement", run: () => showGoal("engage") });
     const role = d.account.session.role;
     return out.filter((x) => {
@@ -559,6 +682,23 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
       return !t?.need || roleCan(role, t.need);
     }).slice(0, 4);
   }, []);
+
+  /** AI-Assisted Content demo: continue a task, then content (Autopilot review/plan, writing help). */
+  const contentSuggestions = (d: ReturnType<typeof getData>, w: ReturnType<typeof getWorkflow>): Suggestion[] => {
+    const out: Suggestion[] = [];
+    const t = w.active ?? w.paused[w.paused.length - 1];
+    if (t) {
+      const def = taskById(t.taskId)!;
+      out.push({ id: `${w.active ? "continue" : "resume"}-${def.id}`, label: def.resumeLabel ?? `Continue: ${def.name}`, run: () => (w.active ? (taskControl("status"), goToStep()) : taskControl("resume", t.id)) });
+    }
+    if (!roleCan(d.account.session.role, "content.write")) return out;
+    const ready = d.autopilot.batch && !d.autopilot.batch.dismissed ? d.autopilot.batch.drafts.filter((x) => x.status === "ready").length : 0;
+    if (ready) out.push({ id: "ap-review", label: "Review my prepared posts", run: () => openAutopilot({ screen: "summary" }) });
+    out.push({ id: "ap-plan", label: "Prepare this week's content", run: () => openAutopilot({ screen: "plan", step: "intro" }) });
+    out.push({ id: "write-post", label: "Help me write a post", run: () => beginTaskRef.current("create-post", { goal: "Help me write a post" }) });
+    out.push({ id: "draft-newsletter", label: "Draft a newsletter", run: () => offerDraft("newsletter") });
+    return out.slice(0, 4);
+  };
 
   const pickSuggestion = (sg: Suggestion) => {
     live.current.a.userSays(sg.label);
@@ -625,6 +765,9 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
       case "goal":
         showGoal(intent.goal);
         return true;
+      case "earn":
+        showEarn(intent.earn.kind === "recommend" ? { ...intent.earn, goal: `Earn from my fans: ${text.slice(0, 100)}` } : intent.earn);
+        return true;
       case "explain":
         explain(intent.feature);
         return true;
@@ -665,7 +808,7 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     live.current.a.say({
       text: <>{label}? Next: {p.step.title}.</>,
       plain: `${label}? Next: ${p.step.title}.`,
-      actions: [{ label, variant: "primary", onClick: () => (w.active ? goToStep() : taskControl("resume")) }],
+      actions: [{ label, variant: "primary", onClick: () => (w.active ? goToStep() : taskControl("resume", t.id)) }],
     });
   }, [a.open]);
 
@@ -698,7 +841,7 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ handle, navigateTo, beginTask, taskControl, showAttention, showNext, offerDraft, goToStep, proposeAction, dismissed, fallback, suggestions, welcome, showGoal, pickSuggestion }),
+    () => ({ handle, navigateTo, beginTask, taskControl, showAttention, showNext, offerDraft, goToStep, proposeAction, dismissed, fallback, suggestions, welcome, showGoal, showEarn, pickSuggestion, explainFeature }),
     [],
   );
   return <C.Provider value={value}>{children}</C.Provider>;
@@ -761,4 +904,16 @@ const EXECUTORS: Record<string, Executor> = {
 const ASSISTS: Record<string, { label: string; actionId: string; input: () => Input }> = {
   "vip-group": { label: "Create the group for me", actionId: "group.add", input: () => ({ name: "VIP", description: "My closest fans get first access and exclusive posts." }) },
   "welcome-message": { label: "Add it for me", actionId: "automated.add", input: () => ({ event: "Fan Registers", text: makeDraft("welcome-message", getData()) }) },
+};
+
+/** Earning options whose content the assistant can draft (AI-Assisted Content demo). */
+const CONTENT_DRAFT: Partial<Record<string, DraftKind>> = {
+  subscriptions: "plan-benefits",
+  "vip-offers": "plan-benefits",
+  newsletters: "newsletter",
+  courses: "course-outline",
+  events: "event-promo",
+  experiences: "post-idea",
+  merchandise: "post-idea",
+  downloadables: "post-idea",
 };

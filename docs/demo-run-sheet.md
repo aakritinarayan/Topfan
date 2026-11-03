@@ -15,13 +15,18 @@ Every step below is checked end to end by the tests listed at the bottom.
 - [ ] **Voice:** try the mic once on the presenting laptop (see "Voice check" below).
 - [ ] Keep the backup recording ready.
 
-| Part | Starting link (add to your host, e.g. `http://localhost:5173`) |
-|---|---|
-| 1. Account setup | `/edit-preference/whitelabel/setup/domain?resetMock=1` |
-| 2. Navigation | continue from Part 1, or `/?resetMock=1` |
-| 3. Content Autopilot | `/?resetMock=1` (a fresh tab) |
+Two separate demo links, one per pitch. Each keeps its own data, tasks and conversation, and only
+suggests its own workflows. Asking one demo for the other's workflow gets "That workflow is available in
+the … demo." with a button that opens the other link in a new tab (never a silent switch).
 
-`resetMock=1` starts from clean demo data. Everything is fictional; nothing real is changed.
+| Demo | Link (add to your host, e.g. `http://localhost:5173`) | Parts |
+|---|---|---|
+| 1. Account Setup & Navigation: "AI makes TopFan easier to understand, navigate, and use." | `/demo/setup-navigation?resetMock=1` | 1 and 2 |
+| 2. AI-Assisted Content: "AI reduces the repetitive effort of creating and managing content." | `/demo/ai-content?resetMock=1` (a second tab) | 3 |
+
+`resetMock=1` starts that demo from clean data (the other demo is untouched). Everything is fictional; nothing real is changed.
+Account setup screens use the setup colors from the live product (teal, teal mascot); the platform after setup is red and black.
+When the panel is open, it says which page you're on and offers up to three actions for that demo (**More suggestions** for the rest).
 
 ## 0. Opening (1 min)
 
@@ -38,10 +43,20 @@ The TopFan screens are unchanged. The assistant is the panel on the right and th
 | Click **Fill it in** | "GoDaddy is filled in." with **Undo** | "Every change can be undone." |
 | (next card) | Recommends **fans.ajwhite.com** because ajwhite.com handles email | "Pointing the root domain at TopFan would break email. It explains why." |
 | **Fill it in**, then **Save & Continue** on the page | Step 2 with the GoDaddy video card | Optional: **Show details** for the raw records. |
-| **Prepare it for me** → **Connect** | "Assistant is working…" with **Stop**, then "2 records added" | "The creator signs in at GoDaddy themselves. We never ask for passwords." |
-| **Verify & Continue** | "Your domain is connected…"; site already works at ajwhite.topfan.dev | "No dead wait." |
-| **Simulate: finish provisioning** (small link under the card) | "Your website is ready!" | (Real provisioning takes up to 10 minutes.) |
-| **Go to my site** | Panel: **"Your site is ready. What would you like to do next?"** with 4 suggestions | Hand-off to Part 2. |
+| **Prepare it for me** | **Connect your GoDaddy account** (labelled Simulated, no password fields) | "The creator signs in at GoDaddy themselves. We never see their password." |
+| **Continue to GoDaddy** | **Review your DNS changes**: the exact two records from this page | "Nothing is added before they approve." |
+| **Approve & connect** | **Setting up your DNS records** ("Simulated setup. No changes are being made to GoDaddy."), then **DNS setup prepared** | |
+| **Back to TopFan** | "I've completed the simulated DNS setup…" and "Use Verify & Continue to check the connection." | |
+| **Verify & Continue** | "Your domain is connected. TopFan can continue setting up your website." | "No dead wait." |
+| **Simulate: finish provisioning** (small link under the card) | Panel: **"Your site is ready. Let's make it yours."** with **Edit my cover page**, **Customize my branding**, **Set up Link in Bio** and **More suggestions** | (Real provisioning takes up to 10 minutes.) |
+| **Edit my cover page** | Opens **White Label Site**, points at **Edit Cover Page**, then opens the existing editor. "I can help prepare your cover page using the information you've already shared with TopFan…" | "It starts from what TopFan already knows." |
+| **Prepare my cover page** | **"Your cover page draft is ready."** Each field shows Draft, its source, or Written by AI. The panel also lists brand colors with a contrast check, a cover image, the sources (website and Instagram marked simulated; Facebook and X links kept but not read) and anything that needs input | "Nothing in the editor has changed yet." |
+| **Review in Cover Page Editor** | The SEO fields fill in, and any field the creator already typed in is kept. **Undo** is offered. Then one decision at a time: **Use this image**, then **Use these colors** (these go to Customize Appearance unsaved) | "The creator decides each piece." |
+| **Update & Publish** (on the page) | "Your cover page is published." | "Only the creator's click publishes." |
+
+**Cover page stories on request** (add to the editor link `/edit-preference/whitelabel-cover-page`): `?coverFixture=no-website`, `site-unreachable`, `no-photo` or `publish-fail` (the first Update & Publish fails; the assistant checks the status before suggesting a retry).
+
+**Failure stories on request** (add to the DNS step link): `?dnsFixture=connection-failure`, `domain-not-found`, `hosted-elsewhere`, `conflict`, `update-failed` or `propagation-pending`. Each shows its message and offers **Walk me through it**.
 
 **If asked "what if it fails?"** Choose **Walk me through it**, then **Verify & Continue**, then **Help me fix it**: it finds the classic GoDaddy mistake (domain typed twice in the record name).
 
@@ -54,11 +69,14 @@ Type each phrase (or use the mic):
 | `I want to change my website logo.` | Says where it is, with **Open White Label Site**. Click it. | "The creator's words, not TopFan's menu names. The chat stays with you." |
 | (on that page) change **Logo Font** with the arrows | The header logo changes instantly; leaving without **Update & Publish** reverts it | "Safe to explore. Nothing is live until you publish." |
 | `I want to change my settings.` | Asks: My profile / My website / Notifications / Privacy & password | "When it's ambiguous, it asks." |
-| `I want to start earning from my fans, but I don't know where to start.` | Three paths. Pick **Exclusive content or membership** | "One decision at a time." |
-| Click **Open Subscriptions** | Plans page with "Step 1 of 3" | "Goals become guided steps on the real screens." |
+| `I want to start earning from my fans, but I don't know where to start.` | One question: four kinds of earning, plus **Explore all earning options**. Pick **Memberships and exclusive content** | "One decision at a time." |
+| Click **Subscriptions** in the list | Plans page with "Step 2 of 3" pointing at **Add New Plan** | "Goals become guided steps on the real screens." |
+| (optional) `I want to earn through brand collaborations.` | Goes straight to Advertisements, no extra question | "Specific goals get a direct answer." |
 | Click **Feed**, collapse the panel, reopen it | **"Continue setting up your subscription?"** | "It remembers what you were doing." |
 | `What should I focus on?` | Outbound Email failing first, then orders and refunds | "It prioritizes." |
 | `Create a group called Inner Circle` → **Approve** | **Please confirm** card, then the Groups page | "Small changes only after you approve exactly what you see." |
+
+Optional: `What are my earning options?` lists all 12 Monetize features, each marked **Earns** or **Helps sell**; any row opens that feature with its setup steps.
 
 Optional: `fix my email` guides the real Outbound Email screen from Failed to Verified (the domain change asks the creator to type the domain to confirm).
 
@@ -91,6 +109,8 @@ Open the third tab.
 | After approving: **Save approved drafts** | "Your approved drafts have been saved." | |
 | **Open "…"** / **Open next draft** | New Post opens pre-filled; the panel says which draft is open | "Detailed edits and publishing happen in TopFan's own composer." |
 
+**3c. Demo 2: tell it what you want** (`/demo/ai-content`). The full script with exact phrases is `docs/DEMO2_PRESENTER_GUIDE.md`: a post with a simulated image, Gold-only content explained honestly, a newsletter blocked by email verification, a fan experience, and "Plan my entire week".
+
 ## 4. Close (1 min)
 
 > "Three things, one rule: the assistant prepares, the creator decides. One decision at a time, everything explained, everything undoable."
@@ -109,4 +129,4 @@ Parts 1 and 3 don't need the model. Every phrase in Part 2 works in demo mode. R
 ## Automated checks
 
 `node tests/e2e/<name>.mjs` with the dev server on :5173:
-`demo-script` (this sheet's phrases) · `scenarios` (navigation A–G + Outbound Email) · `plan-week` · `autopilot` · `chat-corpus` (194 questions) · `wls-manage` · `launcher` · `media-audit` · `click-audit` (every control on every route).
+`content-agent` (Demo 2's 7 content scenarios; `--viewport=1126x797`) · `two-demos` (both demo journeys, cross-demo requests, page guidance on 11 screens) · `cover-page` (post-setup cover page prefill, fixtures, Demo 2 isolation) · `dns-setup` (GoDaddy setup states and errors) · `demo-links` · `demo-script` (this sheet's phrases) · `scenarios` (navigation A–G + Outbound Email) · `monetize` (all 12 earning destinations) · `task-resume` (paused tasks) · `plan-week` · `autopilot` · `chat-corpus` (194 questions) · `wls-manage` · `launcher` · `media-audit` · `click-audit` (every control on every route).

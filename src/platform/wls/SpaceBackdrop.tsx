@@ -1,7 +1,7 @@
 /**
  * Page-level space backdrop for the provisioning screen (one canvas, sticky to the viewport).
  * Deliberately composed, not random: a faint moon top-left, a tiny ringed planet top-right, a large
- * rim-lit planet low on the right edge, a dark-red haze and a faint nebula wisp. Stars are sparse and
+ * rim-lit planet low on the right edge, a dark haze in the theme color and a faint nebula wisp. Stars are sparse and
  * dimmed in the center column (heading, timer, stepper). Decorative only (aria-hidden, no pointer events).
  */
 import { useEffect, useRef } from "react";
@@ -34,9 +34,12 @@ export function SpaceBackdrop() {
   useEffect(() => {
     const canvas = ref.current!;
     const ctx = canvas.getContext("2d")!;
-    const cs = getComputedStyle(document.documentElement);
+    const cs = getComputedStyle(document.body); // body: picks up the account-setup theme
     const rgb = (cs.getPropertyValue("--configThemeColorRgb").trim() || "188 17 17").split(/\s+/).join(",");
     const red = (a: number) => `rgba(${rgb},${a})`;
+    // Near-black tinted toward the theme color (planet bodies follow the theme: red, or teal in setup).
+    const [tr, tg, tb] = rgb.split(",").map(Number);
+    const tint = (t: number, a = 1) => `rgba(${Math.round(12 + (tr - 12) * t)},${Math.round(12 + (tg - 12) * t)},${Math.round(13 + (tb - 13) * t)},${a})`;
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     let raf = 0;
     let last = performance.now();
@@ -123,7 +126,7 @@ export function SpaceBackdrop() {
       // Tiny ringed planet, upper right.
       const rx = W * 0.88 - ((env * 0.015) % 40);
       const ry = H * 0.13;
-      ctx.fillStyle = "rgba(118,80,88,0.55)";
+      ctx.fillStyle = tint(0.4, 0.55);
       ctx.beginPath();
       ctx.arc(rx, ry, 5.5, 0, Math.PI * 2);
       ctx.fill();
@@ -133,14 +136,14 @@ export function SpaceBackdrop() {
       ctx.ellipse(rx, ry + 1, 13, 3, -0.25, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Large planet partly visible on the right edge, with a soft red rim.
+      // Large planet partly visible on the right edge, with a soft rim in the theme color.
       const R = Math.max(170, H * 0.27);
       const px = W + R * 0.5 - Math.min(20, env * 0.004);
       const py = H * 0.74;
       g = ctx.createRadialGradient(px - R * 0.55, py - R * 0.55, R * 0.1, px, py, R);
-      g.addColorStop(0, "#251719");
-      g.addColorStop(0.6, "#140e10");
-      g.addColorStop(1, "#0d0a0b");
+      g.addColorStop(0, tint(0.1));
+      g.addColorStop(0.6, tint(0.035));
+      g.addColorStop(1, tint(0.005));
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(px, py, R, 0, Math.PI * 2);

@@ -82,7 +82,7 @@ const TOPICS: { words: string[]; answer: (s: PlatformState) => SetupAnswer }[] =
     words: ["buy", "purchase", "price", "cost", "don't have a domain", "dont have a domain", "no domain", "get a domain", "new domain"],
     answer: () =>
       T(
-        "TopFan doesn't sell domain names. You can buy one at any registrar (TopFan recommends Namecheap); the purchase and payment happen on the registrar's own site. Then come back and enter it in Domain Name.",
+        "TopFan doesn't sell domain names. I can help you find a name and buy it at GoDaddy; the purchase and payment happen on GoDaddy's own site. Then come back and enter it in Domain Name.",
         "buy-domain",
       ),
   },

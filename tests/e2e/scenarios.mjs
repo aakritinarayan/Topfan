@@ -4,7 +4,7 @@
 // Usage: node tests/e2e/scenarios.mjs [1512|1126]   (dev server on :5173)
 import puppeteer from "../../node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js";
 const W = Number(process.argv[2]) || 1512, H = W === 1126 ? 797 : 805;
-const BASE = "http://localhost:5173";
+const BASE = process.env.BASE_URL || "http://localhost:5173";
 const b = await puppeteer.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true, defaultViewport: { width: W, height: H } });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const live = await fetch(`${BASE}/api/chat`).then((r) => r.json()).then((s) => s.configured).catch(() => false);
@@ -86,26 +86,23 @@ const tasks = (p) => p.evaluate(() => JSON.parse(localStorage.getItem("topfan-ta
   await p.browserContext().close();
 }
 
-// C — goal-based: three choices, an explanation, then the Monetize screen; goal kept with the task.
+// C — goal-based: one question (earning groups), the group's features, then the Monetize screen; goal kept.
 let pC;
 {
   const p = (pC = await open("/"));
   const t = await ask(p, "I want to start earning from my fans, but I don't know where to start.");
-  check("C: offers the three earning paths", /Exclusive content|membership/i.test(t) && /Personal sessions|experiences/i.test(t) && /products/i.test(t), t);
+  check("C: asks one question with the earning groups", /fits you best\?/.test(t) && /Memberships and exclusive content/.test(await panel(p)) && /Explore all earning options/.test(await panel(p)), t);
   check("C: doesn't navigate before a choice", path(p) === "/", path(p));
-  await tap(p, /Exclusive content|membership/);
+  await tap(p, /^Memberships and exclusive content$/);
   await sleep(WAIT);
+  check("C: the chosen group lists its features, still no navigation", !!(await p.$('[data-testid="ai-earn-option-subscriptions"]')) && path(p) === "/", path(p));
+  await p.evaluate(() => [...document.querySelectorAll('[data-testid="ai-earn-option-subscriptions"]')].pop()?.click());
+  await sleep(1200);
   const after = await panel(p);
   check("C: explains the choice and starts a guided task", /Step \d of \d/.test(after), after.slice(-400));
   const ts = await tasks(p);
-  const active = ts?.active ?? ts?.tasks?.find?.((x) => x.status === "active") ?? ts;
-  check("C: the goal is saved with the task", /Earn from my fans: Exclusive content/.test(JSON.stringify(ts ?? {})), JSON.stringify(ts).slice(0, 300));
-  const go = await p.$('[data-testid="ai-task-go"]');
-  if (go) await go.click();
-  else await tap(p, /^(Open|Go|Show)/);
-  await sleep(1000);
-  check("C: opens the subscription plans screen", path(p).startsWith("/monetize"), path(p));
-  void active;
+  check("C: the goal is saved with the task", /Earn from my fans: Memberships and exclusive content/.test(JSON.stringify(ts?.active ?? {})), JSON.stringify(ts?.active ?? {}).slice(0, 300));
+  check("C: opens the subscription plans screen", path(p) === "/monetize/subscription", path(p));
 }
 
 // E — resume: from Feed, closing and reopening the panel offers to continue the subscription task.
@@ -201,9 +198,12 @@ let pC;
   const stepT = await p.evaluate(() => document.querySelector('[data-testid="ai-task-step"]')?.innerText ?? "");
   check("Email: the task follows along on the page", /Step [3-5] of/.test(stepT), stepT);
   await click("pref-outbound-records-added");
-  await click("pref-outbound-verify");
-  await click("pref-outbound-recheck");
-  await sleep(800);
+  await p.click('[data-testid="pref-outbound-verify"]');
+  // The simulated check finishes on its own; it must take no more than 2 seconds.
+  const t0 = Date.now();
+  await p.waitForSelector('[data-testid="pref-outbound-verified"]', { timeout: 4000 }).catch(() => null);
+  const took = Date.now() - t0;
+  check("Email: verification finishes within 2 s", took <= 2000, `${took}ms`);
   const status = await p.evaluate(() => JSON.parse(localStorage.getItem("topfan-mock-v1")).prefsB.outboundEmail.status);
   check("Email: status reaches Verified", status === "verified", status);
   const t = await panel(p);

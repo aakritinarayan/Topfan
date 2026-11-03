@@ -60,6 +60,18 @@ const AUTOPILOT_SYSTEM = `You revise one social post draft for a creator on TopF
 - Keep it under 400 characters and different from <app_state>.recentPosts.
 - If you can't fix it without inventing facts, return exactly: CANNOT_REVISE`;
 
+/* ------------------------------ article mode (New Post › Article › AI) ------------------------------ */
+
+/** "Insert AI Generated Content" in the Article editor. Text only, no tools; the browser inserts the
+ * result into the editor's draft, and nothing is published without the creator's own PUBLISH NOW. */
+const ARTICLE_SYSTEM = `You write article text for a creator on TopFan, in their voice.
+- Follow the creator's description in the user message. <app_state>.contentType says what to write: a full article (4–6 short paragraphs, a couple of "## " subheadings), or a specific text snippet (1–2 paragraphs).
+- Use only facts in <app_state>.approvedFacts. Never invent results, sponsors, dates, places, prices, numbers, quotes or engagement figures. Where a detail is needed but unknown, write a short [bracketed placeholder] for the creator to fill in.
+- Match the creator's voice from <app_state>.voiceExamples.
+- If <app_state>.wantTitle is true, the first line is "TITLE: " followed by a title of at most 70 characters.
+- Plain text only: paragraphs separated by a blank line, subheadings start with "## ". No HTML, no preface, no sign-off notes about what you did.
+- If the description asks for something you can't write without inventing facts, return exactly: CANNOT_WRITE`;
+
 /* ------------------------------ platform mode ------------------------------ */
 
 const FEATURE_IDS = FEATURES.map((f) => f.id);
@@ -238,7 +250,7 @@ interface ChatRequest {
   history: Turn[];
   message: string;
   context: unknown;
-  mode: "onboarding" | "platform" | "autopilot";
+  mode: "onboarding" | "platform" | "autopilot" | "article";
 }
 
 function parseRequest(raw: unknown): ChatRequest | string {
@@ -256,7 +268,7 @@ function parseRequest(raw: unknown): ChatRequest | string {
   }
   const context = JSON.stringify(r.context ?? {});
   if (context.length > MAX_CONTEXT_CHARS) return "Context is too large.";
-  return { history: turns, message: r.message.trim(), context: r.context ?? {}, mode: r.mode === "platform" || r.mode === "autopilot" ? r.mode : "onboarding" };
+  return { history: turns, message: r.message.trim(), context: r.context ?? {}, mode: r.mode === "platform" || r.mode === "autopilot" || r.mode === "article" ? r.mode : "onboarding" };
 }
 
 /** Alternate roles strictly (merge neighbors) and start with a user turn, as the API requires. */
@@ -416,9 +428,9 @@ export async function handleChat(req: IncomingMessage & { body?: unknown }, res:
     const stream = client.beta.messages.stream(
       {
         model: MODEL,
-        max_tokens: parsed.mode === "autopilot" ? 600 : 2048,
+        max_tokens: parsed.mode === "autopilot" ? 600 : parsed.mode === "article" ? 1800 : 2048,
         system: [
-          { type: "text", text: parsed.mode === "autopilot" ? AUTOPILOT_SYSTEM : parsed.mode === "platform" ? PLATFORM_SYSTEM : SYSTEM },
+          { type: "text", text: parsed.mode === "autopilot" ? AUTOPILOT_SYSTEM : parsed.mode === "article" ? ARTICLE_SYSTEM : parsed.mode === "platform" ? PLATFORM_SYSTEM : SYSTEM },
           {
             type: "text",
             text: `<topfan_knowledge>\n${parsed.mode === "platform" ? `${platformKnowledge()}\n\n${TOPFAN_KNOWLEDGE}` : TOPFAN_KNOWLEDGE}\n</topfan_knowledge>`,
@@ -426,7 +438,7 @@ export async function handleChat(req: IncomingMessage & { body?: unknown }, res:
           },
         ],
         output_config: { effort: "low" },
-        ...(parsed.mode === "autopilot" ? {} : { tools: parsed.mode === "platform" ? platformTools : tools }),
+        ...(parsed.mode === "autopilot" || parsed.mode === "article" ? {} : { tools: parsed.mode === "platform" ? platformTools : tools }),
         messages: toMessages(parsed),
         // On a safety decline, re-run on Anthropic's recommended fallback model instead of failing.
         fallbacks: "default",

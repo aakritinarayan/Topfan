@@ -9,6 +9,7 @@
  * here publishes at all (publishing happens in New Post with its own confirmation). Every write goes
  * through act() with content.write, so delegate permissions apply.
  */
+import { inScope } from "../../app/demo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Clock, Image as ImageIcon, Pencil, X } from "lucide-react";
 import { ImageSlot } from "../../platform/ui/surfaces";
@@ -85,7 +86,7 @@ function DraftMedia({ x }: { x: APDraft }) {
       {has ? (
         <div className="relative">
           {x.type === "video" ? (
-            <VideoPlayer video={m.src} label={m.need} className="aspect-video w-full" rounded="rounded-tile" />
+            <VideoPlayer video={m.src} poster={m.poster} label={m.need} className="aspect-video w-full" rounded="rounded-tile" />
           ) : (
             <ImageSlot src={m.src} label={m.need} className={`aspect-[4/3] w-full ${state === "unapproved" ? "opacity-50" : ""}`} rounded="rounded-tile" />
           )}
@@ -591,8 +592,8 @@ function Confirm({ exclude }: { exclude: string[] }) {
         ))}
         {ready.map((x) => (
           <li key={x.id}>
-            <label className="flex items-center gap-2 rounded-tile bg-bg px-3 py-2 text-[13px]">
-              <input type="checkbox" checked={!exclude.includes(x.id)} onChange={() => toggle(x.id)} data-testid={`ap-include-${x.idea}`} />
+            <label className="flex items-start gap-2 rounded-tile bg-bg px-3 py-2 text-left text-[13px] leading-[18px]">
+              <input type="checkbox" className="mt-[3px] shrink-0" checked={!exclude.includes(x.id)} onChange={() => toggle(x.id)} data-testid={`ap-include-${x.idea}`} />
               <span className="flex-1 truncate">{x.title}</span> <span className="text-[11px] text-soft">{fmtSlot(x.slot.at)}</span>
             </label>
           </li>
@@ -603,9 +604,9 @@ function Confirm({ exclude }: { exclude: string[] }) {
           Not included: {held.map((x) => `${x.title} (${STATUS_LABEL[x.status].toLowerCase()})`).join(", ")}.
         </p>
       )}
-      <label className="mt-3 flex items-center gap-2 text-[12px]">
-        <input type="checkbox" data-testid="ap-timing-rule" checked={timingRule} onChange={(e) => run("timing", (d) => setTimingRule(d, e.target.checked))} />
-        Use suggested times for future posts too (don't ask each time)
+      <label className="mt-3 flex items-start gap-2 text-left text-[12px] leading-[18px]">
+        <input type="checkbox" className="mt-[3px] shrink-0" data-testid="ap-timing-rule" checked={timingRule} onChange={(e) => run("timing", (d) => setTimingRule(d, e.target.checked))} />
+        <span>Use suggested times for future posts too (don't ask each time)</span>
       </label>
       <p className="mt-2 text-[12px] text-muted">Approving doesn't publish anything. Next you can save them as TopFan drafts; you publish from New Post.</p>
       <div className="mt-3">
@@ -754,8 +755,8 @@ function Prefs() {
           </button>
         ))}
       </div>
-      <label className="mt-2 flex items-center gap-2 text-[12px]">
-        <input type="checkbox" checked={ap.timingRule} onChange={(e) => run("timing", (d) => setTimingRule(d, e.target.checked))} /> Use suggested times automatically
+      <label className="mt-2 flex items-start gap-2 text-left text-[12px] leading-[18px]">
+        <input type="checkbox" className="mt-[3px] shrink-0" checked={ap.timingRule} onChange={(e) => run("timing", (d) => setTimingRule(d, e.target.checked))} /> <span>Use suggested times automatically</span>
       </label>
       <button className={`${btnOutline} mt-3`} data-testid="ap-next-batch" disabled={ap.paused} onClick={() => (run("prepare", prepareBatch), setAPView({ screen: "summary" }))}>
         Prepare next week (demo)
@@ -771,7 +772,7 @@ export function AutopilotNotice() {
   const batch = useData((d) => d.autopilot.batch);
   const ready = useData((d) => readyDrafts(d).length);
   const held = useData((d) => heldDrafts(d).length);
-  if (!batch || batch.dismissed || ready + held === 0) return null;
+  if (!inScope("autopilot") || !batch || batch.dismissed || ready + held === 0) return null;
   return (
     <div data-testid="ap-notice" className="flex items-center gap-3 rounded-[20px] bg-surface px-4 py-3 text-[13px]">
       <span className="min-w-0 flex-1">
@@ -810,7 +811,7 @@ export function AutopilotDirector({ active, connected }: { active: boolean; conn
 
   // Prepare a batch the first time the creator is in the platform (skipped when paused or not allowed).
   useEffect(() => {
-    if (!active) return;
+    if (!active || !inScope("autopilot")) return;
     const d = getData();
     if (!d.autopilot.batch && d.autopilot.enabled && !d.autopilot.paused && roleCan(d.account.session.role, "content.write")) act("autopilot.prepare", prepareBatch, { need: "content.write" });
     // The notice itself is <AutopilotNotice/> (derived from stored state, so it survives reloads);
@@ -852,6 +853,7 @@ export function AutopilotDirector({ active, connected }: { active: boolean; conn
 export function useAutopilotCommands() {
   const a = useAssistant();
   return useCallback((raw: string): boolean => {
+    if (!inScope("autopilot")) return false;
     const t = normalizeText(raw);
     const has = (...p: string[]) => p.some((x) => t.includes(` ${x} `) || t.includes(` ${x}`));
     const d = getData();

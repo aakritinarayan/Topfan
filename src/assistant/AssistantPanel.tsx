@@ -4,11 +4,11 @@
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Bell, BellOff, Check, ChevronDown, ChevronRight, CircleAlert, Loader2, Mic, PanelRightClose, RotateCcw, Square, X } from "lucide-react";
+import { ArrowUp, Check, ChevronDown, ChevronRight, CircleAlert, Loader2, Mic, RotateCcw, Square, X } from "lucide-react";
 import { useAssistant, type Msg, type MsgStatus } from "../state/assistantStore";
 import { isOnboarding, usePlatform, type PlatformState } from "../state/platformStore";
 import { LiveMascot } from "./LiveMascot";
-import { ActiveTaskCard, PlatformWelcome } from "./platform/TaskCard";
+import { ActiveTaskCard, PageContextBar, PlatformWelcome } from "./platform/TaskCard";
 import { useChat } from "./chat/ChatEngine";
 import { AutopilotNotice, AutopilotView } from "./platform/Autopilot";
 import { useAPView } from "./platform/autopilotView";
@@ -44,7 +44,7 @@ export function AssistantPanel() {
   const { state } = usePlatform();
   const onboarding = isOnboarding(state.screen);
   const apView = useAPView();
-  const { open, setOpen, messages, working, stop, muted, setMuted, intro, setMood } = useAssistant();
+  const { open, setOpen, messages, working, stop, intro, setMood } = useAssistant();
   const chat = useChat();
   const voice = useVoice();
   const input = useRef<HTMLInputElement>(null);
@@ -116,6 +116,16 @@ export function AssistantPanel() {
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
     >
+      {/* Collapse handle: centered on the panel's left edge. */}
+      <button
+        onClick={() => setOpen(false)}
+        aria-label="Collapse assistant"
+        title="Collapse"
+        data-testid="ai-collapse"
+        className="absolute left-0 top-1/2 z-20 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-lg hover:brightness-90"
+      >
+        <ChevronRight size={18} strokeWidth={2.5} />
+      </button>
       {/* Header — same height as the page header */}
       <div className="flex h-[75px] shrink-0 items-center gap-3 border-b border-line px-5">
         {/* Landing spot for the intro mascot (the flight itself does the settle). */}
@@ -142,32 +152,8 @@ export function AssistantPanel() {
               )}
             </span>
           </span>
-        <button
-          onClick={() => setMuted(!muted)}
-          aria-label={muted ? "Resume suggestions" : "Pause suggestions"}
-          title={muted ? "Resume suggestions" : "Pause suggestions"}
-          className={`flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface ${muted ? "text-accent" : "text-white"}`}
-        >
-          {muted ? <BellOff size={18} /> : <Bell size={18} />}
-        </button>
-        <button
-          onClick={() => setOpen(false)}
-          aria-label="Collapse assistant"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-white hover:bg-surface"
-        >
-          <PanelRightClose size={20} />
-        </button>
         </motion.div>
       </div>
-
-      {muted && (
-        <div className="mx-5 mt-4 flex shrink-0 items-center gap-3 rounded-inner border border-line px-4 py-2.5 text-[12px] text-soft">
-          <span className="flex-1">Suggestions paused. I'll still help if something goes wrong.</span>
-          <button onClick={() => setMuted(false)} className="shrink-0 font-bold text-accent">
-            Resume
-          </button>
-        </div>
-      )}
 
       <motion.div {...reveal(0.15)} className="flex shrink-0 flex-col gap-2 px-5 pb-1 pt-3" inert={waiting}>
         {onboarding ? (
@@ -237,6 +223,8 @@ export function AssistantPanel() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {!onboarding && !apView && !working && !answering && !messages.every((m) => m.dismissible) && <PageContextBar />}
 
       <VoiceStatus state={voice.state} error={voice.error} onCancel={voice.cancel} onRetry={voice.start} onStop={voice.stop} />
 
@@ -440,11 +428,11 @@ function Launcher() {
       transition={squash ? { duration: 0.17, ease: "easeOut" } : { type: "spring", stiffness: 380, damping: 20 }}
       whileHover={still ? undefined : { scale: 1.05, rotate: -3, transition: { type: "spring", stiffness: 300, damping: 12 } }}
     >
-      {/* Ambient halo: wide, low-opacity red that fades into the page; a little brighter on hover/focus. */}
+      {/* Ambient halo: wide, low-opacity glow in the mascot color that fades into the page; a little brighter on hover/focus. */}
       <span
         aria-hidden
         className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-80 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100"
-        style={{ width: body * 1.9, height: body * 1.9, background: "radial-gradient(circle, rgba(255,30,30,0.30) 0%, rgba(255,30,30,0.12) 38%, rgba(255,30,30,0) 68%)" }}
+        style={{ width: body * 1.9, height: body * 1.9, background: "radial-gradient(circle, rgba(var(--mascot-glow),0.30) 0%, rgba(var(--mascot-glow),0.12) 38%, rgba(var(--mascot-glow),0) 68%)" }}
       />
       {/* Floor shadow, which tightens as the mascot rises. */}
       <motion.span

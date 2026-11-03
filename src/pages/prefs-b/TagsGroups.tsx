@@ -10,6 +10,7 @@ import { useRouter } from "../../app/router";
 import { pathFor } from "../../app/routeCatalog";
 import { FieldError } from "../../platform/ui/controls";
 import { useData } from "../../store/store";
+import { setTaskInput, taskOfType } from "../../app/agent-context/workflow-state";
 import {
   addGroup, addTopicTag, deleteGroup, deleteTopicTag, setGroupRestriction, updateGroup, updateTopicTag, validateTitle,
 } from "../../store/slices/prefsB";
@@ -179,8 +180,14 @@ function FormView({ kind, route, query }: { kind: Kind; route: PageProps["route"
   const { navigate } = useRouter();
   const items = useItems(kind);
   const editing = route.id === c.editId ? items.find((i) => i.id === query.get("id")) : undefined;
-  const [title, setTitle] = useState(editing?.name ?? "");
-  const [desc, setDesc] = useState(editing?.description ?? "");
+  // A new group started as the assistant's "Create a VIP group" task keeps what was typed, so
+  // resuming the task later restores it.
+  const task = kind === "groups" && !editing ? "vip-group" : null;
+  const saved = task ? taskOfType(task)?.input : undefined;
+  const [title, setTitleState] = useState(editing?.name ?? saved?.title ?? "");
+  const [desc, setDescState] = useState(editing?.description ?? saved?.description ?? "");
+  const setTitle = (v: string) => (setTitleState(v), task && setTaskInput(task, { title: v }));
+  const setDesc = (v: string) => (setDescState(v), task && setTaskInput(task, { description: v }));
   const [touched, setTouched] = useState(false);
   const write = useWrite();
   const err = validateTitle(title);
@@ -206,6 +213,7 @@ function FormView({ kind, route, query }: { kind: Kind; route: PageProps["route"
       : kind === "tags"
         ? write("prefsB.addTopicTag", (d) => void addTopicTag(d, input), "content.write")
         : write("prefsB.addGroup", (d) => void addGroup(d, input), "content.write");
+    if (res.ok && task) setTaskInput(task, { title: "", description: "" });
     if (res.ok) back();
   };
 

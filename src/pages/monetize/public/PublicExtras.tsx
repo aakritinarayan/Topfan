@@ -21,12 +21,12 @@ const fmt = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00Z` : i
 export function PublicNewslettersPage({ route }: PageProps) {
   const name = useData((d) => d.account.name);
   const on = useData((d) => d.monetize.newslettersOnProfile);
-  const list = useData((d) => d.monetize.newsletters.filter((n) => n.status === "Sent"));
+  const list = useData((d) => d.monetize.newsletters.filter((n) => n.status === "Sent" && n.enabled !== false));
   const [read, setRead] = useState<Newsletter | null>(null);
   const [unlock, setUnlock] = useState<Newsletter | null>(null);
   const [unlocked, setUnlocked] = useState<string[]>([]);
   const run = useRun();
-  const lockLabel = (n: Newsletter) => (n.lock === "Free" ? "Free" : n.lock === "Subscribers" ? "Subscribers Only" : `${money(n.price ?? 0)} to Unlock`);
+  const lockLabel = (n: Newsletter) => (n.lock === "Free" ? "Free" : n.lock === "Subscribers" ? "Subscribers Only" : n.price == null && n.points ? `${n.points} Points to Unlock` : `${money(n.price ?? 0)} to Unlock`);
   return (
     <PublicPage routeId={route.id}>
       <PublicHeader avatar crumbs={[{ label: `${name}'s Newsletters` }]} />
@@ -84,7 +84,7 @@ export function PublicNewslettersPage({ route }: PageProps) {
           }
         }}
       >
-        {unlock?.lock === "Subscribers" ? "This newsletter is for subscribers. Subscribe to read it (simulated)." : `Unlock “${unlock?.title}” for ${money(unlock?.price ?? 0)} (simulated).`}
+        {unlock?.lock === "Subscribers" ? "This newsletter is for subscribers. Subscribe to read it (simulated)." : unlock?.price == null && unlock?.points ? `Unlock “${unlock.title}” for ${unlock.points} points (simulated).` : `Unlock “${unlock?.title}” for ${money(unlock?.price ?? 0)} (simulated).`}
       </ConfirmModal>
     </PublicPage>
   );

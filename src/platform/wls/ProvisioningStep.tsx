@@ -29,7 +29,7 @@ const TRACKER = [
 export function Tracker({ current }: { current: number }) {
   const n = TRACKER.length;
   const shown = Math.min(current, n - 1);
-  const all = current >= n; // final state: every node completed (red = completed)
+  const all = current >= n; // final state: every node completed (accent = completed)
   return (
     <div className="flex flex-col items-center">
       <ol aria-label={all ? "Provisioning progress: all steps completed" : "Provisioning progress"} className="relative flex h-6 w-[340px] items-center justify-between">
@@ -41,7 +41,7 @@ export function Tracker({ current }: { current: number }) {
             <span
               key={i}
               aria-hidden
-              className={`absolute top-1/2 h-px -translate-y-1/2 transition-colors duration-700 ${all ? "bg-accent/60" : i < current ? "bg-muted opacity-60" : "bg-line"}`}
+              className={`absolute top-1/2 h-px -translate-y-1/2 transition-colors duration-700 ${all ? "bg-accent/60" : i < current ? "bg-accent/60" : "bg-line"}`}
               style={{
                 left: `calc(12px + (100% - 24px) * ${i / (n - 1)} + ${from}px)`,
                 width: `calc((100% - 24px) / ${n - 1} - ${from + to}px)`,
@@ -66,18 +66,22 @@ export function Tracker({ current }: { current: number }) {
               )}
               <span
                 aria-hidden
-                className={`relative h-[9px] w-[9px] rounded-full transition-colors duration-700 ${all ? "bg-accent" : done ? "bg-muted" : active ? "bg-accent" : "bg-white/20"}`}
+                className={`relative h-[9px] w-[9px] rounded-full transition-colors duration-700 ${all || done || active ? "bg-accent" : "bg-white/20"}`}
               />
             </li>
           );
         })}
       </ol>
-      <p aria-hidden className="mt-4 text-[13px] text-soft">
-        {TRACKER[shown].short}
-      </p>
-      <p aria-hidden className="mt-1 text-[11px] font-bold uppercase tracking-[2px] text-muted">
-        {all ? `Step ${n} of ${n} · All steps completed` : `Step ${shown + 1} of ${n}`}
-      </p>
+      {!all && (
+        <>
+          <p aria-hidden className="mt-4 text-[13px] text-soft">
+            {TRACKER[shown].short}
+          </p>
+          <p aria-hidden className="mt-1 text-[11px] font-bold uppercase tracking-[2px] text-muted">
+            Step {shown + 1} of {n}
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -202,22 +206,18 @@ export function ProvisioningStep() {
         </AnimatePresence>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={resolved ? "head-done" : "head"} {...fade(0.05)}>
-            <h2 className="mt-5 text-[26px] font-bold">{resolved ? "Your website is ready!" : "Your White Label Site is Being Provisioned"}</h2>
-            <p className="mt-2 text-[15px] text-soft">
-              {resolved ? (
-                "Your TopFan website has been configured successfully."
-              ) : (
-                <>
-                  Provisioning can take up to <span className="font-bold text-white">10 minutes</span> to complete globally.
-                </>
-              )}
-            </p>
+            <h2 className={resolved ? "mt-7 text-[32px] font-bold leading-tight" : "mt-5 text-[26px] font-bold"}>{resolved ? "Your website is ready!" : "Your White Label Site is Being Provisioned"}</h2>
+            {!resolved && (
+              <p className="mt-2 text-[15px] text-soft">
+                Provisioning can take up to <span className="font-bold text-white">10 minutes</span> to complete globally.
+              </p>
+            )}
           </motion.div>
         </AnimatePresence>
 
         {/* B — the same orbit: countdown while provisioning, check when activated */}
         <div
-          className="mt-4 flex items-start justify-center overflow-visible transition-[height] duration-500 ease-out"
+          className={`${resolved ? "mt-9" : "mt-4"} flex items-start justify-center overflow-visible transition-[height] duration-500 ease-out`}
           style={{ height: showQuest && questOpen ? 190 : 256 }}
         >
           <div
@@ -252,7 +252,7 @@ export function ProvisioningStep() {
 
         {/* C — the result: the live address, then what to do with it */}
         {done && !held && stage >= 3 && (
-          <motion.div key="result" {...fade()} className="mt-2 flex w-full max-w-[640px] flex-col items-center" data-site-url>
+          <motion.div key="result" {...fade()} className="mt-4 flex w-full max-w-[640px] flex-col items-center" data-site-url>
             <p className="text-[11px] font-bold uppercase tracking-[2px] text-muted">Your website address</p>
             <div className="mt-2 flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-2">
               <span className="min-w-0 break-all text-[24px] font-bold leading-8 text-white" data-url>
@@ -272,13 +272,6 @@ export function ProvisioningStep() {
                 View domain details
               </button>
             </div>
-            <p className="mt-4 text-[13px] text-soft">
-              Next, personalize your logo and colors in{" "}
-              <button onClick={() => go("manage")} className="font-bold text-white underline underline-offset-2 hover:text-accent">
-                White Label Site preferences
-              </button>
-              .
-            </p>
           </motion.div>
         )}
 

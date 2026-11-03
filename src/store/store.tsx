@@ -17,7 +17,11 @@ import { initialMoney, type MoneyState } from "./slices/money";
 import { initialComms, type CommsState } from "./slices/comms";
 import { initialSocial, type SocialState } from "./slices/social";
 import { initialAutopilot, type AutopilotState } from "./slices/autopilot";
+import { initialCover, type CoverState } from "./slices/cover";
+import { initialContent, type ContentState } from "./slices/content";
 import { can, type Capability } from "./permissions";
+import { storageKey } from "../app/demo";
+import { Refused } from "./refused";
 
 export interface AppData {
   account: AccountState;
@@ -29,6 +33,10 @@ export interface AppData {
   social: SocialState;
   /** Content Autopilot (assistant-prepared drafts; see slices/autopilot.ts). */
   autopilot: AutopilotState;
+  /** White Label Site › Cover Page editor + the assistant's draft for it (see slices/cover.ts). */
+  cover: CoverState;
+  /** AI-Assisted Content work items: posts, newsletters, experiences and weekly plans (see slices/content.ts). */
+  content: ContentState;
 }
 
 export const initialData = (): AppData =>
@@ -41,9 +49,11 @@ export const initialData = (): AppData =>
     comms: initialComms,
     social: initialSocial,
     autopilot: initialAutopilot(),
+    cover: initialCover(),
+    content: initialContent(),
   });
 
-const KEY = "topfan-mock-v1";
+const KEY = storageKey("topfan-mock-v1");
 
 /** Bump when seed media changes so browsers holding older saved data get the new media fields once. */
 const MEDIA_SEED = 1;
@@ -107,6 +117,8 @@ export interface StoreEvent {
 
 export type ActResult = { ok: true } | { ok: false; reason: string };
 
+export { Refused } from "./refused";
+
 /* External store so any component (and non-React code like the assistant) can subscribe. */
 let data: AppData = typeof window === "undefined" ? initialData() : load();
 const subs = new Set<() => void>();
@@ -133,7 +145,13 @@ export function act(label: string, fn: (draft: AppData) => void, opts: { need?: 
     return { ok: false, reason };
   }
   const draft = structuredClone(data);
-  fn(draft);
+  try {
+    fn(draft);
+  } catch (e) {
+    if (!(e instanceof Refused)) throw e;
+    eventSubs.forEach((s) => s({ label, at: Date.now(), ok: false, reason: e.message }));
+    return { ok: false, reason: e.message };
+  }
   data = draft;
   persist();
   subs.forEach((s) => s());

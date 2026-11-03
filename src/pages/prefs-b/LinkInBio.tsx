@@ -5,27 +5,30 @@
  * theme effect on the preview, camera uploads (local object URLs only), the social-row pencil target, skeleton.
  * Saving publishes the public page, so SAVE CHANGES asks for confirmation (Confirm tier).
  */
-import { useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import {
-  Camera, ChevronDown, Disc3, Ghost, Globe, Hand, Menu, Monitor, Music, Pencil, Smartphone, Trash2, Zap,
+  ArrowLeft, Camera, Check, ChevronDown, ChevronUp, Disc3, Ghost, Globe, Hand, Link2, Menu, Monitor, Music, Pencil, Pipette, Search, ShoppingBag, Smartphone, Trash2, X, Zap,
 } from "lucide-react";
 import { Link, useRouter } from "../../app/router";
 import { pathFor } from "../../app/routeCatalog";
-import { FieldError, useOutside } from "../../platform/ui/controls";
+import { FieldError, Radio, useOutside } from "../../platform/ui/controls";
 import { Avatar, ImageSlot, Modal } from "../../platform/ui/surfaces";
 import { useToast } from "../../platform/ui/toast";
 import { creator as demoCreator } from "../../config/demo";
-import { useData, useMockLoading } from "../../store/store";
+import { act, getData, useData, useMockLoading } from "../../store/store";
+import { itemById, publicBase } from "../../store/slices/content";
+import { applyBio, applySocials, bioSaved, markInEditor, sameUrl, validUrl } from "../../store/slices/bio";
 import { welcomeVideoOf } from "../../store/slices/social";
 import { VideoPlayer } from "../../platform/ui/media";
 import {
-  LIB_NEW_ACTIONS, LIB_PALETTES, LIB_THEMES, makeBioAction, saveLinkInBio, setLinkInBioEnabled, setLinkInBioReferral,
-  type BioAction, type LinkInBioState,
+  LIB_DEFAULT_SOCIALS, LIB_NEW_ACTIONS, LIB_PALETTES, LIB_SOCIALS, LIB_THEMES, makeBioAction, saveLinkInBio, setLinkInBioEnabled, setLinkInBioReferral,
+  type BioAction, type LibSocialKey, type LinkInBioState,
 } from "../../store/slices/prefsB";
 import type { PageProps } from "../types";
 import { ConfirmModal, EnableToggle, InfoPop, PrefPage, useWrite, Pill, PlainButton, Field } from "./ui";
 
-type Draft = Pick<LinkInBioState, "palette" | "customPalette" | "theme" | "actions">;
+type Socials = Partial<Record<LibSocialKey, string>>;
+type Draft = Pick<LinkInBioState, "palette" | "customPalette" | "theme" | "actions"> & { bio: string; socials: Socials };
 type Device = "desktop" | "mobile";
 
 /** Palette 0 follows the creator's white-label theme (so the accent is never hard-coded). */
@@ -64,18 +67,20 @@ const THEME_BG: Record<string, string> = {
   "POLYGONS/GRAY": "linear-gradient(135deg, rgba(140,140,140,.25), transparent 60%)",
 };
 
-const SOCIALS: { label: string; glyph: ReactNode }[] = [
-  { label: "X", glyph: <span className="text-[11px] font-bold">X</span> },
-  { label: "Facebook", glyph: <span className="text-[12px] font-bold">f</span> },
-  { label: "Instagram", glyph: <Camera size={11} /> },
-  { label: "TikTok", glyph: <Music size={11} /> },
-  { label: "Snapchat", glyph: <Ghost size={11} /> },
-  { label: "LinkedIn", glyph: <span className="text-[10px] font-bold">in</span> },
-  { label: "Spotify", glyph: <Disc3 size={11} /> },
-  { label: "Website", glyph: <Globe size={11} /> },
-];
+/** Brand marks are not in the icon set: simple glyphs stand in (as before). */
+const SOCIAL_GLYPH: Record<LibSocialKey, (size: number) => ReactNode> = {
+  x: (z) => <span style={{ fontSize: z }} className="font-bold leading-none">X</span>,
+  facebook: (z) => <span style={{ fontSize: z + 1 }} className="font-bold leading-none">f</span>,
+  instagram: (z) => <Camera size={z} />,
+  tiktok: (z) => <Music size={z} />,
+  snapchat: (z) => <Ghost size={z} />,
+  linkedin: (z) => <span style={{ fontSize: z - 1 }} className="font-bold leading-none">in</span>,
+  spotify: (z) => <Disc3 size={z} />,
+  website: (z) => <Globe size={z} />,
+};
 
-function BioCard({ c, edit, cover, avatar, onCover, onAvatar, name, bio }: { c: PV; edit: boolean; cover: string | null; avatar: string | null; onCover: () => void; onAvatar: () => void; name: string; bio: string }) {
+function BioCard({ c, edit, cover, avatar, onCover, onAvatar, name, bio, onBio, socials, onSocials }: { c: PV; edit: boolean; cover: string | null; avatar: string | null; onCover: () => void; onAvatar: () => void; name: string; bio: string; onBio: (v: string) => void; socials: Socials; onSocials: () => void }) {
+  const filled = LIB_SOCIALS.filter((s) => socials[s.key]);
   return (
     <div className="w-full rounded-[20px] p-[10px] pb-[16px]" style={{ background: c.post, color: c.postText }} data-testid="pref-lib-bio-card">
       <div className="relative">
@@ -87,33 +92,111 @@ function BioCard({ c, edit, cover, avatar, onCover, onAvatar, name, bio }: { c: 
         )}
       </div>
       <div className="-mt-[26px] flex flex-col items-center">
-        <div className="rounded-full p-[3px]" style={{ background: c.bg }}>
+        <div className="relative rounded-full p-[3px]" style={{ background: c.bg }}>
           <div className="h-[92px] w-[92px] overflow-hidden rounded-full">
             <ImageSlot src={avatar} label="Avatar" className="h-full w-full" rounded="rounded-full" />
           </div>
+          {edit && (
+            <button type="button" aria-label="Change profile photo" data-testid="pref-lib-avatar-camera" onClick={onAvatar} className="absolute bottom-[-6px] left-1/2 flex h-[24px] w-[24px] -translate-x-1/2 items-center justify-center rounded-full" style={{ background: c.bg, color: c.btn }}>
+              <Camera size={13} />
+            </button>
+          )}
         </div>
-        {edit && (
-          <button type="button" aria-label="Change profile photo" data-testid="pref-lib-avatar-camera" onClick={onAvatar} className="-mt-[8px] mb-[4px]" style={{ color: c.btn }}>
-            <Camera size={14} />
-          </button>
-        )}
         <p className="mt-[12px] text-[18px] font-bold">{name}</p>
       </div>
-      <p className="mt-[16px] rounded-[6px] border px-[10px] py-[8px] text-[14px] leading-[21px] tracking-[.2px]" style={{ borderColor: c.btn }}>{bio}</p>
-      <div className="relative mt-[16px] flex items-center justify-center gap-[18px]" style={{ color: c.btn }}>
-        {SOCIALS.map((s) => (
-          <span key={s.label} aria-label={s.label} className="flex h-[20px] w-[20px] items-center justify-center rounded-[5px] border opacity-80" style={{ borderColor: c.btn }}>
-            {s.glyph}
+      {edit ? (
+        <textarea
+          aria-label="Bio"
+          data-testid="pref-lib-bio-text"
+          value={bio}
+          maxLength={300}
+          rows={3}
+          placeholder="Write a short bio"
+          onChange={(e) => onBio(e.target.value)}
+          className="mt-[16px] block w-full resize-none rounded-[6px] border bg-transparent px-[10px] py-[8px] text-[14px] leading-[21px] tracking-[.2px] outline-none focus:border-2"
+          style={{ borderColor: c.btn, color: c.postText }}
+        />
+      ) : (
+        <p className="mt-[16px] min-h-[40px] rounded-[6px] border px-[10px] py-[8px] text-[14px] leading-[21px] tracking-[.2px]" style={{ borderColor: c.btn }} data-testid="pref-lib-bio-text-view">{bio}</p>
+      )}
+      <div className="relative mt-[16px] flex min-h-[30px] items-center justify-center gap-[18px] px-[40px]" style={{ color: c.btn }} data-testid="pref-lib-social-row">
+        {filled.map((s) => (
+          <span key={s.key} role="img" aria-label={`${s.label}: ${socials[s.key]}`} title={socials[s.key]} data-testid={`pref-lib-social-${s.key}`} className="flex h-[22px] w-[22px] items-center justify-center rounded-[5px] border" style={{ borderColor: c.btn }}>
+            {SOCIAL_GLYPH[s.key](11)}
           </span>
         ))}
         {edit && (
-          // inferred: social links live in Profile
-          <Link to={pathFor("pref-profile")} aria-label="Edit social links" data-testid="pref-lib-social-edit" className="absolute right-[4px] flex h-[30px] w-[30px] items-center justify-center rounded-full bg-surface-2">
+          <button type="button" aria-label="Edit social links" data-testid="pref-lib-social-edit" onClick={onSocials} className="absolute right-[4px] flex h-[30px] w-[30px] items-center justify-center rounded-full bg-surface-2">
             <Pencil size={14} />
-          </Link>
+          </button>
         )}
       </div>
     </div>
+  );
+}
+
+/** Social Media Links (17): one row per network, "Add URL", X clears a filled row; SAVE LINKS updates the editor draft. */
+function SocialLinksModal({ open, value, onClose, onSave }: { open: boolean; value: Socials; onClose: () => void; onSave: (v: Socials) => void }) {
+  const [v, setV] = useState<Socials>(value);
+  const [touched, setTouched] = useState(false);
+  useEffect(() => {
+    if (open) (setV(value), setTouched(false));
+  }, [open]);
+  const bad = LIB_SOCIALS.filter((s) => v[s.key]?.trim() && !validUrl(v[s.key]!.trim()));
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Social Media Links"
+      footer={
+        <>
+          <PlainButton onClick={onClose} data-testid="modal-pref-lib-social-cancel">Cancel</PlainButton>
+          <Pill
+            data-testid="modal-pref-lib-social-save"
+            onClick={() => {
+              setTouched(true);
+              if (bad.length) return;
+              onSave(Object.fromEntries(LIB_SOCIALS.filter((s) => v[s.key]?.trim()).map((s) => [s.key, v[s.key]!.trim()])) as Socials);
+            }}
+          >
+            Save Links
+          </Pill>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-[10px]" data-testid="modal-pref-lib-social">
+        {LIB_SOCIALS.map((s) => {
+          const val = v[s.key] ?? "";
+          const invalid = touched && bad.some((x) => x.key === s.key);
+          return (
+            <div key={s.key}>
+              <div className={`flex h-[52px] items-center overflow-hidden rounded-pill bg-bg ${invalid ? "ring-1 ring-danger" : ""}`}>
+                <label htmlFor={`lib-social-${s.key}`} className="flex h-full w-[160px] shrink-0 items-center gap-[10px] border-r border-line pl-[18px] text-[15px] font-bold">
+                  <span className="flex w-[20px] justify-center">{SOCIAL_GLYPH[s.key](16)}</span>
+                  {s.label}
+                </label>
+                <input
+                  id={`lib-social-${s.key}`}
+                  type="url"
+                  data-testid={`modal-pref-lib-social-${s.key}`}
+                  placeholder="Add URL"
+                  value={val}
+                  onChange={(e) => setV({ ...v, [s.key]: e.target.value })}
+                  className="h-full min-w-[0px] flex-1 bg-transparent px-[18px] text-[14px] text-white outline-none placeholder:text-muted"
+                />
+                {val && (
+                  <button type="button" aria-label={`Clear ${s.label}`} data-testid={`modal-pref-lib-social-clear-${s.key}`} onClick={() => setV({ ...v, [s.key]: "" })} className="mr-[16px] text-white hover:text-accent">
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+              {invalid && <FieldError>Enter a full web address, like https://example.com</FieldError>}
+            </div>
+          );
+        })}
+        <p className="mt-[4px] text-[12px] text-muted">Prefilled from the links you gave during setup (simulated). Links are never visited.</p>
+      </div>
+    </Modal>
   );
 }
 
@@ -137,9 +220,9 @@ function ActionCard({ a, c, name }: { a: BioAction; c: PV; name: string }) {
   }
   if (a.kind === "store-item") {
     return (
-      <div className="flex gap-[24px] rounded-[10px] border-2 p-[16px]" style={box}>
+      <div className="flex flex-wrap gap-[16px] rounded-[10px] border-2 p-[16px]" style={box}>
         <ImageSlot src={a.image} kind="product" label={a.title} className="h-[132px] w-[110px] shrink-0" rounded="rounded-[14px]" />
-        <div className="flex-1 rounded-[6px] p-[20px]" style={{ background: c.post, color: c.postText }}>
+        <div className="min-w-0 flex-1 basis-[200px] rounded-[6px] p-[16px]" style={{ background: c.post, color: c.postText }}>
           <p className="text-[16px] font-bold">{a.title}</p>
           {a.text && <p className="mt-[2px] text-[12px] leading-[18px]">{a.text}</p>}
           <p className="mt-[16px] text-[12px] font-bold">Current Price</p>
@@ -149,7 +232,7 @@ function ActionCard({ a, c, name }: { a: BioAction; c: PV; name: string }) {
             <span className="w-[36px] text-center text-[14px] font-bold">{qty}</span>
             <button type="button" aria-label="Increase quantity" onClick={() => setQty((q) => q + 1)} className="flex h-[36px] w-[36px] items-center justify-center rounded-full text-[12px]" style={{ background: c.btn, color: c.btnText }}>+</button>
           </div>
-          <div className="mt-[48px]">
+          <div className="mt-[20px]">
             <span className={pill} style={{ background: c.btn, color: c.btnText }}>Buy Now</span>
           </div>
         </div>
@@ -194,7 +277,7 @@ function ActionCard({ a, c, name }: { a: BioAction; c: PV; name: string }) {
   );
 }
 
-function Preview({ device, draft, palettes, edit, onDraft, loading }: { device: Device; draft: Draft; palettes: string[][]; edit: boolean; onDraft: (d: Draft) => void; loading: boolean }) {
+function Preview({ device, draft, palettes, edit, onDraft, loading, referral }: { device: Device; draft: Draft; palettes: string[][]; edit: boolean; onDraft: (d: Draft) => void; loading: boolean; referral: boolean }) {
   const c = pv(draft.palette === -1 ? draft.customPalette : palettes[draft.palette] ?? palettes[0]);
   const name = useData((d) => d.account.name);
   const identity = useData((d) => ({ avatar: d.account.avatar, cover: d.account.cover }));
@@ -204,6 +287,7 @@ function Preview({ device, draft, palettes, edit, onDraft, loading }: { device: 
   const target = useRef<"cover" | "avatar">("cover");
   const dragFrom = useRef<number | null>(null);
   const toast = useToast();
+  const [socialsOpen, setSocialsOpen] = useState(false);
   const pick = (t: "cover" | "avatar") => {
     target.current = t;
     fileRef.current?.click();
@@ -211,7 +295,7 @@ function Preview({ device, draft, palettes, edit, onDraft, loading }: { device: 
   const bg: CSSProperties = { background: draft.theme ? `${THEME_BG[draft.theme]}, ${c.bg}` : c.bg, color: c.text };
 
   const bio = (
-    <BioCard c={c} edit={edit} cover={cover ?? identity.cover} avatar={avatar ?? identity.avatar} onCover={() => pick("cover")} onAvatar={() => pick("avatar")} name={name} bio={demoCreator.bio} />
+    <BioCard c={c} edit={edit} cover={cover ?? identity.cover} avatar={avatar ?? identity.avatar} onCover={() => pick("cover")} onAvatar={() => pick("avatar")} name={name} bio={draft.bio} onBio={(bio) => onDraft({ ...draft, bio })} socials={draft.socials} onSocials={() => setSocialsOpen(true)} />
   );
   const move = (from: number, to: number) => {
     if (from === to) return;
@@ -232,7 +316,11 @@ function Preview({ device, draft, palettes, edit, onDraft, loading }: { device: 
         <ActionCard a={a} c={c} name={name} />
       </div>
       {edit && (
-        <div className="flex w-[52px] shrink-0 items-center gap-[8px] text-accent">
+        // Reorder: up/down buttons (or drag the handle, or Alt+Arrow on it). Remove: trash. All edit the draft only.
+        <div className="flex w-[28px] shrink-0 flex-col items-center gap-[10px] text-accent" data-testid={`pref-lib-controls-${a.id}`}>
+          <button type="button" aria-label={`Move ${a.title} up`} data-testid={`pref-lib-move-up-${a.id}`} disabled={i === 0} onClick={() => move(i, i - 1)} className="disabled:opacity-30">
+            <ChevronUp size={18} />
+          </button>
           <button type="button" aria-label={`Delete ${a.title}`} data-testid={`pref-lib-action-delete-${a.id}`} onClick={() => onDraft({ ...draft, actions: draft.actions.filter((x) => x.id !== a.id) })}>
             <Trash2 size={17} className="fill-accent/30" />
           </button>
@@ -250,15 +338,22 @@ function Preview({ device, draft, palettes, edit, onDraft, loading }: { device: 
           >
             <Menu size={20} />
           </button>
+          <button type="button" aria-label={`Move ${a.title} down`} data-testid={`pref-lib-move-down-${a.id}`} disabled={i === draft.actions.length - 1} onClick={() => move(i, i + 1)} className="disabled:opacity-30">
+            <ChevronDown size={18} />
+          </button>
         </div>
       )}
     </div>
   ));
 
   const footer = (
-    <div className="flex flex-col items-center gap-[8px] pb-[20px] pt-[16px] text-[14px]" style={{ color: c.btn }}>
-      <a href="#" onClick={(e) => (e.preventDefault(), toast("Preview only: on your live page this link takes fans to TopFan's site."))} data-testid="pref-lib-get-platform">Get Your Own Platform</a>
-      <span className="flex items-center gap-[4px] text-[13px] font-medium tracking-[.5px] opacity-90"><Zap size={13} />TOP<b>FAN</b></span>
+    <div className="flex flex-col items-center gap-[8px] pb-[20px] pt-[16px] text-[14px]" style={{ color: c.btn }} data-testid="pref-lib-footer">
+      {/* Referral tip (12): the special link shows at the bottom only while "Include My Referral Link" is on. */}
+      {referral && <a href="#" onClick={(e) => (e.preventDefault(), toast("Preview only: on your live page this link takes fans to TopFan's site."))} data-testid="pref-lib-get-platform">Get Your Own Platform</a>}
+      <span className="flex items-center gap-[6px] text-[13px] font-medium tracking-[.5px] opacity-90" data-testid="pref-lib-powered-by">
+        <span style={{ color: c.text }} className="opacity-80">Powered By</span>
+        <span className="flex items-center gap-[3px]"><Zap size={13} />TOP<b>FAN</b></span>
+      </span>
     </div>
   );
 
@@ -302,6 +397,7 @@ function Preview({ device, draft, palettes, edit, onDraft, loading }: { device: 
           {footer}
         </div>
       )}
+      <SocialLinksModal open={socialsOpen} value={draft.socials} onClose={() => setSocialsOpen(false)} onSave={(socials) => (onDraft({ ...draft, socials }), setSocialsOpen(false))} />
       <style>{`.lib-scroll{scrollbar-width:thin;scrollbar-color:${c.btn} transparent}.lib-scroll::-webkit-scrollbar{width:2px}.lib-scroll::-webkit-scrollbar-thumb{background:${c.btn}}`}</style>
     </>
   );
@@ -313,7 +409,7 @@ function ColorsThemes({ draft, palettes, onDraft }: { draft: Draft; palettes: st
   const [open, setOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  useOutside(ref, () => setOpen(false), open);
+  useOutside(ref, () => (setOpen(false), setCustomOpen(false)), open);
   const current = draft.palette === -1 ? draft.customPalette : palettes[draft.palette] ?? palettes[0];
   return (
     <div ref={ref} className="relative">
@@ -332,6 +428,14 @@ function ColorsThemes({ draft, palettes, onDraft }: { draft: Draft; palettes: st
       </button>
       {open && (
         <div className="absolute left-[-20px] top-[52px] z-40 w-[345px] rounded-panel border border-accent bg-surface p-[16px]" data-testid="pref-lib-colors-popover">
+          {customOpen ? (
+            <CustomPalette
+              initial={draft.customPalette}
+              onClose={() => setCustomOpen(false)}
+              onSave={(customPalette) => (onDraft({ ...draft, customPalette, palette: -1 }), setCustomOpen(false))}
+            />
+          ) : (
+          <>
           <h5 className="text-[18px] font-semibold">Colors &amp; Themes</h5>
           <div className="mt-[16px] rounded-inner bg-bg p-[16px]">
             <p className="text-[14px] font-medium tracking-[.3px]">Standard Color Palettes:</p>
@@ -364,30 +468,10 @@ function ColorsThemes({ draft, palettes, onDraft }: { draft: Draft; palettes: st
               >
                 <Swatch colors={draft.customPalette} className="h-[26px] w-[82px]" />
               </button>
-              <button type="button" aria-label="Edit custom palette" data-testid="pref-lib-palette-custom-edit" onClick={() => setCustomOpen((o) => !o)} className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-surface-2">
+              <button type="button" aria-label="Edit custom palette" data-testid="pref-lib-palette-custom-edit" onClick={() => setCustomOpen(true)} className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-surface-2">
                 <Pencil size={15} />
               </button>
             </div>
-            {customOpen && (
-              // inferred: native colour inputs (REFERENCE "Colour picker")
-              <div className="mt-[12px] grid grid-cols-6 gap-[8px]">
-                {["Page bg", "Bg text", "Post bg", "Post text", "Button", "Button text"].map((label, i) => (
-                  <input
-                    key={label}
-                    type="color"
-                    aria-label={label}
-                    title={label}
-                    value={draft.customPalette[i]}
-                    onChange={(e) => {
-                      const customPalette = draft.customPalette.slice();
-                      customPalette[i] = e.target.value;
-                      onDraft({ ...draft, customPalette, palette: -1 });
-                    }}
-                    className="h-[28px] w-full cursor-pointer rounded border-0 bg-transparent p-[0px]"
-                  />
-                ))}
-              </div>
-            )}
           </div>
           <div className="mt-[20px] rounded-inner bg-bg p-[16px]">
             <p className="text-[14px] font-medium tracking-[.3px]">Available Themes:</p>
@@ -406,8 +490,67 @@ function ColorsThemes({ draft, palettes, onDraft }: { draft: Draft; palettes: st
               ))}
             </div>
           </div>
+          </>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+const CUSTOM_ROWS = ["Background Color", "Background Text Color", "Card Background Color", "Card Text Color", "Button Color", "Button Text Color"];
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/** Create a Custom Color Palette (15): replaces the panel; six rows of swatch + hex + picker; back arrow = cancel. */
+function CustomPalette({ initial, onClose, onSave }: { initial: string[]; onClose: () => void; onSave: (p: string[]) => void }) {
+  const [hex, setHex] = useState<string[]>(() => initial.map((x) => x.toUpperCase()));
+  const valid = hex.every((h) => HEX.test(h));
+  return (
+    <div data-testid="pref-lib-custom-panel">
+      <div className="flex items-center gap-[12px]">
+        <button type="button" aria-label="Back to Colors & Themes" data-testid="pref-lib-custom-back" onClick={onClose} className="text-white hover:text-accent">
+          <ArrowLeft size={20} />
+        </button>
+        <h5 className="text-[18px] font-semibold">Create a Custom Color Palette</h5>
+      </div>
+      <div className="mt-[16px] flex flex-col gap-[12px] rounded-inner bg-bg p-[16px]">
+        {CUSTOM_ROWS.map((label, i) => {
+          const ok = HEX.test(hex[i]);
+          return (
+            <div key={label} className="flex items-center justify-between gap-[8px]">
+              <label htmlFor={`lib-hex-${i}`} className="text-[13px] font-medium leading-[16px]">{label}</label>
+              <div className={`flex h-[40px] shrink-0 items-center gap-[8px] rounded-[6px] bg-surface px-[8px] ${ok ? "" : "ring-1 ring-danger"}`}>
+                <span className="h-[20px] w-[30px] rounded-[4px] border border-line" style={{ background: ok ? hex[i] : "transparent" }} aria-hidden />
+                <input
+                  id={`lib-hex-${i}`}
+                  data-testid={`pref-lib-custom-hex-${i}`}
+                  value={hex[i]}
+                  maxLength={7}
+                  aria-invalid={!ok}
+                  onChange={(e) => setHex(hex.map((h, j) => (j === i ? e.target.value.toUpperCase() : h)))}
+                  className="w-[70px] bg-transparent text-[13px] font-bold text-white outline-none"
+                />
+                <label className="relative flex h-[24px] w-[24px] cursor-pointer items-center justify-center text-accent" title={`Pick ${label}`}>
+                  <Pipette size={16} />
+                  <input
+                    type="color"
+                    aria-label={`Pick ${label}`}
+                    data-testid={`pref-lib-custom-picker-${i}`}
+                    value={ok ? hex[i].toLowerCase() : "#000000"}
+                    onChange={(e) => setHex(hex.map((h, j) => (j === i ? e.target.value.toUpperCase() : h)))}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                  />
+                </label>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {!valid && <FieldError>Use a 6-digit hex colour, like #FFFFFF.</FieldError>}
+      <div className="mt-[16px] flex items-center justify-end gap-[8px]">
+        <PlainButton onClick={onClose} data-testid="pref-lib-custom-cancel">Cancel</PlainButton>
+        <Pill data-testid="pref-lib-custom-save" disabled={!valid} onClick={() => valid && onSave(hex.map((h) => h.toLowerCase()))} className="!px-[16px] !text-[12px]">Save Custom Colors</Pill>
+      </div>
     </div>
   );
 }
@@ -450,62 +593,195 @@ function NewAction({ onPick }: { onPick: (kind: BioAction["kind"], label: string
   );
 }
 
-/** inferred: app-general-action-edit-modal (fields not captured). */
-function AddActionModal({ pending, onClose, onAdd }: { pending: { kind: BioAction["kind"]; label: string } | null; onClose: () => void; onAdd: (a: BioAction) => void }) {
+type PickKind = "store-item" | "feed" | "portfolio" | "event";
+interface PickRow { id: string; title: string; sub: string; group?: string; action: () => BioAction; url?: string }
+
+/** Rows for the four pickers, built only from the mock store (published / public items). */
+function usePickRows(kind: PickKind | null): PickRow[] {
+  return useData((d) => {
+    if (!kind) return [];
+    const base = publicBase(d);
+    const h = d.account.handle;
+    const at = (path: string) => (base ? `${base}/${path}` : undefined);
+    if (kind === "store-item")
+      return d.monetize.products.filter((p) => p.published).map((p) => {
+        const url = p.external ? p.externalUrl : at(`${h}/store/${p.id}`);
+        return { id: p.id, title: p.title, sub: `${p.kind[0].toUpperCase()}${p.kind.slice(1)}${p.price != null ? ` · $${p.price.toFixed(2)}` : ""}`, url, action: () => makeBioAction("store-item", p.title, { text: p.description, price: p.price ?? undefined, image: p.image ?? null, url }) };
+      });
+    if (kind === "feed")
+      // Locked posts are left out: fans would only see the unlock screen.
+      return d.social.posts
+        .filter((p) => p.status === "published" && !p.locked && (p.extra as { variant?: string } | undefined)?.variant !== "welcome")
+        .sort((x, y) => y.createdAt.localeCompare(x.createdAt))
+        .map((p) => {
+          const title = p.title?.trim() || (p.text.length > 60 ? `${p.text.slice(0, 57)}…` : p.text) || "Post";
+          const url = at(`${h}/post/${p.id}`);
+          return { id: p.id, title, sub: `${p.type[0].toUpperCase()}${p.type.slice(1)} post · ${p.createdAt.slice(0, 10)}`, group: p.type, url, action: () => makeBioAction("feed", title, { text: p.title ? p.text.slice(0, 140) : undefined, url }) };
+        });
+    if (kind === "portfolio")
+      return d.monetize.portfolios.map((p) => {
+        const url = at(`dashboard/portfolio/${h}/banner-view/${p.id}`);
+        const n = p.series.length + p.singles.length;
+        return { id: p.id, title: p.title, sub: `${p.type} portfolio · ${n} item${n === 1 ? "" : "s"}`, url, action: () => makeBioAction("portfolio", p.title, { url }) };
+      });
+    return d.monetize.events.filter((e) => !e.past).map((e) => {
+      const url = at(`dashboard/event-listing/${h}/ticket-purchase/${e.id}`);
+      const from = e.tickets.length ? Math.min(...e.tickets.map((t) => t.price)) : undefined;
+      return { id: e.id, title: e.title, sub: `${e.date.slice(0, 10)} · ${e.location}`, url, action: () => makeBioAction("event", e.title, { text: e.location, price: from, url }) };
+    });
+  });
+}
+
+const PICKER: Record<PickKind, { title: string; search: string; empty: string; multi: boolean }> = {
+  "store-item": { title: "Add a Specific Store Item Button", search: "Search", empty: "No Results Found", multi: false },
+  feed: { title: "Add Specific Feed Content Items", search: "Search", empty: "No Results Found", multi: true },
+  portfolio: { title: "Add a Specific Portfolio Item", search: "Search", empty: "No portfolios found", multi: false },
+  event: { title: "Add a Specific Event Ticketing Item", search: "Search events", empty: "No Events Found", multi: false },
+};
+
+/** NEW ACTION dialogs (06–11). Each adds cards to the editor draft only; SAVE CHANGES publishes. */
+function AddActionModal({ pending, onClose, onAdd, existing }: { pending: { kind: BioAction["kind"]; label: string } | null; onClose: () => void; onAdd: (a: BioAction[]) => void; existing: BioAction[] }) {
+  const kind = pending?.kind ?? null;
+  const pickKind = kind && kind in PICKER ? (kind as PickKind) : null;
+  const rows = usePickRows(pickKind);
+  const chatUrl = useData((d) => (publicBase(d) ? `${publicBase(d)}/${d.account.handle}/chat-room` : undefined));
   const [title, setTitle] = useState("");
-  const [text, setText] = useState("");
   const [extra, setExtra] = useState("");
   const [touched, setTouched] = useState(false);
-  const priced = pending && ["store-item", "event"].includes(pending.kind);
-  const linked = pending && ["general", "external"].includes(pending.kind);
-  const err = title.trim() ? null : "Title is required";
-  const close = () => {
-    setTitle("");
-    setText("");
-    setExtra("");
-    setTouched(false);
-    onClose();
-  };
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [picked, setPicked] = useState<string[]>([]);
+  const [chat, setChat] = useState(false);
+  useEffect(() => {
+    setTitle(""), setExtra(""), setTouched(false), setQ(""), setFilter("all"), setPicked([]), setChat(false);
+  }, [pending]);
+  const added = (url?: string) => !!url && existing.some((a) => sameUrl(a.url, url));
+  const chatAdded = added(chatUrl) || existing.some((a) => a.kind === "general" && a.title === "Join My Chatroom");
+
+  const titleErr = title.trim() ? null : "Action button title is required";
+  const urlErr = !extra.trim() ? "External URL is required" : validUrl(extra.trim()) ? null : "Enter a full web address, like https://example.com";
+  const cancel = <PlainButton onClick={onClose} data-testid="modal-pref-lib-action-cancel">Cancel</PlainButton>;
+
+  if (kind === "external" || kind === "general") {
+    const external = kind === "external";
+    return (
+      <Modal
+        open={!!pending}
+        onClose={onClose}
+        width={external ? 450 : 620}
+        title={external ? "Add an External Action Button" : "Add General Action Buttons"}
+        footer={
+          <>
+            {cancel}
+            <Pill
+              data-testid="modal-pref-lib-action-add"
+              disabled={!external && (!chat || chatAdded)}
+              onClick={() => {
+                if (external) {
+                  setTouched(true);
+                  if (titleErr || urlErr) return;
+                  onAdd([makeBioAction("external", title.trim(), { url: extra.trim() })]);
+                } else if (chat && !chatAdded) onAdd([makeBioAction("general", "Join My Chatroom", { url: chatUrl })]);
+                onClose();
+              }}
+            >
+              Save Actions
+            </Pill>
+          </>
+        }
+      >
+        {external ? (
+          <div data-testid="modal-pref-lib-action" className="flex flex-col gap-[16px]">
+            <div>
+              <label htmlFor="lib-a-title" className="mb-[12px] block text-[16px]">Action Button Title*</label>
+              <Field id="lib-a-title" data-testid="modal-pref-lib-action-title" placeholder="Enter action label" value={title} invalid={touched && !!titleErr} onChange={(e) => setTitle(e.target.value)} />
+              <FieldError>{touched ? titleErr : null}</FieldError>
+            </div>
+            <div>
+              <label htmlFor="lib-a-extra" className="mb-[12px] block text-[16px]">External URL*</label>
+              <Field id="lib-a-extra" data-testid="modal-pref-lib-action-extra" type="url" placeholder="Enter action URL" value={extra} invalid={touched && !!urlErr} onChange={(e) => setExtra(e.target.value)} />
+              <FieldError>{touched ? urlErr : null}</FieldError>
+            </div>
+          </div>
+        ) : (
+          <div data-testid="modal-pref-lib-general">
+            <Radio name="lib-general" checked={chat || chatAdded} onChange={() => setChat(true)}>
+              <span data-testid="modal-pref-lib-general-chatroom">Join My Chatroom</span>
+            </Radio>
+            {chatAdded && <p className="mt-[8px] pl-[34px] text-[13px] text-muted">Already on your page.</p>}
+          </div>
+        )}
+      </Modal>
+    );
+  }
+
+  const cfg = pickKind ? PICKER[pickKind] : null;
+  const groups = [...new Set(rows.map((r) => r.group).filter(Boolean))] as string[];
+  const shown = rows.filter((r) => (filter === "all" || r.group === filter) && r.title.toLowerCase().includes(q.trim().toLowerCase()));
+  const toggle = (id: string) => setPicked((p) => (cfg?.multi ? (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]) : [id]));
   return (
     <Modal
-      open={!!pending}
-      onClose={close}
-      title={pending ? pending.label.replace(/^\+ /, "") : ""}
+      open={!!pending && !!cfg}
+      onClose={onClose}
+      width={720}
+      title={cfg?.title ?? ""}
       footer={
-        <>
-          <PlainButton onClick={close} data-testid="modal-pref-lib-action-cancel">Cancel</PlainButton>
-          <Pill
-            data-testid="modal-pref-lib-action-add"
-            onClick={() => {
-              setTouched(true);
-              if (err || !pending) return;
-              onAdd(makeBioAction(pending.kind, title.trim(), {
-                text: text.trim() || undefined,
-                price: priced && extra ? Number(extra) || 0 : undefined,
-                url: linked && extra ? extra.trim() : undefined,
-              }));
-              close();
-            }}
-          >
-            Add
-          </Pill>
-        </>
+        <Pill
+          data-testid="modal-pref-lib-action-add"
+          disabled={!picked.length}
+          onClick={() => {
+            onAdd(rows.filter((r) => picked.includes(r.id)).map((r) => r.action()));
+            onClose();
+          }}
+        >
+          Add
+        </Pill>
       }
     >
-      <div data-testid="modal-pref-lib-action" className="flex flex-col gap-[16px]">
-        <div>
-          <label htmlFor="lib-a-title" className="mb-[12px] block text-[16px]">Title*</label>
-          <Field id="lib-a-title" data-testid="modal-pref-lib-action-title" placeholder="Enter Title" value={title} invalid={touched && !!err} onChange={(e) => setTitle(e.target.value)} />
-          <FieldError>{touched ? err : null}</FieldError>
+      <div data-testid={`modal-pref-lib-picker-${pickKind}`}>
+        {pickKind === "feed" && (
+          <div className="mb-[14px] flex flex-wrap gap-[8px]" role="group" aria-label="Filter by post type">
+            {["all", ...groups].map((g) => (
+              <button key={g} type="button" aria-pressed={filter === g} data-testid={`modal-pref-lib-filter-${g}`} onClick={() => setFilter(g)} className={`h-[32px] rounded-pill px-[14px] text-[12px] font-black uppercase ${filter === g ? "bg-accent" : "bg-bg"}`}>
+                {g}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex h-[40px] items-center gap-[10px] rounded-pill bg-bg px-[14px]">
+          <Search size={16} className="text-accent" />
+          <input aria-label={cfg?.search} data-testid="modal-pref-lib-search" placeholder={cfg?.search} value={q} onChange={(e) => setQ(e.target.value)} className="h-full flex-1 bg-transparent text-[14px] outline-none placeholder:text-muted" />
         </div>
-        <div>
-          <label htmlFor="lib-a-text" className="mb-[12px] block text-[16px]">Description</label>
-          <Field id="lib-a-text" data-testid="modal-pref-lib-action-text" placeholder="Write Description" value={text} onChange={(e) => setText(e.target.value)} />
-        </div>
-        {(priced || linked) && (
-          <div>
-            <label htmlFor="lib-a-extra" className="mb-[12px] block text-[16px]">{priced ? "Price (USD)" : "Link URL"}</label>
-            <Field id="lib-a-extra" data-testid="modal-pref-lib-action-extra" type={priced ? "number" : "url"} placeholder={priced ? "0.00" : "https://example.com"} value={extra} onChange={(e) => setExtra(e.target.value)} />
+        {shown.length ? (
+          <ul className="mt-[14px] flex max-h-[340px] flex-col gap-[8px] overflow-y-auto pr-[4px]">
+            {shown.map((r) => {
+              const on = picked.includes(r.id);
+              const dup = added(r.url);
+              return (
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    role={cfg?.multi ? "checkbox" : "radio"}
+                    aria-checked={on}
+                    disabled={dup}
+                    data-testid={`modal-pref-lib-pick-${r.id}`}
+                    onClick={() => toggle(r.id)}
+                    className={`flex w-full items-center gap-[12px] rounded-[10px] bg-bg px-[14px] py-[10px] text-left disabled:opacity-50 ${on ? "ring-1 ring-accent" : ""}`}
+                  >
+                    <span className={`flex h-[20px] w-[20px] shrink-0 items-center justify-center ${cfg?.multi ? "rounded-[4px]" : "rounded-full"} ${on ? "bg-accent" : "border border-accent"}`}>{on && <Check size={13} strokeWidth={3} />}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-bold">{r.title}</span>
+                      <span className="block truncate text-[12px] text-muted">{dup ? "Already on your page" : r.sub}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="flex flex-col items-center py-[36px]" data-testid="modal-pref-lib-empty">
+            <span className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-accent-tint text-accent"><ShoppingBag size={24} /></span>
+            <p className="mt-[10px] text-[14px]">{cfg?.empty}</p>
           </div>
         )}
       </div>
@@ -531,8 +807,10 @@ function DeviceToggle({ device, setDevice }: { device: Device; setDevice: (d: De
 
 export function LinkInBioPage({ route }: PageProps) {
   const edit = route.id === "pref-link-in-bio-edit";
-  const { navigate } = useRouter();
+  const { navigate, query } = useRouter();
   const toast = useToast();
+  // Prepared by the assistant (Demo 2): its Link in Bio proposal, applied to this editor's draft only.
+  const workId = edit ? query.get("work") : null;
   const write = useWrite();
   const lib = useData((d) => d.prefsB.linkInBio);
   const handle = useData((d) => d.account.handle);
@@ -540,8 +818,24 @@ export function LinkInBioPage({ route }: PageProps) {
   const palettes = usePalettes();
   const loading = useMockLoading(700);
   const [device, setDevice] = useState<Device>("desktop");
-  const saved: Draft = useMemo(() => ({ palette: lib.palette, customPalette: lib.customPalette, theme: lib.theme, actions: lib.actions }), [lib]);
+  const saved: Draft = useMemo(() => ({ palette: lib.palette, customPalette: lib.customPalette, theme: lib.theme, actions: lib.actions, bio: lib.bio ?? demoCreator.bio, socials: lib.socials ?? LIB_DEFAULT_SOCIALS }), [lib]);
+  // Never saved yet → the view shows "Create Your Link in Bio" (02). Older saves without the flag count as created.
+  const created = lib.created !== false;
   const [draft, setDraft] = useState<Draft>(saved);
+  // The view and edit routes share this component (state survives the switch), so apply on arrival.
+  useEffect(() => {
+    const w = itemById(getData(), workId);
+    if (!w?.bio || w.bio.step === "saved") return;
+    const pr = w.bio.profile;
+    setDraft({
+      ...saved,
+      actions: applyBio(getData(), saved.actions, w),
+      socials: applySocials(saved.socials, w),
+      ...(pr?.include.bio && pr.bio ? { bio: pr.bio } : {}),
+      ...(pr?.include.palette && pr.palette != null ? { palette: pr.palette } : {}),
+    });
+    act("content.bioInEditor", (d) => markInEditor(d, w.id), { need: "content.write" });
+  }, [workId]);
   const [pending, setPending] = useState<{ kind: BioAction["kind"]; label: string } | null>(null);
   const [confirmSave, setConfirmSave] = useState(false);
   const shown = edit ? draft : saved;
@@ -553,16 +847,36 @@ export function LinkInBioPage({ route }: PageProps) {
         <h4 className="flex items-center gap-[8px] text-[24px] font-bold">
           Link In Bio
           <InfoPop testid="pref-lib-info">
-            A great way to generate more revenue and build your own fan database, is to link to your personal TopFan page from your other social media profiles. You can use your While Label Site URL or create a simplified Link In Bio page using our free generator.
+            A great way to generate more revenue and build your own fan database, is to link to your personal TopFan page from your other social media profiles. You can use your White Label Site URL or create a simplified Link In Bio page using our free generator.
           </InfoPop>
         </h4>
-        <EnableToggle
+        {(edit || created) && <EnableToggle
           on={lib.enabled}
           testid="pref-lib-enable"
           tone="surface"
           onChange={(v) => v !== lib.enabled && write("prefsB.setLinkInBioEnabled", (d) => setLinkInBioEnabled(d, v), "content.write")}
-        />
+        />}
       </div>
+
+      {!edit && !created ? (
+        <div className="mt-[27px] flex flex-col items-center rounded-card bg-surface px-[28px] py-[120px]" data-testid="pref-lib-empty">
+          <span className="flex h-[120px] w-[120px] items-center justify-center rounded-full bg-accent-tint">
+            <span className="flex h-[48px] w-[48px] items-center justify-center rounded-full bg-accent text-white"><Link2 size={26} /></span>
+          </span>
+          <p className="mt-[36px] text-[18px] text-soft">Create Your Link in Bio</p>
+          <Pill
+            className="mt-[20px]"
+            data-testid="pref-lib-get-started"
+            onClick={() => {
+              setDraft(saved);
+              navigate(pathFor("pref-link-in-bio-edit"));
+            }}
+          >
+            Get Started
+          </Pill>
+        </div>
+      ) : (
+      <>
 
       <div className="mt-[27px] flex items-center justify-between">
         <div className="flex items-center gap-[12px]">
@@ -570,8 +884,13 @@ export function LinkInBioPage({ route }: PageProps) {
           <Pill
             data-testid="pref-lib-copy"
             onClick={() => {
-              navigator.clipboard?.writeText(url).catch(() => {});
-              toast("Copied to clipboard");
+              const fail = () => toast("Couldn't copy the link. Select the address and copy it yourself.");
+              try {
+                if (!navigator.clipboard) return fail();
+                navigator.clipboard.writeText(url).then(() => toast("Copied to clipboard"), fail);
+              } catch {
+                fail();
+              }
             }}
           >
             Copy Link
@@ -640,10 +959,12 @@ export function LinkInBioPage({ route }: PageProps) {
           </div>
         )}
 
-        <Preview device={device} draft={shown} palettes={palettes} edit={edit} onDraft={setDraft} loading={loading} />
+        <Preview device={device} draft={shown} palettes={palettes} edit={edit} onDraft={setDraft} loading={loading} referral={lib.includeReferral} />
       </div>
+      </>
+      )}
 
-      <AddActionModal pending={pending} onClose={() => setPending(null)} onAdd={(a) => setDraft((d) => ({ ...d, actions: [...d.actions, a] }))} />
+      <AddActionModal pending={pending} existing={draft.actions} onClose={() => setPending(null)} onAdd={(a) => setDraft((d) => ({ ...d, actions: [...d.actions, ...a] }))} />
       <ConfirmModal
         open={confirmSave}
         title="Publish Link In Bio"
@@ -651,7 +972,7 @@ export function LinkInBioPage({ route }: PageProps) {
         testid="modal-pref-lib-save"
         onClose={() => setConfirmSave(false)}
         onConfirm={() => {
-          const res = write("prefsB.saveLinkInBio", (d) => saveLinkInBio(d, draft), "content.write", "Link In Bio saved");
+          const res = write("prefsB.saveLinkInBio", (d) => (saveLinkInBio(d, draft), workId && bioSaved(d, workId)), "content.write", "Link In Bio saved");
           setConfirmSave(false);
           if (res.ok) navigate(pathFor("pref-link-in-bio"));
         }}

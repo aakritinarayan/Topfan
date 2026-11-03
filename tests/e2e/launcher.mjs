@@ -2,6 +2,7 @@
 // keyboard access, open/close without losing the conversation. Dev server on :5173.
 // Usage: node tests/e2e/launcher.mjs [--shots dir]
 import puppeteer from "../../node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js";
+const BASE = process.env.BASE_URL || "http://localhost:5173";
 const OUT = process.argv.includes("--shots") ? process.argv[process.argv.indexOf("--shots") + 1] : null;
 const b = await puppeteer.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true });
 const p = await b.newPage();
@@ -35,7 +36,7 @@ const measure = () =>
 await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
 for (const [w, h, body, gap] of [[1512, 805, 72, 28], [1126, 797, 66, 24], [390, 844, 58, 18]]) {
   await p.setViewport({ width: w, height: h });
-  await p.goto("http://localhost:5173/ajwhite?noDelay=1&resetMock=1", { waitUntil: "networkidle0" });
+  await p.goto(`${BASE}/ajwhite?noDelay=1&resetMock=1`, { waitUntil: "networkidle0" });
   await sleep(400);
   if (await p.$('[data-testid="ai-panel"]')) { await p.click('[aria-label="Collapse assistant"]'); await sleep(400); }
   const m = await measure();
@@ -55,7 +56,7 @@ for (const [w, h, body, gap] of [[1512, 805, 72, 28], [1126, 797, 66, 24], [390,
 // Open/close with motion on, preserving the conversation.
 await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "no-preference" }]);
 await p.setViewport({ width: 1512, height: 805 });
-await p.goto("http://localhost:5173/ajwhite?noDelay=1&resetMock=1", { waitUntil: "networkidle0" });
+await p.goto(`${BASE}/ajwhite?noDelay=1&resetMock=1`, { waitUntil: "networkidle0" });
 await sleep(600);
 if (!(await p.$('[data-testid="ai-panel"]'))) { await p.click('[data-testid="ai-launcher"]'); await sleep(600); }
 const msgs = () => p.evaluate(() => document.querySelector('[data-testid="ai-panel"]')?.innerText.length ?? 0);

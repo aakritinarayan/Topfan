@@ -1,5 +1,6 @@
 // Preferences › White Label Site (Manage): every control does something real. Dev server on :5173.
 import puppeteer from "../../node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js";
+const BASE = process.env.BASE_URL || "http://localhost:5173";
 const b = await puppeteer.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true, defaultViewport: { width: 1512, height: 805 } });
 const p = await b.newPage();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -9,7 +10,7 @@ const errors = [];
 p.on("pageerror", (e) => errors.push(String(e)));
 const store = () => p.evaluate(() => JSON.parse(localStorage.getItem("topfan-mock-v1")).account);
 const clickText = (t) => p.evaluate((t) => { const e = [...document.querySelectorAll("button")].find((x) => x.innerText.trim().toLowerCase() === t.toLowerCase()); e?.click(); return !!e; }, t);
-await p.goto("http://localhost:5173/edit-preference/whitelabel?resetMock=1&noDelay=1", { waitUntil: "networkidle0" });
+await p.goto(`${BASE}/edit-preference/whitelabel?resetMock=1&noDelay=1`, { waitUntil: "networkidle0" });
 await sleep(800);
 await p.evaluate(() => document.querySelector('[aria-label="Collapse assistant"]')?.click());
 

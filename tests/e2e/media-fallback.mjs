@@ -1,6 +1,7 @@
 // Media failure handling: block specific files and check the content-type fallback replaces them,
 // keeps the slot size, and the failure is recorded (window.__mediaErrors). Dev server on :5173.
 import puppeteer from "../../node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js";
+const BASE = process.env.BASE_URL || "http://localhost:5173";
 const b = await puppeteer.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true, defaultViewport: { width: 1512, height: 805 } });
 const p = await b.newPage();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -8,11 +9,11 @@ let fails = 0; const check = (n, ok, x = "") => { console.log(ok ? "PASS" : "FAI
 const BLOCK = [/merchandise\/spectrum-x\.webp/, /videos\/competition-run\.mp4/, /creators\/ajwhite\/avatar\.webp/];
 await p.setRequestInterception(true);
 p.on("request", (r) => (BLOCK.some((x) => x.test(r.url())) ? r.respond({ status: 404, body: "" }) : r.continue()));
-await p.goto("http://localhost:5173/?noDelay=1&resetMock=1", { waitUntil: "networkidle0" });
+await p.goto(`${BASE}/?noDelay=1&resetMock=1`, { waitUntil: "networkidle0" });
 const d = await p.evaluate(() => JSON.parse(localStorage.getItem("topfan-mock-v1")));
 
 // Product image → product fallback, same box.
-await p.goto(`http://localhost:5173/${d.account.handle}/store?noDelay=1`, { waitUntil: "networkidle0" });
+await p.goto(`${BASE}/${d.account.handle}/store?noDelay=1`, { waitUntil: "networkidle0" });
 await p.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 500) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 40)); } });
 await sleep(500);
 const prod = await p.evaluate(() => [...document.images].filter((i) => i.dataset.media === "fallback").map((i) => ({ src: i.getAttribute("src"), w: i.getBoundingClientRect().width, h: i.getBoundingClientRect().height, ok: i.naturalWidth > 0 })));
@@ -23,7 +24,7 @@ check("failures recorded", errs.some((e) => /spectrum-x/.test(e.src) && e.kind =
 check("no broken-image icons", await p.evaluate(() => [...document.images].every((i) => !i.complete || i.naturalWidth > 0)));
 
 // Video → error state after play, slot kept.
-await p.goto(`http://localhost:5173/${d.account.handle}?noDelay=1`, { waitUntil: "networkidle0" });
+await p.goto(`${BASE}/${d.account.handle}?noDelay=1`, { waitUntil: "networkidle0" });
 const btn = await p.$('[data-media="video"][aria-label*="Competition"], [data-media="video"]');
 const box = await btn?.boundingBox();
 // Find the competition-run player specifically if present.

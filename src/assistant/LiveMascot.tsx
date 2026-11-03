@@ -61,13 +61,13 @@ export function LiveMascot({
       height={size}
       aria-hidden
       className={`block overflow-visible ${face === "thinking" ? "mascot-think" : ""}`}
-      style={glow ? { filter: `drop-shadow(0 0 ${Math.max(2, size * 0.08)}px rgba(255,30,30,0.55))` } : undefined}
+      style={glow ? { filter: `drop-shadow(0 0 ${Math.max(2, size * 0.08)}px rgba(var(--mascot-glow),0.55))` } : undefined}
     >
       <defs>
         <radialGradient id={`${id}b`} cx="50%" cy="55%" r="62%">
-          <stop offset="0%" stopColor="#a8070c" />
-          <stop offset="62%" stopColor="#d50c12" />
-          <stop offset="100%" stopColor="#ff2a2a" />
+          <stop offset="0%" style={{ stopColor: "var(--mascot-1)" }} />
+          <stop offset="62%" style={{ stopColor: "var(--mascot-2)" }} />
+          <stop offset="100%" style={{ stopColor: "var(--mascot-3)" }} />
         </radialGradient>
         <linearGradient id={`${id}g`} x1="0" y1="0" x2="0.6" y2="1">
           <stop offset="0%" stopColor="#fff" stopOpacity="0.75" />
@@ -77,7 +77,7 @@ export function LiveMascot({
       {/* body */}
       <rect x="7" y="7" width="86" height="86" rx="23" fill={`url(#${id}b)`} />
       {/* bright inner rim */}
-      <rect x="8.2" y="8.2" width="83.6" height="83.6" rx="22" fill="none" stroke="rgba(255,140,140,0.55)" strokeWidth="1.2" />
+      <rect x="8.2" y="8.2" width="83.6" height="83.6" rx="22" fill="none" style={{ stroke: "var(--mascot-rim)" }} strokeWidth="1.2" />
       {/* gloss */}
       <path d="M17 34 C17 22 24 15 38 14 C44 14 45 18 40 20 C30 23 24 28 22 36 C21 40 17 40 17 34 Z" fill={`url(#${id}g)`} />
       {/* face — expression follows the mood */}

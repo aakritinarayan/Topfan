@@ -6,7 +6,7 @@
  * The check is simulated: no DNS lookup happens. It only passes if the creator ticked the mock
  * "I've added these records" box; otherwise it fails again.
  */
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CircleAlert, CircleCheck, Loader } from "lucide-react";
 import { CopyField, Radio } from "../../platform/ui/controls";
 import { useToast } from "../../platform/ui/toast";
@@ -92,7 +92,25 @@ export function OutboundEmailsPage({ route }: PageProps) {
   const [resetOpen, setResetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [domainConfirm, setDomainConfirm] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
+  // Simulated verification (never a real DNS query): the rows tick over and the result lands within ~1.5 s.
+  const [tick, setTick] = useState(0);
+  const passing = rawFlow.recordsAdded; // the mock check passes only when the creator ticked the records
+  const ran = useRef(false);
+  const runCheck = () => {
+    if (ran.current) return;
+    ran.current = true;
+    let result: string | undefined;
+    const res = write("prefsB.recheckOutboundEmail", (d) => void (result = recheckOutboundEmail(d)), "account.admin");
+    if (res.ok) toast(result === "verified" ? "Domain Verified" : "Verification failed. Please check your DNS records.");
+  };
+  useEffect(() => {
+    if (o.status !== "pending" || loading) return;
+    ran.current = false;
+    setTick(0);
+    const ts = [setTimeout(() => setTick(1), 700), setTimeout(() => setTick(2), 1300), setTimeout(runCheck, 1500)];
+    return () => ts.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [o.status, loading]);
   const root = wls.domain;
   const [choice, setChoice] = useState<string>(o.domain || `mail.${root}`);
   const [custom, setCustom] = useState("");
@@ -215,29 +233,21 @@ export function OutboundEmailsPage({ route }: PageProps) {
         <div className="mt-[24px] rounded-inner bg-surface p-[24px]" data-testid="pref-outbound-verifying">
           <h3 className="text-[18px] font-semibold">Verifying Your Domain...</h3>
           <p className="mt-[8px] text-[14px] leading-[21px]">
-            The verification process may take anywhere from 30 minutes to 24 hours depending on your DNS provider. Emails will continue to be sent from <span className="font-bold">no-reply@topfan.com</span> in the meantime.
+            This only takes a moment. Emails will continue to be sent from <span className="font-bold">no-reply@topfan.com</span> in the meantime.
           </p>
           <div className="mt-[24px] flex flex-col gap-[16px]">
-            <Step title="DNS Records Verification" text="Checking for DNS propagation..." status="In Progress" />
-            <Step title="Outbound Email Services Configuration" text="Waiting for confirmation" status="In Progress" />
+            <Step title="DNS Records Verification" text={passing && tick >= 1 ? "Records checked" : "Checking for DNS propagation..."} status={passing && tick >= 1 ? "Verified" : "In Progress"} />
+            <Step title="Outbound Email Services Configuration" text={passing && tick >= 2 ? "Confirmed" : "Waiting for confirmation"} status={passing && tick >= 2 ? "Verified" : "In Progress"} />
           </div>
         </div>
         <Pill
           className="mt-[24px]"
           data-testid="pref-outbound-recheck"
-          disabled={checking}
           onClick={() => {
-            setChecking(true);
-            // Simulated check delay; never a real DNS query.
-            setTimeout(() => {
-              setChecking(false);
-              let result: string | undefined;
-              const res = write("prefsB.recheckOutboundEmail", (d) => void (result = recheckOutboundEmail(d)), "account.admin");
-              if (res.ok) toast(result === "verified" ? "Domain Verified" : "Verification failed. Please check your DNS records.");
-            }, 900);
+            runCheck();
           }}
         >
-          {checking ? "Checking…" : "Recheck Status"}
+          Recheck Status
         </Pill>
       </>
     );

@@ -86,7 +86,7 @@ export function availableActions(s: PlatformState, f: FinderState) {
   if (onScreen.length) out.highlight_field = { fields: onScreen };
   if (s.screen === "step1") {
     out.propose_form_update = "fill or change Step 1 fields (creator approves first)";
-    out.open_registrar = "open namecheap, godaddy or cloudflare in a new tab (creator approves first)";
+    out.open_registrar = "open godaddy in a new tab (creator approves first); the assistant recommends GoDaddy only for buying a new domain";
     if (!f.purchased) out.start_domain_finder = "guided domain search for creators without a domain";
   }
   return out;

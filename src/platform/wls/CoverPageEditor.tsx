@@ -3,7 +3,9 @@
  */
 import { useState } from "react";
 import { ArrowLeft, Eye, Menu, Pencil, Plus, Trash2 } from "lucide-react";
-import { coverSections, seo } from "../../config/demo";
+import { coverSections } from "../../config/demo";
+import { act, getData, useData } from "../../store/store";
+import { canPublish, editField, markPublished, missingRequired, COVER_FIELD_LABEL, setSections, setSubPages as saveSubPages, type CoverField, type CoverState } from "../../store/slices/cover";
 import { usePlatform } from "../../state/platformStore";
 import { Button, Input, Toggle } from "../ui/controls";
 import { Modal } from "../ui/surfaces";
@@ -42,12 +44,27 @@ type Section = (typeof coverSections)[number];
 export function CoverPageEditor() {
   const { go } = usePlatform();
   const toast = useToast();
-  const [rows, setRows] = useState<Section[]>(coverSections);
-  const [meta, setMeta] = useState({ title: seo.title, keywords: seo.keywords, description: seo.description });
+  // Kept in the mock store so edits survive navigation and refresh (and the assistant can see them).
+  const rows = useData((d) => d.cover.sections);
+  const meta = useData((d) => d.cover.meta);
+  const subPages = useData((d) => d.cover.subPages);
+  const setRows = (next: Section[]) => act("cover.sections", (d) => setSections(d, next));
+  const setSubPages = (next: CoverState["subPages"]) => act("cover.subPages", (d) => saveSubPages(d, next));
+  const setField = (f: CoverField, v: string) => act("cover.edit", (d) => editField(d, f, v));
+  const publish = () => {
+    const missing = missingRequired(getData());
+    if (missing.length) return void toast(`${COVER_FIELD_LABEL[missing[0]]} is required.`);
+    // Simulated failure on request (?coverFixture=publish-fail); nothing is marked published then.
+    if (!canPublish()) {
+      act("cover.publishFailed", () => {});
+      return void toast("Couldn't publish your White Label site. Please try again.");
+    }
+    const res = act("cover.publish", markPublished, { need: "account.admin" });
+    toast(res.ok ? "White Label site updated and published successfully" : res.reason);
+  };
   /** null = closed; -1 = adding; otherwise the row being edited. */
   const [editing, setEditing] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
-  const [subPages, setSubPages] = useState<{ name: string; slug: string }[]>([]);
   const [subOpen, setSubOpen] = useState(false);
   // The cover page is the public Home of the White Label Site: preview it in a new tab, like the live product.
   const preview = () => window.open("/", "_blank", "noopener");
@@ -60,19 +77,20 @@ export function CoverPageEditor() {
 
       <div className="mt-5 rounded-card bg-surface p-[30px]">
         <div className="grid grid-cols-2 gap-6">
-          <div>
+          <div data-field="cover-title">
             <p className="mb-4 text-base">Cover Page SEO Title*</p>
-            <Input value={meta.title} onChange={(e) => setMeta({ ...meta, title: e.target.value })} />
+            <Input value={meta.title} onChange={(e) => setField("title", e.target.value)} data-testid="cover-title" />
           </div>
           <div data-field="cover-keywords">
             <p className="mb-4 text-base">Cover Page SEO Keywords (Separated by commas)*</p>
-            <Input value={meta.keywords} onChange={(e) => setMeta({ ...meta, keywords: e.target.value })} />
+            <Input value={meta.keywords} onChange={(e) => setField("keywords", e.target.value)} data-testid="cover-keywords" />
           </div>
-          <div className="col-span-2">
+          <div className="col-span-2" data-field="cover-description">
             <p className="mb-4 text-base">Cover Page SEO Description*</p>
             <textarea
               value={meta.description}
-              onChange={(e) => setMeta({ ...meta, description: e.target.value })}
+              onChange={(e) => setField("description", e.target.value)}
+              data-testid="cover-description"
               className="h-[110px] w-full resize-y rounded-[28px] bg-bg px-6 py-[17px] text-sm font-black leading-[21px] text-white outline-none focus:ring-1 focus:ring-accent"
             />
             <p className="mt-1 pr-2 text-right text-xs italic text-soft">{1000 - meta.description.length} Characters left</p>
@@ -163,8 +181,10 @@ export function CoverPageEditor() {
         <div className="mt-6 flex h-[270px] items-center justify-center rounded-card bg-surface text-lg text-soft">No Sub-Pages Found</div>
       )}
 
-      <div className="mt-10 flex justify-end">
-        <Button onClick={() => toast("White Label site updated and published successfully")}>Update &amp; Publish</Button>
+      <div className="mt-10 flex justify-end" data-field="cover-publish">
+        <Button onClick={publish} data-testid="cover-publish">
+          Update &amp; Publish
+        </Button>
       </div>
 
       <SectionModal

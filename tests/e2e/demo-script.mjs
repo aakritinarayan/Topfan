@@ -2,6 +2,7 @@
 // answers: the live model when ANTHROPIC_API_KEY is set, otherwise the labeled demo mode.
 // Usage: node tests/e2e/demo-script.mjs [1512|1126]   (dev server on :5173)
 import puppeteer from "../../node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js";
+const BASE = process.env.BASE_URL || "http://localhost:5173";
 const W = Number(process.argv[2]) || 1512, H = W === 1126 ? 797 : 805;
 const b = await puppeteer.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true, defaultViewport: { width: W, height: H } });
 const p = await b.newPage();
@@ -11,11 +12,11 @@ const check = (n, ok, x = "") => { console.log(ok ? "PASS" : "FAIL", n, ok ? "" 
 const errors = [];
 p.on("pageerror", (e) => errors.push(String(e)));
 
-const live = await (await fetch("http://localhost:5173/api/chat")).json().then((s) => s.configured).catch(() => false);
+const live = await (await fetch(`${BASE}/api/chat`)).json().then((s) => s.configured).catch(() => false);
 console.log(live ? "Answering: live model" : "Answering: demo mode (no API key)");
 const wait = live ? 12000 : 1500;
 
-await p.goto("http://localhost:5173/?resetMock=1", { waitUntil: "networkidle0" });
+await p.goto(`${BASE}/?resetMock=1`, { waitUntil: "networkidle0" });
 await sleep(1200);
 if (!(await p.$('[data-testid="ai-panel"]'))) { await p.click('[data-testid="ai-launcher"]'); await sleep(600); }
 const panel = () => p.evaluate(() => document.querySelector('[data-testid="ai-panel"]').innerText);
@@ -46,11 +47,11 @@ await sleep(1000);
 check("…and opens it", path() === "/edit-preference/whitelabel", path());
 
 t = await ask("I want to start earning from my fans, but I don't know where to start.");
-check("'start earning' offers three paths", /Exclusive content|membership/i.test(t) && /products/i.test(t), t);
-await tap(/Exclusive content|membership/);
+check("'start earning' asks one question", /fits you best\?/.test(t), t);
+await tap(/^Memberships and exclusive content$/);
 await sleep(wait);
-await p.click('[data-testid="ai-task-go"]');
-await sleep(1000);
+await p.evaluate(() => [...document.querySelectorAll('[data-testid="ai-earn-option-subscriptions"]')].pop()?.click());
+await sleep(1200);
 t = (await replies()).slice(-2).join("\n");
 check("membership → guided task on the plans page", path() === "/monetize/subscription" && !!(await p.$('[data-testid="ai-task-card"]')), `${path()} ${t}`);
 check("no 'I saw that' for the assistant's own navigation", !/I saw that/.test(t), t);
@@ -78,7 +79,7 @@ await p.evaluate(() => document.querySelector('[data-testid="ap-close"]')?.click
 
 // A Content delegate asks the same pricing question: told who can, not taken there.
 await p.evaluate(() => { const d = JSON.parse(localStorage.getItem("topfan-mock-v1")); d.account.session.role = "content"; localStorage.setItem("topfan-mock-v1", JSON.stringify(d)); });
-await p.goto("http://localhost:5173/", { waitUntil: "networkidle0" });
+await p.goto(`${BASE}/`, { waitUntil: "networkidle0" });
 await sleep(1200);
 if (!(await p.$('[data-testid="ai-panel"]'))) { await p.click('[data-testid="ai-launcher"]'); await sleep(600); }
 await p.evaluate(() => document.querySelector('[data-testid="ap-close"]')?.click());

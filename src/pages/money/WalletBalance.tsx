@@ -3,7 +3,7 @@
  * Withdraw / Connect payout / Add card / Delete card are Protected: confirm modal + typed confirmation, need finance.write.
  * No real bank or card data is ever collected (fake test values only).
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Minus, Plus, Trash2, Landmark } from "lucide-react";
 import type { PageProps } from "../types";
 import { act, getData, useData } from "../../store/store";
@@ -30,7 +30,8 @@ export function WalletBalance({ route }: PageProps) {
   const country = useData((d) => d.money.payoutCountry);
   const cards = useData((d) => d.money.savedCards);
   const [countrySel, setCountrySel] = useState(country);
-  const [modal, setModal] = useState<null | "need-payout" | "withdraw" | "connect" | "disconnect" | "add-card" | { del: SavedCard }>(null);
+  const bankRef = useRef<HTMLElement>(null);
+  const [modal, setModal] = useState<null | "withdraw" | "connect" | "disconnect" | "add-card" | { del: SavedCard }>(null);
 
   return (
     <WalletLayout routeId={route.id} active="wallet-balance">
@@ -47,7 +48,8 @@ export function WalletBalance({ route }: PageProps) {
           <button
             type="button"
             data-testid="wallet-withdraw"
-            onClick={() => setModal(payout.connected ? "withdraw" : "need-payout")}
+            // No payout account yet: bring the Bank Account section into view (as the platform does); no pop-up.
+            onClick={() => (payout.connected ? setModal("withdraw") : bankRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }))}
             className="mt-[22px] inline-flex h-[56px] w-[300px] items-center justify-center gap-[12px] rounded-pill bg-accent text-[14px] font-black uppercase tracking-caps text-white hover:brightness-110"
           >
             <Minus size={14} strokeWidth={3} />
@@ -56,7 +58,7 @@ export function WalletBalance({ route }: PageProps) {
         </section>
 
         {/* Bank account */}
-        <section className="rounded-card bg-surface px-[24px] pb-[24px] pt-[22px]" data-testid="wallet-bank-card">
+        <section ref={bankRef} className="rounded-card bg-surface px-[24px] pb-[24px] pt-[22px]" data-testid="wallet-bank-card">
           <h5 className="flex items-center text-[18px] font-bold uppercase">
             Bank Account
             <InfoIcon text="Where withdrawals are sent. TopFan pays out to one bank account at a time." />
@@ -128,7 +130,6 @@ export function WalletBalance({ route }: PageProps) {
         </section>
       </div>
 
-      <NeedPayoutModal open={modal === "need-payout"} onClose={() => setModal(null)} onConnect={() => setModal("connect")} />
       {modal === "withdraw" && <WithdrawModal onClose={() => setModal(null)} />}
       {modal === "connect" && <ConnectPayoutModal country={countrySel} onClose={() => setModal(null)} />}
       {modal === "disconnect" && <DisconnectPayoutModal onClose={() => setModal(null)} />}
@@ -139,28 +140,6 @@ export function WalletBalance({ route }: PageProps) {
 }
 
 /* ---------------- modals (inferred: none of these were opened in the capture) ---------------- */
-
-function NeedPayoutModal({ open, onClose, onConnect }: { open: boolean; onClose: () => void; onConnect: () => void }) {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Connect a Payout Account"
-      footer={
-        <>
-          <TextBtn onClick={onClose}>Cancel</TextBtn>
-          <Btn data-testid="wallet-need-payout-connect" onClick={onConnect}>
-            Connect Payout Account
-          </Btn>
-        </>
-      }
-    >
-      <div data-testid="modal-wallet-need-payout" className="text-[16px] leading-[24px]">
-        You need to connect a payout account before you can withdraw your balance.
-      </div>
-    </Modal>
-  );
-}
 
 function WithdrawModal({ onClose }: { onClose: () => void }) {
   const available = useData((d) => d.money.balance.available);

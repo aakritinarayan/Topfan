@@ -2,15 +2,15 @@
  * "I don't have a Domain Name": the assistant does the research and preparation, the creator decides.
  *
  * Offer → ask the name fans should remember → suggest names → check availability (domain service,
- * simulated here) → recommend one → compare registrars → hand off to the registrar's own site →
+ * simulated here) → recommend one → GoDaddy price → hand off to GoDaddy's own site →
  * "Welcome back" → confirm what was bought → fill the TopFan form → continue to connection.
  *
  * Cards read the finder store, so they stay current and survive collapsing the panel.
  * Never asks for registrar passwords or payment details; never marks a domain as purchased by itself.
  */
 import { useEffect, useRef, useState } from "react";
-import { Check, ExternalLink, Loader2, RotateCcw } from "lucide-react";
-import { creator, registrars } from "../config/demo";
+import { Check, ChevronRight, ExternalLink, Info, Loader2, RotateCcw } from "lucide-react";
+import { ASSISTANT_REGISTRAR, creator } from "../config/demo";
 import { useAssistant } from "../state/assistantStore";
 import { usePlatform } from "../state/platformStore";
 import { useDomainFinder, type CheckState } from "../state/domainFinderStore";
@@ -121,7 +121,7 @@ export function DomainFinderDirector() {
     a.say({
       text: (
         <>
-          No problem. <b>Purchase Domain on Namecheap</b> on the left opens Namecheap, and any registrar works, such as GoDaddy or Cloudflare.
+          No problem. <b>Purchase Domain on Namecheap</b> on the left opens Namecheap.
           When you're back, I'll help you connect it. Your progress here is saved.
         </>
       ),
@@ -223,7 +223,7 @@ export function DomainFinderDirector() {
       text: "I couldn't find an available name from these ideas. Try a different name, or search directly at a registrar.",
       actions: [
         { label: "Try a different name", variant: "primary", onClick: askBrand },
-        { label: "Search on Namecheap", variant: "outline", onClick: () => openRegistrar("namecheap", null) },
+        { label: "Search on GoDaddy", variant: "outline", onClick: () => openRegistrar(ASSISTANT_REGISTRAR, null) },
       ],
     });
   }
@@ -531,7 +531,7 @@ function IdeaList({ round, flow }: { round: number | "all"; flow: Flow }) {
   };
   const shown = settled ? [...ideas].sort((x, y) => rank(x.domain) - rank(y.domain)) : ideas;
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="flex justify-end">
         <SimTag />
       </div>
@@ -568,45 +568,41 @@ function IdeaCard({
   const done = isDone(check);
   const status = done ? check.status : "checking";
   const tld = domain.split(".").slice(1).join(".");
+  const pill = "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2.5 text-[11px] font-bold";
+  const link = "inline-flex items-center gap-1 text-[12px] font-bold hover:underline";
   return (
-    <div className={`rounded-tile bg-bg p-3 ${recommended && status === "available" ? "ring-1 ring-accent" : ""}`} data-domain={domain}>
-      <div className="flex items-start gap-2">
-        <span className="min-w-0 flex-1 break-all text-[14px] font-bold">{domain}</span>
+    <div className={`rounded-tile border bg-bg px-4 py-3.5 ${recommended && status === "available" ? "border-accent/50" : "border-line"}`} data-domain={domain}>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="break-all text-[15px] font-bold leading-6" title={reason}>
+            {domain}
+          </p>
+        </div>
         {status === "checking" && (
-          <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted">
+          <span className="flex h-6 shrink-0 items-center gap-1 text-[11px] text-muted">
             <Loader2 size={12} className="animate-spin" /> Checking
           </span>
         )}
         {status === "available" &&
           (recommended ? (
-            <span className="h-5 shrink-0 rounded-full bg-accent px-2 text-[10px] font-bold uppercase leading-5 tracking-caps">Recommended</span>
+            <span className={`${pill} bg-accent/10 font-medium text-accent`}>Recommended</span>
           ) : (
-            <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full border border-accent px-2 text-[10px] font-bold uppercase tracking-caps">
-              <Check size={10} strokeWidth={3} /> Available
+            <span className={`${pill} border border-accent`}>
+              <Check size={11} strokeWidth={3} /> Available
             </span>
           ))}
-        {status === "taken" && (
-          <span className="h-5 shrink-0 rounded-full bg-surface-2 px-2 text-[10px] font-bold uppercase leading-5 tracking-caps text-muted">Taken</span>
-        )}
-        {status === "error" && (
-          <span className="h-5 shrink-0 rounded-full border border-danger px-2 text-[10px] font-bold uppercase leading-5 tracking-caps text-danger">
-            Not confirmed
-          </span>
-        )}
-        {status === "unsupported" && (
-          <span className="h-5 shrink-0 rounded-full bg-surface-2 px-2 text-[10px] font-bold uppercase leading-5 tracking-caps text-muted">Can't check</span>
-        )}
+        {status === "taken" && <span className={`${pill} bg-surface-2 text-soft`}>Taken</span>}
+        {status === "error" && <span className={`${pill} border border-line text-soft`}>Not confirmed</span>}
+        {status === "unsupported" && <span className={`${pill} bg-surface-2 text-soft`}>Can't check</span>}
       </div>
-      <p className="mt-0.5 text-[12px] text-muted">{reason}</p>
 
-      {status === "available" && done && (
-        <>
-          <p className="mt-2 text-[12px] text-soft">This domain appears available.</p>
-          <div className="mt-1 flex items-end justify-between gap-2">
-            <p className="text-[12px] leading-[17px] text-soft">
+      {status !== "checking" && <div className="mt-3 border-t border-line pt-3">
+        {status === "available" && done && (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[12px] leading-[18px] text-soft">
               {check.best ? (
                 <>
-                  <b className="text-white">{money(check.best.first)}</b> first year · renews {money(check.best.renewal)}/yr
+                  <b className="text-[13px] text-white">{money(check.best.first)}</b> first year · renews {money(check.best.renewal)}/yr
                   <br />
                   <span className="text-muted">at {registrarById(check.best.registrarId).name}</span>
                 </>
@@ -617,48 +613,54 @@ function IdeaCard({
             <button
               onClick={() => flow.select(domain)}
               disabled={selected}
-              className="h-8 shrink-0 rounded-pill bg-accent px-4 text-[12px] font-black uppercase tracking-caps hover:brightness-110 disabled:opacity-50"
+              className="h-8 shrink-0 rounded-pill bg-accent px-5 text-[12px] font-black uppercase tracking-caps hover:brightness-110 disabled:opacity-50"
             >
               {selected ? "Selected" : "Select"}
             </button>
           </div>
-        </>
-      )}
-      {status === "taken" && (
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <p className="text-[12px] text-soft">This name is already taken.</p>
-          <button onClick={() => flow.alternatives(domain)} className="shrink-0 text-[12px] font-bold text-accent hover:underline">
-            See alternatives
-          </button>
-        </div>
-      )}
-      {status === "error" && (
-        <>
-          <p className="mt-2 text-[12px] text-soft">I couldn't confirm availability right now. You can try again or check directly with a registrar.</p>
-          <div className="mt-2 flex gap-3">
-            <button onClick={() => flow.retry(domain)} className="inline-flex items-center gap-1 text-[12px] font-bold text-accent hover:underline">
-              <RotateCcw size={12} /> Retry
-            </button>
-            <button onClick={() => openRegistrar("namecheap", domain)} className="inline-flex items-center gap-1 text-[12px] font-bold text-soft hover:underline">
-              Check on Namecheap <ExternalLink size={11} />
+        )}
+        {status === "taken" && (
+          <div className="flex items-center gap-2">
+            <Info size={14} className="shrink-0 text-muted" aria-hidden />
+            <p className="flex-1 text-[12px] text-soft">This name is already taken.</p>
+            <button onClick={() => flow.alternatives(domain)} className={`${link} shrink-0 text-accent`}>
+              See alternatives <ChevronRight size={13} />
             </button>
           </div>
-        </>
-      )}
-      {status === "unsupported" && (
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <p className="text-[12px] text-soft">I can't check .{tld} names here. Try .com or .co, or search a registrar.</p>
-          <button onClick={() => openRegistrar("namecheap", domain)} className="shrink-0 text-[12px] font-bold text-accent hover:underline">
-            Search
-          </button>
-        </div>
-      )}
+        )}
+        {status === "error" && (
+          <>
+            <div className="flex gap-2">
+              <Info size={14} className="mt-0.5 shrink-0 text-muted" aria-hidden />
+              <p className="text-[12px] leading-[17px] text-soft">I couldn't confirm availability right now. You can try again or check directly with a registrar.</p>
+            </div>
+            <div className="mt-2.5 flex items-center gap-3 pl-[22px]">
+              <button onClick={() => flow.retry(domain)} className={`${link} text-accent`}>
+                <RotateCcw size={12} /> Retry
+              </button>
+              <span className="h-3.5 w-px bg-line" aria-hidden />
+              <button onClick={() => openRegistrar(ASSISTANT_REGISTRAR, domain)} className={`${link} text-white`}>
+                Check on GoDaddy <ExternalLink size={11} />
+              </button>
+            </div>
+          </>
+        )}
+        {status === "unsupported" && (
+          <div className="flex items-center gap-2">
+            <Info size={14} className="shrink-0 text-muted" aria-hidden />
+            <p className="flex-1 text-[12px] text-soft">I can't check .{tld} names here. Try .com or .co, or search a registrar.</p>
+            <button onClick={() => openRegistrar(ASSISTANT_REGISTRAR, domain)} className={`${link} shrink-0 text-accent`}>
+              Search
+            </button>
+          </div>
+        )}
+      </div>}
     </div>
   );
 }
 
 function PurchaseSummary({ domain, flow }: { domain: string; flow: Flow }) {
-  const { finder, set } = useDomainFinder();
+  const { finder } = useDomainFinder();
   const check = finder.checks[domain];
   const prices = isDone(check) ? check.prices : [];
   const reg = registrarById(finder.registrarId);
@@ -688,32 +690,12 @@ function PurchaseSummary({ domain, flow }: { domain: string; flow: Flow }) {
         <SimTag />
       </div>
       <p className="mb-1.5 mt-3 font-bold text-soft">Where to buy</p>
-      <div role="radiogroup" aria-label="Registrar" className="space-y-1">
-        {registrars.map((r) => {
-          const p = prices.find((x) => x.registrarId === r.id);
-          const on = r.id === finder.registrarId;
-          return (
-            <label
-              key={r.id}
-              className={`flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 ${on ? "bg-surface" : "hover:bg-surface/60"}`}
-            >
-              <input
-                type="radio"
-                name={`reg-${domain}`}
-                checked={on}
-                onChange={() => set({ registrarId: r.id })}
-                className="mt-0.5 accent-[var(--accent)]"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-2">
-                  <b className="text-white">{r.name}</b>
-                  <span className="text-soft">{p?.first != null ? `${money(p.first)} · ${money(p.renewal)}/yr` : "Price not available"}</span>
-                </span>
-                <span className="block text-[11px] text-muted">{r.note}</span>
-              </span>
-            </label>
-          );
-        })}
+      <div className="rounded-lg bg-surface px-3 py-2" data-testid="df-registrar">
+        <span className="flex items-center justify-between gap-2">
+          <b className="text-white">{reg.name}</b>
+          <span className="text-soft">{price?.first != null ? `${money(price.first)} · ${money(price.renewal)}/yr` : "Price not available"}</span>
+        </span>
+        <span className="block text-[11px] text-muted">{reg.note}</span>
       </div>
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-soft">
         <dt className="text-muted">First year</dt>

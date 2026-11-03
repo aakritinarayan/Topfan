@@ -18,6 +18,7 @@ const list = (d: AppData, ...paths: string[]) => {
   return [] as Record<string, unknown>[];
 };
 const hash = (v: unknown) => JSON.stringify(v ?? null);
+const kind = (d: AppData, k: string) => d.monetize.products.filter((p) => p.kind === k).length;
 
 /** Numbers and fingerprints the task checks compare. Paths follow the slice owners' NOTES. */
 export function metrics(d: AppData) {
@@ -29,9 +30,17 @@ export function metrics(d: AppData) {
     groupPosts: posts.filter((p) => p.groupIds.length > 0).length,
     plans: d.monetize.plans.length,
     plansHash: hash(d.monetize.plans),
-    courses: list(d, "monetize.courses").length,
-    downloadables: list(d, "monetize.downloadables").length,
-    merch: list(d, "monetize.merchandise", "monetize.merch").length,
+    // Products share one list (monetize.products), told apart by kind.
+    courses: kind(d, "course"),
+    downloadables: kind(d, "downloadable"),
+    merch: kind(d, "merchandise"),
+    experiences: kind(d, "experience"),
+    nfts: kind(d, "nft"),
+    vipOffers: d.monetize.vipOffers.length,
+    portfolios: d.monetize.portfolios.length,
+    discountCodes: d.monetize.discountCodes.length,
+    adBrandsToReview: d.monetize.adBrands.filter((b) => b.status === "new").length,
+    adPrefsHash: hash([d.monetize.ads.enabled, d.monetize.ads.autoEnableNew, d.monetize.ads.catalog.map((b) => b.enabled)]),
     events: d.monetize.events.length,
     livestreams: d.monetize.events.filter((e) => e.kind === "livestream").length + list(d, "social.livestreams").length,
     newslettersSent: list(d, "monetize.newsletters").filter((n) => n.status === "Sent" || n.status === "sent" || n.sentAt).length,
@@ -54,6 +63,10 @@ export function metrics(d: AppData) {
     whiteLabel: d.account.whiteLabel.status,
     brandingHash: hash([d.account.theme, d.account.avatar, d.account.whiteLabel.lastPublishedAt]),
     accountStatus: String(at(d, "prefsA.accountStatus") ?? "active"),
+    // Older saved data may predate the cover slice.
+    coverMetaHash: hash(d.cover?.meta),
+    coverApplied: Boolean(d.cover?.applied),
+    coverPublishedAt: d.cover?.publishedAt ?? null,
   };
 }
 export type Metrics = ReturnType<typeof metrics>;
@@ -181,7 +194,7 @@ export const TASKS: TaskDef[] = [
     need: "content.write",
     steps: [
       { id: "open", title: "Open Merchandise", routeId: "monetize-merchandise", cta: "Open Merchandise", done: visit("monetize-merchandise") },
-      { id: "create", title: "Add an item (Shopify or an external link)", routeId: "monetize-merchandise", cta: "Add merchandise", hint: "In this demo Shopify isn't really connected.", target: "monetize-add-merchandise", done: grew("merch"), approval: "confirm" },
+      { id: "create", title: "Add an item (Shopify or an external link)", routeId: "monetize-merchandise", cta: "Add merchandise", hint: "In this demo Shopify isn't really connected.", target: "monetize-merch-add", done: grew("merch"), approval: "confirm" },
       { id: "store", title: "Check your public store", routeId: "public-store", cta: "View my store", done: visit("public-store"), optional: true },
     ],
   },
@@ -196,7 +209,7 @@ export const TASKS: TaskDef[] = [
     draft: "event-promo",
     steps: [
       { id: "open", title: "Open Events & Ticketing", routeId: "monetize-event-calendar", cta: "Open Events & Ticketing", done: visit("monetize-event-calendar") },
-      { id: "create", title: "Add the event and its tickets", routeId: "monetize-event-calendar", cta: "Add an event", target: "monetize-add-event", done: grew("events"), approval: "confirm" },
+      { id: "create", title: "Add the event and its tickets", routeId: "monetize-event-calendar", cta: "Add an event", target: "monetize-event-add", done: grew("events"), approval: "confirm" },
       { id: "public", title: "Check the public event page", routeId: "public-events", cta: "View event page", done: (c) => c.visited.includes("public-events") || c.visited.includes("public-event-detail"), optional: true },
     ],
     next: { label: "Tell fans in a post", taskId: "create-post" },
@@ -211,7 +224,7 @@ export const TASKS: TaskDef[] = [
     need: "content.write",
     steps: [
       { id: "open", title: "Open Events & Ticketing", routeId: "monetize-event-calendar", cta: "Open Events & Ticketing", done: visit("monetize-event-calendar") },
-      { id: "create", title: "Add the livestream as an event", routeId: "monetize-event-calendar", cta: "Add an event", target: "monetize-add-event", done: (c) => grew("livestreams")(c) || grew("events")(c), approval: "confirm" },
+      { id: "create", title: "Add the livestream as an event", routeId: "monetize-event-calendar", cta: "Add an event", target: "monetize-event-add", done: (c) => grew("livestreams")(c) || grew("events")(c), approval: "confirm" },
     ],
   },
   {
@@ -245,7 +258,7 @@ export const TASKS: TaskDef[] = [
       { id: "domain", title: "Choose your sending domain and click Continue", routeId: "pref-outbound-emails", cta: "Show me the domain choice", target: "pref-outbound-setup-continue", done: (c) => c.now.outboundPhase === "records" || c.now.outbound === "pending" || c.now.outbound === "verified" },
       { id: "records", title: "Add the records at your domain provider, then tick that you've added them", routeId: "pref-outbound-emails", cta: "Show the records", hint: "Copy each Host and Value into your provider's DNS settings. I can't change DNS for you.", target: "pref-outbound-records-added", done: (c) => c.now.outboundRecordsAdded || c.now.outbound === "pending" || c.now.outbound === "verified", approval: "protected" },
       { id: "verify", title: "Click Verify Outbound Email Settings", routeId: "pref-outbound-emails", cta: "Go to Verify", target: "pref-outbound-verify", done: (c) => c.now.outbound === "pending" || c.now.outbound === "verified" },
-      { id: "recheck", title: "Click Recheck Status", routeId: "pref-outbound-emails", cta: "Show Recheck Status", hint: "In this demo the check passes when you've ticked that the records were added.", target: "pref-outbound-recheck", done: (c) => c.now.outbound === "verified" },
+      { id: "recheck", title: "Click Recheck Status", routeId: "pref-outbound-emails", cta: "Show Recheck Status", hint: "In this demo the check finishes on its own in a couple of seconds, and passes when you've ticked that the records were added.", target: "pref-outbound-recheck", done: (c) => c.now.outbound === "verified" },
     ],
     next: { label: "Send a newsletter", taskId: "send-newsletter" },
   },
@@ -261,7 +274,7 @@ export const TASKS: TaskDef[] = [
     dependsOn: [{ taskId: "fix-outbound-email", when: (m) => m.outbound !== "verified", note: "Your Outbound Emails verification failed, so newsletters can't send from your own domain yet." }],
     steps: [
       { id: "open", title: "Open Newsletters", routeId: "monetize-newsletters", cta: "Open Newsletters", done: visit("monetize-newsletters") },
-      { id: "send", title: "Write it, choose recipients, and send", routeId: "monetize-newsletters", cta: "New newsletter", target: "monetize-new-newsletter", done: grew("newslettersSent"), approval: "confirm" },
+      { id: "send", title: "Write it, choose recipients, and send", routeId: "monetize-newsletters", cta: "New newsletter", target: "monetize-newsletter-new", done: grew("newslettersSent"), approval: "confirm" },
     ],
   },
   {
@@ -277,6 +290,22 @@ export const TASKS: TaskDef[] = [
       { id: "brand", title: "Update your logo and colors, then click Update & Publish", routeId: "pref-whitelabel", cta: "Customize appearance", target: "logo", done: changed("brandingHash"), approval: "confirm" },
       { id: "cover", title: "Edit the cover page (optional)", routeId: "pref-whitelabel-cover", cta: "Open cover page", done: visit("pref-whitelabel-cover"), optional: true },
     ],
+  },
+  {
+    id: "cover-page",
+    resumeLabel: "Continue editing my cover page",
+    name: "Edit your cover page",
+    summary: "It's the first thing visitors see on your website.",
+    triggers: ["edit my cover page", "prepare my cover page", "edit the cover page", "edit cover page", "fill my cover page", "fill in my cover page", "set up my cover page", "update my cover page", "customize my cover page", "my cover page"],
+    featureIds: ["cover-page"],
+    need: "account.admin",
+    steps: [
+      { id: "open", title: "Open White Label Site", routeId: "pref-whitelabel", cta: "Open White Label Site", target: "edit-cover", done: (c) => c.visited.includes("pref-whitelabel") || c.visited.includes("pref-whitelabel-cover") },
+      { id: "editor", title: "Click Edit Cover Page", routeId: "pref-whitelabel-cover", cta: "Open the Cover Page editor", done: visit("pref-whitelabel-cover") },
+      { id: "fill", title: "Fill in the fields (I can prepare them for you)", routeId: "pref-whitelabel-cover", cta: "Back to the editor", target: "cover-title", done: (c) => c.now.coverApplied || c.now.coverMetaHash !== c.base.coverMetaHash },
+      { id: "publish", title: "Review everything, then click Update & Publish", routeId: "pref-whitelabel-cover", cta: "Review and publish", target: "cover-publish", done: changed("coverPublishedAt"), approval: "confirm" },
+    ],
+    next: { label: "Customize my branding", taskId: "white-label" },
   },
   {
     id: "link-in-bio",
@@ -413,6 +442,87 @@ export const TASKS: TaskDef[] = [
       { id: "domain", title: "Domain information", routeId: "wls-setup-domain", cta: "Open setup", done: (c) => c.visited.includes("wls-setup-dns") || c.now.whiteLabel === "active" },
       { id: "dns", title: "Add the DNS records and verify", routeId: "wls-setup-dns", cta: "Open DNS step", done: (c) => c.visited.includes("wls-setup-provisioning") || c.now.whiteLabel === "active" },
       { id: "done", title: "TopFan sets up your site", routeId: "wls-setup-provisioning", cta: "Open setup", done: (c) => c.visited.includes("wls-setup-complete") || c.now.whiteLabel === "active" },
+    ],
+  },
+  {
+    id: "sell-experience",
+    resumeLabel: "Continue setting up your experience",
+    name: "Offer an experience",
+    summary: "Sell personal time with you: shoutouts, personalized videos, video calls or 1:1 sessions.",
+    triggers: ["sell an experience", "offer an experience", "add an experience", "personal coaching", "offer coaching", "coaching sessions", "one on one session", "1 1 session", "sell video calls", "sell shoutouts", "meet and greet"],
+    featureIds: ["experiences"],
+    need: "content.write",
+    steps: [
+      { id: "open", title: "Open Experiences", routeId: "monetize-experience", cta: "Open Experiences", done: visit("monetize-experience") },
+      { id: "create", title: "Add the experience: type of experience, title, description and price", routeId: "monetize-experience", cta: "Add an experience", hint: "For a 1:1 Video Call you can set a price for each call length.", target: "monetize-add-experience", done: grew("experiences"), approval: "confirm" },
+    ],
+    next: { label: "Announce it in a post", taskId: "create-post" },
+  },
+  {
+    id: "list-nft",
+    resumeLabel: "Continue adding your NFT",
+    name: "List an NFT",
+    summary: "Show an NFT you sell elsewhere on your TopFan store.",
+    triggers: ["list an nft", "add an nft", "sell an nft", "sell nfts", "add external nft"],
+    featureIds: ["nfts"],
+    need: "content.write",
+    steps: [
+      { id: "open", title: "Open NFTs", routeId: "monetize-nfts", cta: "Open NFTs", done: visit("monetize-nfts") },
+      { id: "create", title: "Click Add External NFTs and fill in its details", routeId: "monetize-nfts", cta: "Add an NFT", hint: "TopFan lists NFTs sold elsewhere. Your MetaMask connection is in Preferences › NFT Wallet.", target: "monetize-nft-add", done: grew("nfts"), approval: "confirm" },
+    ],
+  },
+  {
+    id: "vip-offer",
+    resumeLabel: "Continue setting up your VIP offer",
+    name: "Create a VIP offer",
+    summary: "A special deal or perk for your fans, free or unlocked with a purchase or subscription.",
+    triggers: ["create a vip offer", "add a vip offer", "vip offer", "vip deal", "exclusive deal", "special offer for fans", "perk for my fans"],
+    featureIds: ["vip-offers"],
+    need: "content.write",
+    steps: [
+      { id: "open", title: "Open VIP Offers", routeId: "monetize-vip-offers", cta: "Open VIP Offers", done: visit("monetize-vip-offers") },
+      { id: "create", title: "Add the offer: title, description, code, lock options and end date", routeId: "monetize-vip-offers", cta: "Add an offer", hint: "Lock options decide who can unlock it: free, an individual purchase, or a subscription.", target: "monetize-vip-add", done: grew("vipOffers"), approval: "confirm" },
+    ],
+    next: { label: "Announce it in a post", taskId: "create-post" },
+  },
+  {
+    id: "create-portfolio",
+    resumeLabel: "Continue your portfolio",
+    name: "Create a portfolio",
+    summary: "Group your videos or photos into a portfolio fans can browse.",
+    triggers: ["create a portfolio", "add a portfolio", "new portfolio", "showcase my work", "video series", "make money from my videos", "earn from my videos", "monetize my videos"],
+    featureIds: ["portfolios"],
+    need: "content.write",
+    steps: [
+      { id: "open", title: "Open Portfolios", routeId: "monetize-portfolio", cta: "Open Portfolios", done: visit("monetize-portfolio") },
+      { id: "create", title: "Add a portfolio: title, type (video or photo) and a banner", routeId: "monetize-portfolio", cta: "Add a portfolio", hint: "Then add series and episodes to it.", target: "monetize-portfolio-add", done: grew("portfolios"), approval: "confirm" },
+    ],
+  },
+  {
+    id: "discount-code",
+    resumeLabel: "Continue your discount code",
+    name: "Create a discount code",
+    summary: "A code that takes money off your plans or products, to encourage more sales.",
+    triggers: ["create a discount code", "add a discount code", "discount code", "promo code", "coupon", "run a sale", "encourage more sales", "offers to encourage"],
+    featureIds: ["discount-codes"],
+    need: "content.write",
+    steps: [
+      { id: "open", title: "Open Discount Codes", routeId: "monetize-discount-codes", cta: "Open Discount Codes", done: visit("monetize-discount-codes") },
+      { id: "create", title: "Add a code: coupon code, what it applies to, discount type, amount and end date", routeId: "monetize-discount-codes", cta: "Add a code", target: "monetize-discount-new", done: grew("discountCodes"), approval: "confirm" },
+    ],
+    next: { label: "Tell fans in a post", taskId: "create-post" },
+  },
+  {
+    id: "brand-ads",
+    resumeLabel: "Continue reviewing brands",
+    name: "Earn from brand ads",
+    summary: "Brands pay to advertise with you. You choose which ones appear.",
+    triggers: ["brand collaborations", "collaborate with brands", "work with brands", "brand deals", "brand partnerships", "sponsorships", "get sponsors", "earn from ads", "earn from advertising", "review brands"],
+    featureIds: ["advertisements"],
+    need: "content.write",
+    steps: [
+      { id: "open", title: "Open Advertisements", routeId: "monetize-advertisements", cta: "Open Advertisements", done: visit("monetize-advertisements") },
+      { id: "review", title: "Open New Brands to Review and approve or decline each brand, or choose brands and click Save", routeId: "monetize-advertisements", cta: "Review brands", hint: "Nothing is shown to fans until you approve or enable a brand.", target: "monetize-ads-cat-new-brands-to-review", done: (c) => c.now.adBrandsToReview < c.base.adBrandsToReview || c.now.adPrefsHash !== c.base.adPrefsHash, approval: "confirm" },
     ],
   },
 ];

@@ -13,9 +13,9 @@ vip-offers · portfolio · discount-codes · advertisements (`/monetize` redirec
 |---|---|
 | monetize-plan-add / -plan-edit | /monetize/subscription/add-plan, /edit-plan/:planId |
 | monetize-subscribers | /monetize/subscription/subscribers/:planId |
-| monetize-newsletter-new / -edit | /monetize/newsletters/new-newsletter, /edit-newsletter/:newsletterId |
+| monetize-newsletter-new / -edit | /monetize/newsletters/add, /edit/:newsletterId |
 | monetize-newsletter-recipients | /monetize/newsletters/recipients |
-| monetize-experience-add / -edit | /monetize/experience/add-experience, /edit-experience/:productId |
+| monetize-experience-add / -edit | /monetize/experience/create-experience, /edit-experience/:productId |
 | monetize-course-add / -edit | /monetize/courses/add-course, /edit-course/:productId |
 | monetize-downloadable-add / -edit | /monetize/downloadable/add-downloadable, /edit-downloadable/:productId |
 | monetize-merch-add / -edit | /monetize/merchandise/add-external-merchandise, /edit-merchandise/:productId |
@@ -91,3 +91,23 @@ share circle, "Current Price" with the amount, an option group per attribute (e.
 chips where the first is selected (red fill) and the rest are outlined, a quantity stepper (− 1 +), and a
 200px "BUY NOW" pill. BUY NOW opens a Confirm checkout and records a simulated order. For 1:1 call experiences the
 CTA is "Schedule", which opens the inferred booking page (pick a duration, date and time; the request is recorded).
+
+## Reference pack alignment (Experiences, Newsletters)
+Source: creator-platform-screens (experience-01…16, newsletter-01…14). Routes now follow it:
+`/monetize/experience/create-experience`, `/monetize/newsletters/add`, `/monetize/newsletters/edit/:newsletterId`.
+- Experience form: `forms/ExperienceForm.tsx`. The 5 reference types are labels over the stored values
+  (`1:1 Video Call`, `In Person Session`, `Personalized Video`, `Social Media Interaction`, `Other`), which bio
+  links and the assistant read. Calendar types show the scheduling block (Mon–Fri, 9:00 AM–5:00 PM, 12 Hours,
+  15 Days) and store `durations` + `schedule`; In-Person adds a required `address`. Restrictions store
+  `restrict` (plans, NFT contracts); `locked` = Subscribers restriction. Preview image is required.
+- Google/Outlook Calendar: no OAuth here. The buttons say "isn't available in this demo… nothing was connected".
+- DISABLE/ENABLE: experiences = published on the Store; newsletters = shown on the public Newsletters page.
+- Newsletter editor: contentEditable + execCommand (emoji, B/I/U, size, lists, link, code, local image/video/audio,
+  divider, undo/redo). AI image and "feature an item" tools are not shown (no flow behind them).
+  `body` keeps plain text; `bodyHtml` keeps formatting.
+- Pricing options: free plans, free NFT contracts, individual price (+ purchase restriction), Loyalty Points
+  (`points`; the reference showed no field, this mirrors the post Lock dialog). Lock is derived for compatibility.
+- PUBLISH NOW → confirmation with Send To (audience). Chevron → Schedule / Save as Draft. Sending stays refused by
+  the store unless outbound email is verified; the form explains this up front.
+- Draft autosave: Edit + Draft only, after a change, through `saveNewsletterDraft` (content.write). Failures shown.
+- Recipients: dialog from the list, DOWNLOAD CSV builds a local file from the fictional mock recipients.

@@ -40,7 +40,7 @@ const initial: FinderState = {
   rounds: 0,
   checks: {},
   selected: null,
-  registrarId: "namecheap",
+  registrarId: "godaddy",
   handoff: null,
   purchased: null,
   requested: false,

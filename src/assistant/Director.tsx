@@ -18,17 +18,31 @@ import { useDomainFinder } from "../state/domainFinderStore";
 import { useQuest } from "../state/questStore";
 import { isOnboarding, siteAddress, usePlatform } from "../state/platformStore";
 import { usePlatformAgent } from "./platform/PlatformAgent";
+import { POST_SETUP_HEADING, POST_SETUP_LINE, PostSetupActions } from "./platform/CoverAssistant";
 import { useRouter } from "../app/router";
 import { useRecords } from "../platform/wls/DnsRecordsStep";
 import { CopyLine } from "./AssistantPanel";
 import { DraftCard } from "./Extras";
-import { SimulatedConsent } from "./SimulatedConsent";
+import { GoDaddySetup } from "./GoDaddySetup";
+import { DNS_COPY } from "./dnsCopy";
 
 const ROOT_DOMAIN = /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.[a-z0-9-]{1,63})*\.[a-z]{2,}$/i;
 const firstName = creator.name.split(" ")[0];
 
+/**
+ * Typed or spoken "prepare it for me" / "walk me through it" on the DNS step, so the choice stays
+ * available after its buttons were used. Set while the Director is mounted (Account Setup only).
+ */
+let dnsRequest: ((text: string) => boolean) | null = null;
+export const handleDnsRequest = (text: string) => dnsRequest?.(text) ?? false;
+const PREPARE_RE = /\b(prepare it( for me)?|do it for me|set (it|this|them|the dns|the records) up for me|handle (it|the dns|the dns setup)( for me)?|add (them|the records) for me|connect (it )?for me)\b/i;
+const WALK_RE = /\b(walk me through( it)?|show me how|step by step|do it myself|manual(ly)?)\b/i;
+
 export function AssistantDirector() {
-  const { state, patch, go } = usePlatform();
+  const { state, patch } = usePlatform();
+  // Chat actions outlive the render that created them: read the current setup state through this.
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const a = useAssistant();
   const agent = usePlatformAgent();
   const { navigate } = useRouter();
@@ -36,6 +50,7 @@ export function AssistantDirector() {
   const quest = useQuest();
   const records = useRecords();
   const [consentOpen, setConsentOpen] = useState(false);
+  const [consentStart, setConsentStart] = useState<"connect" | "review">("connect");
   // Open suggestion cards, so they can be settled when the creator acts in the form instead.
   const cards = useRef<Record<string, string | null>>({});
   // Fresh state for async callbacks.
@@ -65,6 +80,19 @@ export function AssistantDirector() {
       ))}
     </>
   );
+
+  // Keep the DNS choice reachable by text or voice (buttons in older messages are single-use).
+  useEffect(() => {
+    dnsRequest = (text) => {
+      if (stateRef.current.screen !== "step2" || stateRef.current.recordsVerified) return false;
+      if (PREPARE_RE.test(text) && stateRef.current.provider === "GoDaddy") return prepareRef.current(), true;
+      if (WALK_RE.test(text)) return guideRef.current(), true;
+      return false;
+    };
+    return () => {
+      dnsRequest = null;
+    };
+  }, []);
 
   /* ================= Welcome ================= */
   // Waits for the first-time intro to finish (or be skipped). If the creator already met the mascot in
@@ -293,17 +321,38 @@ export function AssistantDirector() {
   useEffect(() => {
     if (state.screen !== "step2" || state.recordsVerified) return;
     a.once("step2", () => {
+      // Back after a refresh: an approved setup that never finished can't be confirmed; a finished one is kept.
+      if (state.dnsSetup === "processing") {
+        patch({ dnsSetup: "idle" });
+        cards.current.step2 = a.suggest({
+          status: "problem",
+          text: DNS_COPY.errors.updateFailed,
+          actions: [
+            { label: "Try again", variant: "primary", onClick: () => openSetup("connect") },
+            { label: DNS_COPY.entry.walk, variant: "outline", onClick: guideSteps },
+          ],
+        });
+        return;
+      }
+      if (state.dnsSetup === "prepared") {
+        a.say({ text: DNS_COPY.after.next });
+        a.highlight("verify");
+        return;
+      }
       cards.current.step2 = a.suggest({
         text: (
           <>
-            This part can get technical. Your domain needs 2 records so it points to your TopFan site. I can prepare the connection for
-            you, or walk you through it.
+            <b>{DNS_COPY.entry.title}</b>
+            <br />
+            {DNS_COPY.entry.body}
           </>
         ),
+        plain: `${DNS_COPY.entry.title} ${DNS_COPY.entry.body}`,
         details: recordList,
         actions: [
-          { label: "Prepare it for me", variant: "primary", onClick: prepareConnection },
-          { label: "Walk me through it", variant: "outline", onClick: guideSteps },
+          // The assisted setup is GoDaddy only; other providers get the walkthrough.
+          ...(provider === "GoDaddy" ? [{ label: DNS_COPY.entry.prepare, variant: "primary" as const, onClick: prepareConnection }] : []),
+          { label: DNS_COPY.entry.walk, variant: provider === "GoDaddy" ? ("outline" as const) : ("primary" as const), onClick: guideSteps },
         ],
       });
     });
@@ -326,17 +375,20 @@ export function AssistantDirector() {
     if (state.verifyAttempts > 0) settle("step2");
   }, [state.verifyAttempts]);
 
+  function openSetup(start: "connect" | "review") {
+    setConsentStart(start);
+    setConsentOpen(true);
+  }
+
   function prepareConnection() {
     cards.current.step2 = null;
-    a.say({
-      text: (
-        <>
-          I'll add 2 records in your {provider} account so your site works at <b>{address}</b>. You'll sign in at {provider} yourself. TopFan
-          only adds 2 records and can't see your password.
-        </>
-      ),
-    });
-    setTimeout(() => setConsentOpen(true), 500);
+    // Never prepare twice: a finished setup goes straight to verification.
+    if (stateRef.current.dnsSetup === "prepared" || stateRef.current.dnsSetup === "applied") {
+      a.say({ text: DNS_COPY.after.already });
+      a.highlight("verify");
+      return;
+    }
+    openSetup("connect");
   }
 
   function guideSteps() {
@@ -370,56 +422,48 @@ export function AssistantDirector() {
         </ol>
       ),
       details: `${provider} adds “.${domainName}” to the name for you, so type only the part shown above.`,
+      // The assisted setup stays one click away (GoDaddy only; not once it's prepared).
+      actions:
+        provider === "GoDaddy" && stateRef.current.dnsSetup === "idle"
+          ? [{ label: DNS_COPY.entry.prepare, variant: "outline", onClick: prepareConnection }]
+          : undefined,
     });
   }
 
-  const connect = () => {
-    setConsentOpen(false);
-    a.userSays("Connect");
-    a.run(
-      `Adding 2 records at ${provider}…`,
-      2500,
-      () => {
-        patch({ recordsVerified: true });
-        a.say({
-          status: "done",
-          text: (
-            <>
-              2 records added at {provider}. Next step: <b>Verify &amp; Continue</b>.
-            </>
-          ),
-          details: recordList,
-          actions: [
-            {
-              label: "Undo",
-              variant: "text",
-              onClick: () => {
-                patch({ recordsVerified: false });
-                a.say({ text: `Undone. I removed the 2 records at ${provider} (simulated).` });
-              },
-            },
-          ],
-        });
-        a.highlight("verify");
-      },
-      () => a.say({ text: `Stopped. Nothing was changed at ${provider}.` }),
-    );
-  };
+  const prepareRef = useRef(prepareConnection);
+  prepareRef.current = prepareConnection;
+  const guideRef = useRef(guideSteps);
+  guideRef.current = guideSteps;
 
   const cancelConnect = () => {
     setConsentOpen(false);
+    // Cancelled while still processing can't happen (no close control); anything earlier changed nothing.
     a.say({
-      text: `No problem. Nothing was changed at ${provider}.`,
+      text: DNS_COPY.errors.cancelled,
       actions: [
-        { label: "Try again", variant: "primary", onClick: () => setConsentOpen(true) },
-        { label: "Walk me through it", variant: "text", onClick: guideSteps },
+        { label: "Try again", variant: "primary", onClick: () => openSetup("connect") },
+        { label: DNS_COPY.entry.walk, variant: "text", onClick: guideSteps },
       ],
     });
+  };
+
+  const setupDone = () => {
+    setConsentOpen(false);
+    a.say({ status: "done", text: DNS_COPY.after.done, details: recordList });
+    a.say({ text: DNS_COPY.after.next });
+    a.highlight("verify");
   };
 
   // Verification failed: offer help (replaces the generic modal while the panel is open).
   useEffect(() => {
     if (state.screen !== "step2" || state.verifyAttempts === 0 || state.recordsVerified) return;
+    // After the simulated setup, the only demo failure is "not visible yet" (?dnsFixture=propagation-pending).
+    if (state.dnsSetup === "prepared") {
+      a.once(`verify-pending-${state.verifyAttempts}`, () =>
+        a.say({ status: "problem", text: DNS_COPY.errors.pending, details: "Simulated check: deterministic demo result, no real DNS lookup." }),
+      );
+      return;
+    }
     a.once(`verify-fail-${state.verifyAttempts}`, () =>
       a.say({
         status: "problem",
@@ -484,7 +528,7 @@ export function AssistantDirector() {
         status: "done",
         text: (
           <>
-            Your domain is connected. Your website is being prepared at <b>{address}</b>. This can take up to 10 minutes.
+            {DNS_COPY.verified} Your website is being prepared at <b>{address}</b>. This can take up to 10 minutes.
             <br />
             <br />
             {temporaryAddressNote}
@@ -543,11 +587,13 @@ export function AssistantDirector() {
       // Not forced open: if the panel is collapsed this only adds an unread badge.
       a.say({
         status: "done",
-        text: "Your website is ready! You can open it now, or I can help you personalize your branding and prepare your first content.",
-        actions: [
-          { label: "Go to my site", variant: "primary", onClick: () => go("manage") },
-          ...(a.draftPost ? [] : [{ label: "Draft my first post", variant: "outline" as const, onClick: draftPost }]),
-        ],
+        text: (
+          <>
+            <b>{POST_SETUP_HEADING}</b> {POST_SETUP_LINE}
+          </>
+        ),
+        plain: `${POST_SETUP_HEADING} ${POST_SETUP_LINE}`,
+        body: <PostSetupActions />,
       }),
     );
   }, [state.screen, state.provisionDone]);
@@ -571,13 +617,20 @@ export function AssistantDirector() {
   }, [onboarding]);
 
   return (
-    <SimulatedConsent
+    <GoDaddySetup
       open={consentOpen}
-      provider={provider}
+      startAt={consentStart}
       domain={domainName}
-      records={records}
-      onConnect={connect}
+      records={records.map((r) => ({ type: "CNAME", ...r }))}
       onCancel={cancelConnect}
+      onApprove={() => patch({ dnsSetup: "processing" })}
+      onPrepared={() => patch({ dnsSetup: "prepared" })}
+      onFailed={() => patch({ dnsSetup: "idle" })}
+      onDone={setupDone}
+      onManual={() => {
+        setConsentOpen(false);
+        guideSteps();
+      }}
     />
   );
 }

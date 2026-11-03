@@ -4,16 +4,18 @@
  * unlabeled Disable/Enable control (assumed to publish/unpublish: inferred, see NOTES open questions).
  * Create = content.write. Changing an existing item's price = Confirm + finance.write.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useRouter } from "../../../app/router";
 import { pathFor } from "../../../app/routeCatalog";
-import { useData } from "../../../store/store";
+import { act, getData, useData } from "../../../store/store";
+import { itemById, linkSaved, syncFromScreen } from "../../../store/slices/content";
 import { addProduct, money, setProductPrice, updateProduct, type Product, type ProductKind } from "../../../store/slices/monetize";
 import { Select, Toggle } from "../../../platform/ui/controls";
 import type { PageProps } from "../../types";
 import { ConfirmModal, Field, FilePick, FormPage, Pill, TextArea, TextInput, useRun } from "../ui";
 import { Missing } from "./PlanForm";
+import { ExperienceForm } from "./ExperienceForm";
 
 const ROUTE_KIND: Record<string, ProductKind> = {
   "monetize-experience-add": "experience", "monetize-experience-edit": "experience",
@@ -32,32 +34,40 @@ const TITLES: Record<ProductKind, [string, string]> = {
   merchandise: ["Add External Merchandise", "Edit Merchandise"],
   nft: ["Add External NFT", "Edit External NFT"],
 };
+/** Stored experience type values (labels live in ExperienceForm's EXPERIENCE_TYPE_OPTIONS). */
 export const EXPERIENCE_TYPES = ["1:1 Video Call", "Personalized Video", "Social Media Interaction", "In Person Session", "Other"];
 
-export function ProductFormPage({ route, params }: PageProps) {
+export function ProductFormPage({ route, params, query }: PageProps) {
   const kind = ROUTE_KIND[route.id];
   const p = useData((d) => d.monetize.products.find((x) => x.id === params.productId && x.kind === kind));
   if (route.id.endsWith("-edit") && !p) return <Missing routeId={route.id} what="Item" back={TAB[kind]} />;
-  return <ProductForm routeId={route.id} kind={kind} p={p ?? null} key={p?.id ?? "new"} />;
+  // inferred (assistant hand-off): ?work=<id> opens the experience the assistant prepared (saved disabled until the creator enables it).
+  const workId = kind === "experience" && !p ? query.get("work") ?? undefined : undefined;
+  // Experiences use the reference layout (forms/ExperienceForm.tsx); same ?work= adapter, testids and write paths.
+  if (kind === "experience") return <ExperienceForm routeId={route.id} p={p ?? null} workId={workId} key={`${p?.id ?? "new"}-${workId ?? ""}`} />;
+  return <ProductForm routeId={route.id} kind={kind} p={p ?? null} workId={workId} key={`${p?.id ?? "new"}-${workId ?? ""}`} />;
 }
 
 type Dur = { label: string; price: string };
 
-function ProductForm({ routeId, kind, p }: { routeId: string; kind: ProductKind; p: Product | null }) {
+function ProductForm({ routeId, kind, p, workId }: { routeId: string; kind: ProductKind; p: Product | null; workId?: string }) {
   const { navigate } = useRouter();
   const run = useRun();
   const shopify = useData((d) => d.monetize.shopify.connected);
+  const work = workId ? itemById(getData(), workId) : null;
+  const we = work?.experience;
   const [f, setF] = useState({
-    title: p?.title ?? "",
-    description: p?.description ?? "",
-    price: p?.price != null ? String(p.price) : "",
-    experienceType: p?.experienceType ?? (null as string | null),
+    title: p?.title ?? we?.title ?? "",
+    description: p?.description ?? we?.description ?? "",
+    price: p?.price != null ? String(p.price) : we?.price != null ? String(we.price) : "",
+    experienceType: p?.experienceType ?? we?.experienceType ?? (null as string | null),
     externalUrl: p?.externalUrl ?? "",
     fileName: p?.fileName ?? "",
-    imageName: "",
-    image: p?.image ?? null,
+    imageName: we && work?.media ? work.media.label : "",
+    image: p?.image ?? (we ? work?.media?.key ?? null : null),
     locked: p?.locked ?? false,
-    published: p?.published ?? true,
+    // Prepared by the assistant: starts disabled, so nothing goes live until the creator enables it.
+    published: p?.published ?? (we ? false : true),
     options: p?.options?.map((o) => `${o.name}: ${o.values.join(", ")}`).join("\n") ?? "",
   });
   const [durs, setDurs] = useState<Dur[]>(p?.durations?.map((d) => ({ label: d.label, price: String(d.price) })) ?? [{ label: "15 Minutes", price: "" }]);
@@ -95,6 +105,17 @@ function ProductForm({ routeId, kind, p }: { routeId: string; kind: ProductKind;
     published: f.published,
     options: kind === "merchandise" && options.length ? options : p?.options,
   };
+  // Keep the assistant's copy in step with what the creator types here.
+  useEffect(() => {
+    if (!workId || !we) return;
+    const t = setTimeout(() => {
+      const cur = itemById(getData(), workId)?.experience;
+      const price = Number(f.price) > 0 ? Number(f.price) : null;
+      if (cur && (cur.title !== f.title || cur.description !== f.description || (price && cur.price !== price)))
+        act("content.syncExperience", (d) => syncFromScreen(d, workId, { title: f.title, description: f.description, price }), { need: "content.write" });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [f.title, f.description, f.price]);
   const priceChanged = !!p && (p.price !== priceNum || JSON.stringify(p.durations ?? null) !== JSON.stringify(durations ?? p.durations ?? null));
 
   const save = () => {
@@ -103,7 +124,10 @@ function ProductForm({ routeId, kind, p }: { routeId: string; kind: ProductKind;
     if (!p) {
       const ok = run(
         `monetize.add${kind[0].toUpperCase()}${kind.slice(1)}`,
-        (d) => void addProduct(d, { kind, ...details, price: priceNum, durations, external, source: external ? "external" : "native", collection: kind === "merchandise" ? "Automated Collection" : undefined }),
+        (d) => {
+          const id = addProduct(d, { kind, ...details, price: priceNum, durations, external, source: external ? "external" : "native", collection: kind === "merchandise" ? "Automated Collection" : undefined });
+          if (workId && we) linkSaved(d, workId, { productId: id }, details.published ? "active" : "saved");
+        },
         "content.write",
         `${details.title} added to your Store`,
       );

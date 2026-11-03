@@ -818,5 +818,29 @@
   "h": 720,
   "poster": "/assets/videos/welcome-poster.webp",
   "duration": 8
+ },
+ "generated/training-cinematic": {
+  "src": "/assets/generated/training-cinematic.webp",
+  "alt": "Original illustration: mountain ridges at dusk with a red sun and a snowboard line (simulated AI image)",
+  "w": 1600,
+  "h": 1000
+ },
+ "generated/training-minimal": {
+  "src": "/assets/generated/training-minimal.webp",
+  "alt": "Original illustration: minimal line mountains with a red sun (simulated AI image)",
+  "w": 1600,
+  "h": 1000
+ },
+ "generated/training-dark": {
+  "src": "/assets/generated/training-dark.webp",
+  "alt": "Original illustration: darker mountain ridges with a dim red sun (simulated AI image)",
+  "w": 1600,
+  "h": 1000
+ },
+ "generated/training-wide": {
+  "src": "/assets/generated/training-wide.webp",
+  "alt": "Original illustration: wide mountain scene with open space on the left for text (simulated AI image)",
+  "w": 1920,
+  "h": 900
  }
 }

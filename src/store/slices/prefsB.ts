@@ -7,6 +7,10 @@
 import type { AppData } from "../store";
 import type { Delegate, Group, ID, OutboundEmail, TopicTag } from "../model";
 import { personAvatar } from "../../media";
+import { demoId } from "../../app/demo";
+import { Refused } from "../refused";
+import { failOnceIfAsked, validUrl } from "./bio";
+import { socialFixture, websiteFixture } from "../../config/coverSources";
 
 /* ------------------------------------------------------------------ types */
 
@@ -40,7 +44,31 @@ export interface LinkInBioState {
   customPalette: string[];
   theme: string | null;
   actions: BioAction[];
+  /** false = never saved: the view shows the "Create Your Link in Bio" empty state. Missing = true (older saves). */
+  created?: boolean;
+  /** Inline-edited bio on the page card. Missing = the creator's profile bio. */
+  bio?: string;
+  /** Social Media Links dialog: key → URL (empty / missing = not shown). Missing = LIB_DEFAULT_SOCIALS. */
+  socials?: Partial<Record<LibSocialKey, string>>;
 }
+
+/** Social Media Links dialog rows, in the captured order. */
+export const LIB_SOCIALS = [
+  { key: "x", label: "Twitter / X" },
+  { key: "facebook", label: "Facebook" },
+  { key: "instagram", label: "Instagram" },
+  { key: "tiktok", label: "TikTok" },
+  { key: "snapchat", label: "Snapchat" },
+  { key: "linkedin", label: "LinkedIn" },
+  { key: "spotify", label: "Spotify" },
+  { key: "website", label: "Website" },
+] as const;
+export type LibSocialKey = (typeof LIB_SOCIALS)[number]["key"];
+/** Prefilled from the social links and website given during setup (the same fictional fixture the assistant uses). */
+export const LIB_DEFAULT_SOCIALS: Partial<Record<LibSocialKey, string>> = {
+  ...Object.fromEntries(socialFixture.map((s) => [s.id, s.url])),
+  website: websiteFixture.url,
+};
 
 export interface EarnActivity { id: ID; label: string; points: number; active: boolean }
 export interface PointsBundle { id: ID; points: number; bonus: number; price: number; active: boolean }
@@ -104,6 +132,14 @@ export const LIB_THEMES = [
   "POLYGONS/BLUE", "POLYGONS/GREEN", "POLYGONS/WHITE", "POLYGONS/GRAY",
 ];
 
+/** Demo 2 fixture: a generic label, a duplicate, and a link to an offering that no longer exists. */
+const LIB_D2_LINKS: BioAction[] = [
+  { id: "ba-d2-click", kind: "general", title: "Click Here", url: "https://fans.ajwhite.com/ajwhite/store/course-learn" },
+  { id: "ba-d2-ig", kind: "external", title: "Instagram", url: "https://instagram.com/ajwhite" },
+  { id: "ba-d2-ig2", kind: "external", title: "IG", url: "https://www.instagram.com/ajwhite/" },
+  { id: "ba-d2-camp", kind: "general", title: "Summer Park Camp 2026", url: "https://fans.ajwhite.com/ajwhite/store/exp-summer-camp" },
+];
+
 /** NEW ACTION dropdown items (52e) → the kind of card they add. */
 export const LIB_NEW_ACTIONS: { label: string; kind: BioAction["kind"] }[] = [
   { label: "+ Add a General Action Item", kind: "general" },
@@ -148,6 +184,15 @@ export function exampleOutboundRecords(domain: string): OutboundEmail["records"]
 
 const badge = (id: string, icon: string, label: string, points: number | null, active: boolean): Badge => ({ id, icon, label, points, active });
 
+/** `?resetMock=1&bioFixture=empty`: start with a Link in Bio that was never created (empty state + GET STARTED). */
+const libEmptyFixture = (() => {
+  try {
+    return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("bioFixture") === "empty";
+  } catch {
+    return false;
+  }
+})();
+
 export const initialPrefsB: PrefsBState = {
   groups: [], // spec: no Groups (empty state)
   topicTags: [], // spec: no Topic Tags (empty state)
@@ -176,7 +221,7 @@ export const initialPrefsB: PrefsBState = {
   },
   outboundFlow: { phase: "status", recordsAdded: false },
   groupRestrictions: { chatRoom: false, directMessages: false },
-  linkInBio: {
+  linkInBio: libEmptyFixture ? { enabled: true, includeReferral: false, palette: 0, customPalette: LIB_CUSTOM_PALETTE, theme: null, actions: [], created: false, socials: LIB_DEFAULT_SOCIALS } : {
     enabled: true,
     includeReferral: false,
     palette: 0,
@@ -186,7 +231,11 @@ export const initialPrefsB: PrefsBState = {
       { id: "ba1", kind: "welcome-video", title: "WELCOME VIDEO", text: "Hi everyone, welcome to my new fan community!" },
       { id: "ba2", kind: "store-item", title: "Hometown Hero", text: "All Mountain / Powder Snowboard. Make an impact on the mountain with a Hometown Hero that radiates unity, love, and community!", price: 799.95, image: "merchandise/home-mountain-hero" },
       { id: "ba3", kind: "fundraiser", title: "Fundraiser", text: "Help me get to the next season of competitions! Every gift goes toward travel, coaching and gear.", price: 1250 },
+      // AI-Assisted Content demo only: links a creator added by hand over time (fictional), for "Make my links better".
+      ...(demoId === "ai-content" ? LIB_D2_LINKS : []),
     ],
+    created: true,
+    socials: LIB_DEFAULT_SOCIALS,
   },
   gamification: {
     earnEnabled: true,
@@ -400,12 +449,21 @@ export function setLinkInBioEnabled(d: AppData, on: boolean) {
 export function setLinkInBioReferral(d: AppData, on: boolean) {
   d.prefsB.linkInBio.includeReferral = on;
 }
-/** SAVE CHANGES in edit mode: replaces palette, theme and the ordered action list. */
-export function saveLinkInBio(d: AppData, draft: Pick<LinkInBioState, "palette" | "customPalette" | "theme" | "actions">) {
+/** SAVE CHANGES in edit mode: replaces palette, theme, the ordered action list and (when given) bio + social links. */
+export function saveLinkInBio(d: AppData, draft: Pick<LinkInBioState, "palette" | "customPalette" | "theme" | "actions"> & Pick<LinkInBioState, "bio" | "socials">) {
+  // Fans would land on a broken page: refuse at the service, whoever asked.
+  const bad = draft.actions.find((a) => a.url && !validUrl(a.url));
+  if (bad) throw new Refused(`"${bad.title}" has an invalid link address. Fix it or remove that card, then save again.`);
+  const badSocial = LIB_SOCIALS.find((s) => draft.socials?.[s.key] && !validUrl(draft.socials[s.key]!));
+  if (badSocial) throw new Refused(`Your ${badSocial.label} link isn't a valid web address. Fix it in Social Media Links, then save again.`);
+  failOnceIfAsked();
   d.prefsB.linkInBio.palette = draft.palette;
   d.prefsB.linkInBio.customPalette = draft.customPalette;
   d.prefsB.linkInBio.theme = draft.theme;
   d.prefsB.linkInBio.actions = draft.actions;
+  if (draft.bio !== undefined) d.prefsB.linkInBio.bio = draft.bio;
+  if (draft.socials) d.prefsB.linkInBio.socials = draft.socials;
+  d.prefsB.linkInBio.created = true;
 }
 /** Build a new action card for the NEW ACTION menu (pure helper, no store write). */
 export function makeBioAction(kind: BioAction["kind"], title: string, extra: Partial<BioAction> = {}): BioAction {

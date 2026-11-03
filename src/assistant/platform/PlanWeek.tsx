@@ -3,12 +3,13 @@
  * answers pre-selected), sees the week as a plan, and approves it. Approving lets Autopilot draft the
  * posts; every draft is still reviewed, and nothing is published by the assistant.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Check, Play, Plus, RefreshCw, X } from "lucide-react";
 import { useData } from "../../store/store";
 import { ImageSlot } from "../../platform/ui/surfaces";
 import { posterOf } from "../../media";
 import {
+  addPlanAsset,
   approvePlan,
   buildPlan,
   namedDay,
@@ -123,10 +124,11 @@ function Happening() {
           <Plus size={18} />
         </button>
       </div>
-      {!items.length && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {["Competing at ", "Traveling to ", "Filming ", "Launching "].map((s) => (
-            <button key={s} className={chip(false)} onClick={() => setLine(s)}>
+      {/* Starters stay available after each line, so adding the next one is as easy as the first. */}
+      {items.length < 6 && (
+        <div className="mt-2 flex flex-wrap gap-1.5" data-testid="ap-plan-starters">
+          {["Competing at ", "Traveling to ", "Filming ", "Launching ", "Training "].map((s) => (
+            <button key={s} className={chip(false)} onClick={() => (setLine(s), document.querySelector<HTMLInputElement>('[data-testid="ap-plan-line"]')?.focus())}>
               {s.trim()}…
             </button>
           ))}
@@ -260,7 +262,7 @@ function Media() {
   return (
     <>
       <h4 className="text-[15px] font-bold">Which photos and clips can I use?</h4>
-      <p className="mt-1 text-[13px] text-soft">From your media library. I'll only use what you pick; the other posts are text or polls.</p>
+      <p className="mt-1 text-[13px] text-soft">Pick from your media library or add a new photo or video. I'll only use what you pick; the other posts are text or polls.</p>
       <ul className="mt-3 grid grid-cols-2 gap-2">
         {assets.map((a) => {
           const on = a.approved && picked.includes(a.id);
@@ -273,7 +275,7 @@ function Media() {
                 onClick={() => toggle(a.id)}
                 className={`relative w-full overflow-hidden rounded-tile bg-bg text-left disabled:opacity-60 ${on ? "ring-2 ring-accent" : ""}`}
               >
-                <ImageSlot src={a.kind === "video" ? posterOf(a.src) : a.src} label={a.label} className="aspect-[4/3] w-full" />
+                <ImageSlot src={a.poster ?? (a.kind === "video" ? posterOf(a.src) : a.src)} label={a.label} className="aspect-[4/3] w-full" />
                 {a.kind === "video" && (
                   <span className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60" aria-hidden>
                     <Play size={11} className="ml-px fill-white" />
@@ -286,6 +288,9 @@ function Media() {
             </li>
           );
         })}
+        <li>
+          <AddMedia />
+        </li>
       </ul>
       <div className="mt-4">
         <button className={btnPrimary} data-testid="ap-plan-next" onClick={() => (run("planBuild", buildPlan), go("review"))}>
@@ -383,6 +388,83 @@ function Approved() {
         </button>
       </div>
       <p className="mt-2 text-[11px] text-muted">Demo: "Draft them now" skips the wait. In the product, each draft arrives the day before its post.</p>
+    </>
+  );
+}
+
+/** Read a file the creator picked into a local thumbnail (and, for video, a playable local URL). Never uploaded. */
+function readLocal(file: File): Promise<{ kind: "image" | "video"; src: string; poster: string }> {
+  const kind = file.type.startsWith("video/") ? "video" : "image";
+  const url = URL.createObjectURL(file);
+  // Draw a small still so the thumbnail survives a reload (the full file stays in this browser tab only).
+  const still = (el: HTMLImageElement | HTMLVideoElement, w: number, h: number) => {
+    const scale = Math.min(1, 640 / Math.max(w, h));
+    const c = document.createElement("canvas");
+    c.width = Math.round(w * scale);
+    c.height = Math.round(h * scale);
+    c.getContext("2d")!.drawImage(el, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.8);
+  };
+  return new Promise((resolve, reject) => {
+    if (kind === "image") {
+      const img = new Image();
+      img.onload = () => {
+        const poster = still(img, img.naturalWidth, img.naturalHeight);
+        URL.revokeObjectURL(url);
+        resolve({ kind, src: poster, poster });
+      };
+      img.onerror = reject;
+      img.src = url;
+    } else {
+      const v = document.createElement("video");
+      v.muted = true;
+      v.preload = "auto";
+      v.onloadeddata = () => (v.currentTime = Math.min(1, (v.duration || 0) / 2));
+      v.onseeked = () => resolve({ kind, src: url, poster: still(v, v.videoWidth, v.videoHeight) });
+      v.onerror = reject;
+      v.src = url;
+    }
+  });
+}
+
+/** Add a photo or video from the creator's device. It's picked for this week as soon as it's added. */
+function AddMedia() {
+  const ref = useRef<HTMLInputElement>(null);
+  const [state, setState] = useState<"idle" | "reading" | "failed">("idle");
+  const pick = async (file: File) => {
+    setState("reading");
+    try {
+      const f = await readLocal(file);
+      const name = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim().slice(0, 40);
+      const label = name ? name[0].toUpperCase() + name.slice(1) : f.kind === "video" ? "New clip" : "New photo";
+      run("planAddMedia", (d) => addPlanAsset(d, { label, ...f }));
+      setState("idle");
+    } catch {
+      setState("failed");
+    }
+  };
+  return (
+    <>
+      <button
+        data-testid="ap-plan-add-media"
+        disabled={state === "reading"}
+        onClick={() => ref.current?.click()}
+        className="flex h-full min-h-[150px] w-full flex-col items-center justify-center gap-1.5 rounded-tile border-2 border-dashed border-line px-3 text-center hover:border-accent"
+      >
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent">
+          <Plus size={16} />
+        </span>
+        <span className="text-[12px] font-bold">{state === "reading" ? "Adding…" : "Add photo or video"}</span>
+        <span className="text-[11px] text-soft">{state === "failed" ? "That file couldn't be read. Try a JPG, PNG, MP4 or MOV." : "From this device. Nothing is uploaded in this demo."}</span>
+      </button>
+      <input
+        ref={ref}
+        type="file"
+        hidden
+        accept="image/*,video/mp4,video/quicktime,video/webm"
+        data-testid="ap-plan-media-file"
+        onChange={(e) => (e.target.files?.[0] && pick(e.target.files[0]), (e.target.value = ""))}
+      />
     </>
   );
 }

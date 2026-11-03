@@ -31,6 +31,13 @@
   --border: rgba(255, 255, 255, 0.16);
   --backdrop: rgba(0, 0, 0, 0.75);
 
+  /* Assistant mascot (follows the account-setup theme below) */
+  --mascot-1: #a8070c;
+  --mascot-2: #d50c12;
+  --mascot-3: #ff2a2a;
+  --mascot-rim: rgba(255, 140, 140, 0.55);
+  --mascot-glow: 255, 30, 30;
+
   /* Typography */
   --font-sans: "Roboto", system-ui, sans-serif;
   --font-display: "Satoshi", "Roboto", sans-serif;      /* fan-site previews only */
@@ -71,4 +78,29 @@
 
 @media (max-width: 1360px) {
   :root { --assistant-w: 340px; }
+}
+
+/*
+ * Account setup (White Label Site setup: domain, DNS, provisioning, site ready) uses the live
+ * product's setup colors: teal accent, teal-to-cyan buttons with dark text (References/Account Setup).
+ * Set on <body> (not :root) so it wins over the white-label theme vars written inline on <html>.
+ * Once the site is created and the creator enters the platform, the red-and-black theme returns.
+ */
+body.setup-theme {
+  --configThemeColor: #12d2c6;
+  --configThemeColorRgb: 18 210 198;
+  --accent: #12d2c6;
+  --accent-tint: rgb(18 210 198 / 0.13);
+  --accent-tint-strong: rgb(18 210 198 / 0.2);
+  --configButtonTextColor: #062a28;
+  --setup-gradient: linear-gradient(90deg, #17dec1 0%, #09c6da 100%);
+  --mascot-1: #05706c;
+  --mascot-2: #0db5ae;
+  --mascot-3: #3ee8d6;
+  --mascot-rim: rgba(150, 255, 240, 0.55);
+  --mascot-glow: 18, 210, 198;
+}
+body.setup-theme .bg-accent {
+  background-image: var(--setup-gradient);
+  color: var(--configButtonTextColor);
 }

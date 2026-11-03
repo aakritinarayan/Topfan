@@ -4,7 +4,7 @@
 // set, otherwise demo mode. Usage: node tests/e2e/chat-corpus.mjs [--only platform|setup]  (dev server on :5173)
 import puppeteer from "../../node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js";
 const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : null;
-const BASE = "http://localhost:5173";
+const BASE = process.env.BASE_URL || "http://localhost:5173";
 const live = await fetch(`${BASE}/api/chat`).then((r) => r.json()).then((s) => s.configured).catch(() => false);
 const WAIT = live ? 15000 : 900;
 

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, type ReactNode } from "react";
 import { useRouter } from "../app/router";
 import { domain as demoDomain } from "../config/demo";
+import { storageKey } from "../app/demo";
 
 export type Screen = "step1" | "step2" | "provisioning" | "complete" | "manage" | "coverEditor" | "app";
 
@@ -30,6 +31,7 @@ export const onboardingScreens: Screen[] = ["step1", "step2", "provisioning", "c
 export const isOnboarding = (screen: Screen) => onboardingScreens.includes(screen);
 
 export type UrlPreference = "root_domain" | "subdomain";
+export type DnsSetup = "idle" | "processing" | "prepared" | "applied";
 
 export interface PlatformState {
   screen: Screen;
@@ -39,8 +41,14 @@ export interface PlatformState {
   urlPreference: UrlPreference;
   subdomain: string;
   verifyAttempts: number;
-  /** Simulated: both DNS records exist and are correct at the provider. */
+  /** Simulated: both DNS records exist and are correct at the provider (set by Verify & Continue). */
   recordsVerified: boolean;
+  /**
+   * The assistant's GoDaddy setup (simulated): processing = approved, not finished (a refresh here means
+   * it couldn't be confirmed) · prepared = the simulated setup finished · applied = the provider
+   * confirmed the records (only with a real integration; never set in this demo). Verified is separate.
+   */
+  dnsSetup: DnsSetup;
   /** Step 1 validation errors from the last Save attempt (shared so the assistant can explain them). */
   formErrors: Record<string, string>;
   /** When provisioning started (ms). Kept here so the countdown never restarts when the page remounts. */
@@ -58,6 +66,7 @@ export const initialPlatformState: PlatformState = {
   subdomain: "",
   verifyAttempts: 0,
   recordsVerified: false,
+  dnsSetup: "idle",
   formErrors: {},
   provisionStartedAt: null,
   provisionDone: false,
@@ -107,9 +116,24 @@ interface Ctx {
 
 const PlatformContext = createContext<Ctx | null>(null);
 
+/* Saved per browser (and per demo link) so a refresh mid-setup keeps the domain, records and DNS progress. */
+const KEY = storageKey("topfan-setup-v1");
+function loadSaved(): PlatformState {
+  try {
+    if (new URLSearchParams(window.location.search).get("resetMock") === "1") {
+      localStorage.removeItem(KEY);
+      return initialPlatformState;
+    }
+    const s = JSON.parse(localStorage.getItem(KEY) ?? "null") as Partial<PlatformState> | null;
+    return s && typeof s === "object" ? { ...initialPlatformState, ...s, formErrors: {} } : initialPlatformState;
+  } catch {
+    return initialPlatformState;
+  }
+}
+
 export function PlatformProvider({ children }: { children: ReactNode }) {
   const { path, navigate } = useRouter();
-  const [state, dispatch] = useReducer(reducer, initialPlatformState, (init) => {
+  const [state, dispatch] = useReducer(reducer, loadSaved(), (init) => {
     const legacy = new URLSearchParams(window.location.search).get("screen");
     const screen = legacy && legacy in SCREEN_PATH ? (legacy as Screen) : screenForPath(window.location.pathname.replace(/\/+$/, "") || "/");
     return screen === "step1" ? init : reducer(init, { type: "go", screen });
@@ -131,6 +155,13 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     },
     [navigate],
   );
+  useEffect(() => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch {
+      /* private mode: setup still works, it just isn't kept across a refresh */
+    }
+  }, [state]);
   const patch = useCallback((p: Partial<PlatformState>) => dispatch({ type: "patch", patch: p }), []);
   const reset = useCallback(() => dispatch({ type: "reset" }), []);
   return <PlatformContext.Provider value={{ state, go, patch, reset }}>{children}</PlatformContext.Provider>;

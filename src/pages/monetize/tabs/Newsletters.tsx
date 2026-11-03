@@ -8,6 +8,7 @@ import { deleteNewsletter, duplicateNewsletter, setNewslettersOnProfile, type Ne
 import { Avatar, Modal } from "../../../platform/ui/surfaces";
 import type { PageProps } from "../../types";
 import { BlackCircle, ConfirmModal, DisplayToggle, MiniSelect, MonetizeFrame, Pill, SectionHeader, StatusChip, TableCard, td, th, useRun } from "../ui";
+import { NL_BODY, RecipientsDialog, safeHtml } from "../forms/NewsletterForm";
 
 const pct = (n: number, of: number) => (of ? `${n} (${Math.round((n / of) * 10000) / 100}%)` : String(n));
 
@@ -18,6 +19,7 @@ export function NewslettersTab({ route }: PageProps) {
   const [filter, setFilter] = useState("All");
   const [preview, setPreview] = useState<Newsletter | null>(null);
   const [del, setDel] = useState<Newsletter | null>(null);
+  const [showRecipients, setShowRecipients] = useState(false);
   const { navigate } = useRouter();
   const run = useRun();
   const rows = filter === "All" ? list : list.filter((n) => n.status === filter);
@@ -34,7 +36,7 @@ export function NewslettersTab({ route }: PageProps) {
       <div className="mt-[20px] flex items-center justify-between">
         <MiniSelect label="Filter by status" testid="monetize-newsletters-filter" value={filter} options={["All", "Sent", "Draft", "Scheduled"]} onChange={setFilter} />
         <div className="flex gap-[10px]">
-          <Pill data-testid="monetize-newsletter-recipients" onClick={() => navigate(pathFor("monetize-newsletter-recipients"))}>
+          <Pill data-testid="monetize-newsletter-recipients" onClick={() => setShowRecipients(true)}>
             View Newsletter Recipients ({recipients})
           </Pill>
           <Pill data-testid="monetize-newsletter-new" icon={<Plus size={18} strokeWidth={2.5} />} onClick={() => navigate(pathFor("monetize-newsletter-new"))}>
@@ -46,13 +48,13 @@ export function NewslettersTab({ route }: PageProps) {
         <table className="w-full table-fixed" data-testid="monetize-newsletters-table">
           <thead>
             <tr>
-              <th className={`${th} w-[200px]`}>Newsletter Title</th>
-              <th className={`${th} w-[131px]`}>Status</th>
-              <th className={`${th} w-[87px]`}>Preview</th>
-              <th className={`${th} w-[88px]`}>Sent</th>
-              <th className={`${th} w-[131px]`}>Opened</th>
-              <th className={`${th} w-[131px]`}>Unlocked</th>
-              <th className={th}>Action</th>
+              <th className={th}>Newsletter Title</th>
+              <th className={`${th} w-[13%]`}>Status</th>
+              <th className={`${th} w-[10%]`}>Preview</th>
+              <th className={`${th} w-[8%]`}>Sent</th>
+              <th className={`${th} w-[14%]`}>Opened</th>
+              <th className={`${th} w-[14%]`}>Unlocked</th>
+              <th className={`${th} w-[84px]`}>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -73,14 +75,14 @@ export function NewslettersTab({ route }: PageProps) {
                   </button>
                 </td>
                 <td className={td}>
-                  <button type="button" className="text-accent hover:underline" onClick={() => navigate(pathFor("monetize-newsletter-recipients"))}>
+                  <button type="button" aria-label={`${n.sent} sent: view recipients`} className="text-accent hover:underline" onClick={() => setShowRecipients(true)}>
                     {n.sent}
                   </button>
                 </td>
                 <td className={td}>{pct(n.opened, n.sent)}</td>
                 <td className={td}>{pct(n.unlocked, n.sent)}</td>
                 <td className={td}>
-                  <div className="flex gap-[8px]">
+                  <div className="grid w-[72px] grid-cols-2 gap-[8px]">
                     <BlackCircle label="Edit" data-testid={`monetize-newsletter-edit-${n.id}`} onClick={() => navigate(pathFor("monetize-newsletter-edit", { newsletterId: n.id }))}>
                       <Pencil size={12} fill="currentColor" />
                     </BlackCircle>
@@ -106,16 +108,20 @@ export function NewslettersTab({ route }: PageProps) {
         </table>
       </TableCard>
 
-      <Modal open={!!preview} onClose={() => setPreview(null)} title="Newsletter Preview" width={720}>
-        <div data-testid="modal-monetize-newsletter-preview">
-          <h3 className="text-[20px] font-bold">{preview?.title || "(Untitled)"}</h3>
-          <p className="mt-[6px] text-[13px] text-muted">
-            {preview?.status}
-            {preview?.sentAt ? ` · ${new Date(preview.sentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""} · {preview?.lock === "Free" ? "Free" : preview?.lock === "Subscribers" ? "Subscribers only" : "Pay to unlock"}
+      <Modal open={!!preview} onClose={() => setPreview(null)} title="Newsletter Preview" uppercaseTitle width={720}>
+        <div data-testid="modal-monetize-newsletter-preview" className="px-[20px] pb-[10px]">
+          <p className="text-[12px] text-soft" data-testid="monetize-newsletter-preview-saved">
+            Last Saved on: {preview ? new Date(preview.updatedAt ?? `${preview.createdAt}T12:00:00Z`).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : ""}
           </p>
-          <p className="mt-[16px] whitespace-pre-wrap text-[15px] leading-[22px]">{preview?.body || "This newsletter has no content yet."}</p>
+          {preview?.title && <h3 className="mt-[16px] text-[20px] font-bold">{preview.title}</h3>}
+          {preview?.bodyHtml ? (
+            <div className={`${NL_BODY} mt-[16px] text-[15px] leading-[22px]`} dangerouslySetInnerHTML={{ __html: safeHtml(preview.bodyHtml) }} />
+          ) : (
+            <p className="mt-[16px] whitespace-pre-wrap text-[15px] leading-[22px]">{preview?.body || "This newsletter has no content yet."}</p>
+          )}
         </div>
       </Modal>
+      <RecipientsDialog open={showRecipients} onClose={() => setShowRecipients(false)} />
       <ConfirmModal
         open={!!del}
         title="Delete Newsletter"

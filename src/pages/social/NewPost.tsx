@@ -9,17 +9,23 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ALargeSmall, Bold, CalendarDays, ChevronDown, ChevronRight, Clapperboard, Clock, Code, Coins, Gift, HandHeart, Headphones, Image as ImageIcon,
   ImagePlus, Italic, Link2, List, ListOrdered, Minus, Newspaper, Plus, Redo2, Smile, SquareChartGantt, SquarePlay, Tag, Type, Underline, Undo2,
-  UserPlus, Video, Volume2, X, ChartColumnBig, SquareCode,
+  UserPlus, Video, Volume2, X, ChartColumnBig, SquareCode, Trash2, ShoppingBag, FolderOpen, Rss, Ticket,
 } from "lucide-react";
 import type { PageProps } from "../types";
 import type { PostType } from "../../store/model";
 import { getData, useAct, useData, type AppData } from "../../store/store";
 import { draftById } from "../../store/slices/autopilot";
+import { itemById, linkSaved, lockModes, syncFromScreen, type LockMode } from "../../store/slices/content";
 import { publishPost, saveArticleDraft, type FundraiserLevel, type NewPostInput, type PostExtra } from "../../store/slices/social";
 import { INTERESTS } from "../../store/slices/prefsA";
 import { InfoIcon, Select } from "../../platform/ui/controls";
 import { useToast } from "../../platform/ui/toast";
+import { pathFor } from "../../app/routeCatalog";
+import { DEMO_CREATORS } from "../../app/profiles";
+import { creatorMedia } from "../../media";
 import { ConfirmDialog, RoundCheck, money, useGo } from "./shared";
+import type { AiResult } from "../../services/articleGen";
+import { AiDialog, CollabDialog, CustomGiftDialog, DatePopover, EmojiPanel, LockDialog, PickerDialog, Popover, TimeDialog, type LockDraft, type PickItem } from "./NewPostDialogs";
 
 type Icon = typeof SquarePlay;
 const TYPES: { id: PostType; label: string; icon: Icon }[] = [
@@ -42,13 +48,14 @@ const OPT_LABEL: Record<Opt, string> = {
   signIn: "Require account Sign In to access this post's content",
   sensitive: "This content could be considered sensitive by others.",
 };
-// inferred: info popover copy was not captured
+// Info tips (reference newpost-10…12): open on click, toggle, and close when another opens.
 const OPT_INFO: Record<Opt, string> = {
-  discovery: "Discovery Feed posts can be shown to people who don't follow you yet.",
-  discoveryReel: "Discovery Feed posts can be shown to people who don't follow you yet.",
-  signIn: "Only signed-in fans can open this post.",
-  sensitive: "Fans see a warning before the content is shown.",
+  discovery: "If you enable this option, this specific post will be viewable to all TopFan users in the Discovery Feed, even though your account is private.",
+  discoveryReel: "If you enable this option, this specific post will be viewable to all TopFan users in the Discovery Feed, even though your account is private.",
+  signIn: "When you require Sign In to access the content, guest users who arrive on it from a shared link will also be required to create an account before being able to access the content.",
+  sensitive: "It is your responsibility as a creator to determine if a piece of content could offend or upset others. If you check this option, users see a warning over the content and choose whether to view it.",
 };
+const INTERESTS_INFO = "Including interest tags related to your post from the list below or your own custom #tags will help you find new fans who share similar interests.";
 
 interface Upload {
   label: string;
@@ -74,7 +81,7 @@ const SPECS: Record<PostType, Spec> = {
   images: { upload: { label: "Upload Images", helper: IMG, accept: "image/*", multiple: true }, text: "Add a description…", footer: true, interests: true, opts: ["discovery", "signIn", "sensitive"], preview: false, enableDefault: true },
   article: { footer: true, interests: true, opts: ["discovery", "signIn", "sensitive"], preview: true, enableDefault: false },
   audio: { upload: { label: "Upload Audio File", helper: "Any mp3 or wav up to 200MB", accept: "audio/mpeg,audio/wav" }, text: "Add a description…", textHeight: 212, footer: true, interests: true, opts: ["signIn", "sensitive"], preview: true, enableDefault: false },
-  reel: { upload: { label: "Upload Reel", helper: "Reels should be 45 seconds or less and in vertical/portrait orientation", accept: "video/*" }, text: "Add a description", footer: true, interests: false, opts: ["discoveryReel", "sensitive", "signIn"], preview: false, enableDefault: false },
+  reel: { upload: { label: "Upload Reel", helper: "Reels should be 45 seconds or less and in vertical/portrait orientation", accept: "video/*" }, text: "Add a description…", footer: true, interests: true, opts: ["discoveryReel", "sensitive", "signIn"], preview: false, enableDefault: false },
   poll: { upload: { label: "Upload Poll Image", helper: `${IMG} up to 5MB`, accept: "image/*" }, footer: true, interests: true, opts: ["sensitive"], preview: false, enableDefault: false },
   giveaway: { text: "Write the details of your giveaway and what you want people to submit to enter (e.g., Guess my favorite flavor of ice cream)", footer: true, interests: true, opts: ["sensitive"], preview: true, enableDefault: false },
   link: { text: "Add a description…", footer: true, interests: true, opts: ["signIn", "sensitive"], preview: true, enableDefault: false },
@@ -88,11 +95,18 @@ interface Form {
   title: string;
   html: string;
   plain: string;
+  /** A Lock is saved on the post (Lock dialog › SAVE). */
   locked: boolean;
+  /** The Lock dialog is open. */
   lockOpen: boolean;
+  /** Lock options: Individual Purchase (price), Loyalty Points (points), Lock with NFT (contracts). */
+  lock: { purchase: boolean; points: boolean; nft: boolean };
   price: string;
+  points: string;
+  nfts: string[];
   collabOpen: boolean;
-  collaborators: string;
+  /** Tagged creator handles. */
+  collaborators: string[];
   interestsOpen: boolean;
   interests: string[];
   topicTagIds: string[];
@@ -107,20 +121,62 @@ interface Form {
   url: string;
   goal: string;
   allowBeyond: boolean;
-  levels: FundraiserLevel[];
-  level: { title: string; amount: string; gift: string | null };
+  /** Contribution level rows, edited in place (Add Level appends one). */
+  rows: LevelRow[];
   enabled: boolean;
+  /** Media key for an attached file name (assistant hand-off from the approved library or a generated visual). */
+  fileSrc: Record<string, string>;
 }
+interface LevelRow {
+  title: string;
+  amount: string;
+  gift: { kind: "store" | "custom"; name: string; note?: string } | null;
+}
+const blankRow = (): LevelRow => ({ title: "", amount: "", gift: null });
 const blank = (t: PostType, draft: { title: string; html: string }): Form => ({
   files: [], text: "", title: t === "article" ? draft.title : "", html: t === "article" ? draft.html : "", plain: "",
-  locked: false, lockOpen: false, price: "", collabOpen: false, collaborators: "", interestsOpen: false, interests: [], topicTagIds: [], groupIds: [],
+  locked: false, lockOpen: false, lock: { purchase: true, points: false, nft: false }, price: "", points: "", nfts: [],
+  collabOpen: false, collaborators: [], interestsOpen: false, interests: [], topicTagIds: [], groupIds: [],
   opts: { discovery: true, discoveryReel: true, signIn: false, sensitive: false }, preview: null,
-  question: "", date: "", time: "", options: ["", ""], cta: "", url: "", goal: "", allowBeyond: true, levels: [], level: { title: "", amount: "", gift: null },
+  question: "", date: "", time: "", options: ["", ""], cta: "", url: "", goal: "", allowBeyond: true, rows: [blankRow()],
   enabled: SPECS[t].enableDefault,
+  fileSrc: {},
 });
 
 const card = "rounded-panel bg-surface";
 const field = "w-full resize-none bg-transparent text-[18px] text-white outline-none placeholder:text-muted";
+/** Lock options in effect on the form (empty when no Lock). */
+const formModes = (f: Pick<Form, "locked" | "lockOpen" | "lock">): LockMode[] =>
+  f.locked || f.lockOpen ? (["purchase", "points", "nft"] as const).filter((k) => f.lock[k]) : [];
+const lockSig = (locked: boolean, modes: LockMode[], price: number | null, points: number | null, contract: string | null) =>
+  JSON.stringify(locked ? [modes, modes.includes("purchase") ? price : null, modes.includes("points") ? points : null, modes.includes("nft") ? contract : null] : null);
+/** The Lock on the form, in the work item's terms. */
+const formLock = (f: Form) => {
+  const modes = formModes(f);
+  return {
+    locked: f.locked || f.lockOpen,
+    modes,
+    price: modes.includes("purchase") && f.price ? Number(f.price) : null,
+    points: modes.includes("points") && f.points ? Number(f.points) : null,
+    contract: modes.includes("nft") ? f.nfts[0] ?? null : null,
+  };
+};
+/**
+ * The assistant's Lock (Individual Purchase / Loyalty Points / NFT) prefills the Lock dialog; a Lock
+ * still missing its price, points or contract opens the dialog so the creator sets it.
+ */
+function lockFromWork(wp: NonNullable<NonNullable<ReturnType<typeof itemById>>["post"]>): Pick<Form, "locked" | "lockOpen" | "lock" | "price" | "points" | "nfts"> {
+  const modes = lockModes(wp);
+  const missing = modes.some((m) => (m === "purchase" ? wp.price == null : m === "points" ? wp.points == null : !wp.contract));
+  return {
+    locked: wp.locked && !missing,
+    lockOpen: wp.locked && missing,
+    lock: modes.length ? { purchase: modes.includes("purchase"), points: modes.includes("points"), nft: modes.includes("nft") } : { purchase: true, points: false, nft: false },
+    price: wp.price != null ? String(wp.price) : "",
+    points: wp.points != null ? String(wp.points) : "",
+    nfts: wp.contract ? [wp.contract] : [],
+  };
+}
 const fmtSaved = (iso: string) => {
   const d = new Date(iso);
   return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
@@ -134,20 +190,71 @@ export function NewPostPage({ route, query }: PageProps) {
   // inferred (assistant hand-off): ?prefill=assistant opens a Text post with the draft kept from setup.
   const kept = useAssistant().draftPost;
   const assistText = !ap && query.get("prefill") === "assistant" ? kept : null;
-  const [type, setType] = useState<PostType | null>(ap ? ap.type : assistText ? "text" : null);
+  // inferred (assistant hand-off): ?work=<id> opens a post the assistant prepared (type, copy, media, Lock).
+  // The creator's edits here are written back to it; saving or publishing links the post to it.
+  const workId = !ap ? query.get("work") : null;
+  const work = workId ? itemById(getData(), workId) : null;
+  const wp = work?.post ?? null;
+  const [type, setType] = useState<PostType | null>(ap ? ap.type : wp ? wp.type : assistText ? "text" : null);
   const draft = useData((d) => d.social.articleDraft);
   const [f, setF] = useState<Form>(() =>
-    ap
+    wp
+      ? {
+          ...blank(wp.type, draft),
+          text: wp.type === "poll" ? "" : wp.text,
+          title: wp.type === "article" ? wp.title ?? "" : "",
+          html: wp.type === "article" ? wp.text : "",
+          question: wp.type === "poll" ? wp.text : "",
+          options: wp.pollOptions?.length ? [...wp.pollOptions] : ["", ""],
+          ...lockFromWork(wp),
+          files: work?.media ? [work.media.label] : [],
+          fileSrc: work?.media ? { [work.media.label]: work.media.key } : {},
+        }
+      : ap
       ? { ...blank(ap.type, draft), text: ap.type === "poll" ? "" : ap.text, question: ap.type === "poll" ? ap.text : "", options: ap.pollOptions?.length ? [...ap.pollOptions] : ["", ""] }
       : assistText
         ? { ...blank("text", draft), text: assistText }
         : blank("video", draft),
   );
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((x) => ({ ...x, [k]: v }));
+  const act = useAct();
   const pick = (t: PostType) => {
     setType(t);
     setF(blank(t, draft));
   };
+  // The Lock as the work item and this screen last agreed on it. A Lock change made here is written
+  // back; a Lock change the assistant makes while this screen is open is applied here (newest wins).
+  const storeLock = useData((d) => {
+    const p = workId ? itemById(d, workId)?.post : null;
+    return p ? lockSig(p.locked, lockModes(p), p.price ?? null, p.points ?? null, p.contract ?? null) : "";
+  });
+  const known = useRef(storeLock);
+  useEffect(() => {
+    if (!workId || !wp || type !== wp.type || storeLock === known.current) return;
+    known.current = storeLock;
+    const cur = itemById(getData(), workId)?.post;
+    if (cur) setF((x) => ({ ...x, ...lockFromWork(cur) }));
+  }, [storeLock]);
+  // Keep the assistant's copy of this post in step with what the creator types here.
+  useEffect(() => {
+    if (!workId || !wp || type !== wp.type) return;
+    const t = setTimeout(() => {
+      const text = type === "poll" ? f.question : type === "article" ? f.plain || f.html : f.text;
+      const l = formLock(f);
+      const sig = lockSig(l.locked, l.modes, l.price, l.points, l.contract);
+      const lockChanged = sig !== known.current;
+      const cur = itemById(getData(), workId)?.post;
+      if (!cur) return;
+      if (cur.text === text && (cur.title ?? "") === (type === "article" ? f.title : cur.title ?? "") && !lockChanged) return;
+      known.current = sig;
+      act(
+        "content.syncPost",
+        (d) => syncFromScreen(d, workId, { text, title: type === "article" ? f.title : undefined, ...(lockChanged ? { locked: l.locked, price: l.price, lockBy: l.modes, points: l.points, contract: l.contract } : {}) }),
+        { need: "content.write" },
+      );
+    }, 600);
+    return () => clearTimeout(t);
+  }, [f.text, f.question, f.title, f.plain, f.html, f.price, f.points, f.nfts, f.lock, f.locked, f.lockOpen, type]);
 
   return (
     <div data-testid={`page-${route.id}`} className="pb-[40px]">
@@ -168,23 +275,28 @@ export function NewPostPage({ route, query }: PageProps) {
         )}
       </div>
       <p className={`${type ? "mt-[40px]" : "mt-[37px]"} text-[16px] font-medium`}>Choose Post Type</p>
-      <div className="mt-[22px] flex flex-wrap gap-x-[8px] gap-y-[17px]" role="tablist" aria-label="Post type">
-        {TYPES.map(({ id, label, icon: I }) => {
-          const active = id === type;
-          return (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={active}
-              data-testid={`newpost-type-${id}`}
-              onClick={() => pick(id)}
-              className={`flex h-[56px] items-center gap-[14px] rounded-pill border border-accent px-[30px] text-[14px] font-black uppercase tracking-caps ${active ? "bg-accent text-white" : "text-accent hover:bg-accent-tint"}`}
-            >
-              <I size={24} strokeWidth={2.2} className={active ? "text-white" : "text-accent"} />
-              {label}
-            </button>
-          );
-        })}
+      {/* Two rows of five, as captured (newpost-01); each row still wraps on narrow screens. */}
+      <div className="mt-[22px] flex flex-col gap-y-[17px]" role="tablist" aria-label="Post type">
+        {[TYPES.slice(0, 5), TYPES.slice(5)].map((row, r) => (
+          <div key={r} className="flex flex-wrap gap-x-[8px] gap-y-[17px]">
+            {row.map(({ id, label, icon: I }) => {
+              const active = id === type;
+              return (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={active}
+                  data-testid={`newpost-type-${id}`}
+                  onClick={() => pick(id)}
+                  className={`flex h-[56px] items-center gap-[12px] rounded-pill border border-accent px-[24px] text-[14px] font-black uppercase tracking-caps ${active ? "bg-accent text-white" : "text-accent hover:bg-accent-tint"}`}
+                >
+                  <I size={24} strokeWidth={2.2} className={active ? "text-white" : "text-accent"} />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
       {!type ? (
         <div data-testid="newpost-empty" className="mt-[25px] flex h-[330px] w-[650px] flex-col items-center justify-center rounded-card bg-surface">
@@ -194,7 +306,7 @@ export function NewPostPage({ route, query }: PageProps) {
           <p className="mt-[30px] text-[18px] text-[#d0d0d0]">To publish your content, choose a post type above</p>
         </div>
       ) : (
-        <Composer key={type} type={type} f={f} set={set} apId={ap && ap.type === type ? ap.id : undefined} />
+        <Composer key={type} type={type} f={f} set={set} apId={ap && ap.type === type ? ap.id : undefined} workId={wp && wp.type === type ? workId ?? undefined : undefined} />
       )}
     </div>
   );
@@ -204,7 +316,8 @@ export function NewPostPage({ route, query }: PageProps) {
 
 type Setter = <K extends keyof Form>(k: K, v: Form[K]) => void;
 
-function Composer({ type, f, set, apId }: { type: PostType; f: Form; set: Setter; apId?: string }) {
+function Composer({ type, f, set, apId, workId }: { type: PostType; f: Form; set: Setter; apId?: string; workId?: string }) {
+  const [aiNote, setAiNote] = useState<string | null>(null);
   const spec = SPECS[type];
   const act = useAct();
   const toast = useToast();
@@ -213,7 +326,6 @@ function Composer({ type, f, set, apId }: { type: PostType; f: Form; set: Setter
   const savedAt = useData((d) => d.social.articleDraft.savedAt);
   const tags = useData((d) => d.prefsB.topicTags.filter((t) => t.active));
   const groups = useData((d) => d.prefsB.groups.filter((g) => g.active));
-  const gifts = useData((d) => d.social.showcase.map((s) => s.title));
   const [confirm, setConfirm] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
@@ -246,7 +358,8 @@ function Composer({ type, f, set, apId }: { type: PostType; f: Form; set: Setter
       case "link":
         return !!f.url.trim() && pre;
       case "fundraiser":
-        return !!f.text.trim() && Number(f.goal) > 0 && pre;
+        // Empty level rows are ignored; a half-filled one (title without amount or the reverse) blocks publishing.
+        return !!f.text.trim() && Number(f.goal) > 0 && pre && f.rows.every((r) => !r.title.trim() === !(Number(r.amount) > 0) && (r.title.trim() || !r.gift));
       case "text":
         return !!f.text.trim();
     }
@@ -258,12 +371,14 @@ function Composer({ type, f, set, apId }: { type: PostType; f: Form; set: Setter
       requireSignIn: f.opts.signIn,
       sensitive: f.opts.sensitive,
       interests: f.interests,
-      collaborators: f.collaborators ? f.collaborators.split(",").map((s) => s.trim()).filter(Boolean) : [],
+      collaborators: f.collaborators,
       featureEnabled: f.enabled,
       previewImage: f.preview,
       fileName: f.files[0] ?? null,
     };
     if (apId) extra.autopilotDraftId = apId;
+    const modes = formModes({ ...f, lockOpen: false });
+    if (modes.length) extra.lock = { purchase: modes.includes("purchase"), points: modes.includes("points") ? Number(f.points) : null, nftContracts: modes.includes("nft") ? f.nfts : [] };
     if (type === "images") extra.imageCount = f.files.length;
     if (type === "poll") {
       const endsAt = f.date ? `${f.date}T${f.time || "23:59"}:00` : null;
@@ -271,7 +386,12 @@ function Composer({ type, f, set, apId }: { type: PostType; f: Form; set: Setter
     }
     if (type === "giveaway") extra.giveaway = { cta: f.cta.trim(), responses: 0 };
     if (type === "link") extra.link = { url: f.url.trim() };
-    if (type === "fundraiser") extra.fundraiser = { raised: 0, goal: Number(f.goal), allowBeyond: f.allowBeyond, levels: f.levels, contributions: 0 };
+    if (type === "fundraiser") {
+      const levels: FundraiserLevel[] = f.rows
+        .filter((r) => r.title.trim() && Number(r.amount) > 0)
+        .map((r) => ({ title: r.title.trim(), amount: Number(r.amount), gift: r.gift?.name ?? null, ...(r.gift ? { giftKind: r.gift.kind } : {}), ...(r.gift?.note ? { giftNote: r.gift.note } : {}) }));
+      extra.fundraiser = { raised: 0, goal: Number(f.goal), allowBeyond: f.allowBeyond, levels, contributions: 0 };
+    }
     if (type === "audio") extra.audio = { duration: 0 };
     const kind = type === "audio" ? "audio" : type === "video" || type === "reel" ? "video" : "image";
     const names = type === "images" ? f.files : f.files.length ? [f.files[0]] : f.preview ? [f.preview] : [];
@@ -282,16 +402,16 @@ function Composer({ type, f, set, apId }: { type: PostType; f: Form; set: Setter
       title: type === "article" ? f.title.trim() : undefined,
       text,
       locked: f.locked,
-      price: f.locked && Number(f.price) > 0 ? Number(f.price) : undefined,
+      price: f.locked && f.lock.purchase && Number(f.price) > 0 ? Number(f.price) : undefined,
       topicTagIds: f.topicTagIds,
       groupIds: f.groupIds,
-      media: (type === "audio" && f.preview ? [f.preview] : names).map((n) => ({ kind: kind as "image" | "video" | "audio", placeholder: n })),
+      media: (type === "audio" && f.preview ? [f.preview] : names).map((n) => ({ kind: kind as "image" | "video" | "audio", placeholder: n, ...(f.fileSrc[n] ? { src: f.fileSrc[n] } : {}) })),
       extra,
     };
   };
 
   const doPublish = () => {
-    const r = act("social.publishPost", (d) => void (replaceLinkedDraft(d, apId), publishPost(d, build("published"))), { need: "content.write" });
+    const r = act("social.publishPost", (d) => void (replaceLinkedDraft(d, apId, workId), link(d, publishPost(d, build("published")), "published")), { need: "content.write" });
     if (!r.ok) return setErr(r.reason);
     setConfirm(false);
     toast("Post published");
@@ -299,6 +419,8 @@ function Composer({ type, f, set, apId }: { type: PostType; f: Form; set: Setter
   };
 
   const footer = spec.footer ? <LockCollab f={f} set={set} /> : null;
+  // The assistant's work item (if this post came from it) records the saved or published post.
+  const link = (d: AppData, postId: string, status: "saved" | "published") => workId && linkSaved(d, workId, { postId }, status);
 
   return (
     <div data-testid={`newpost-composer-${type}`} className={`mt-[25px] ${spec.width === 800 ? "w-[800px]" : "w-full"}`}>
@@ -310,7 +432,22 @@ function Composer({ type, f, set, apId }: { type: PostType; f: Form; set: Setter
             <div className={`${card} flex h-[67px] items-center px-[24px]`}>
               <input aria-label="Article title" data-testid="newpost-article-title" value={f.title} onChange={(e) => set("title", e.target.value)} placeholder="Add Article Title here..." className="w-full bg-transparent text-[14px] font-bold outline-none placeholder:text-muted" />
             </div>
-            <ArticleEditor html={f.html} onChange={(html, plain) => (set("html", html), set("plain", plain))} footer={footer} />
+            <ArticleEditor
+              html={f.html}
+              onChange={(html, plain) => (set("html", html), set("plain", plain))}
+              footer={footer}
+              handle={handle}
+              onGenerated={(r) => {
+                if (r.title) set("title", r.title);
+                if (r.cover) (set("fileSrc", { ...f.fileSrc, [r.cover.name]: r.cover.src }), set("preview", r.cover.name));
+                setAiNote(r.note);
+              }}
+            />
+            {aiNote && (
+              <p role="status" data-testid="newpost-ai-note" className="mt-[10px] text-[13px] text-soft">
+                {aiNote}
+              </p>
+            )}
           </>
         )}
 
@@ -339,7 +476,7 @@ function Composer({ type, f, set, apId }: { type: PostType; f: Form; set: Setter
         </div>
       )}
 
-      {type === "fundraiser" && <FundraiserCards f={f} set={set} gifts={gifts} />}
+      {type === "fundraiser" && <FundraiserCards f={f} set={set} />}
 
       {type === "article" && <p className="mt-[12px] text-[12px] text-muted" data-testid="newpost-draft-saved">Draft Auto-Saved: {fmtSaved(savedAt)}</p>}
 
@@ -398,7 +535,7 @@ function Composer({ type, f, set, apId }: { type: PostType; f: Form; set: Setter
               className="block w-full px-[20px] py-[8px] text-left text-[15px] hover:text-accent"
               onClick={() => {
                 setMenu(false);
-                const r = act("social.saveDraftPost", (d) => void (replaceLinkedDraft(d, apId), publishPost(d, build("draft"))), { need: "content.write" });
+                const r = act("social.saveDraftPost", (d) => void (replaceLinkedDraft(d, apId, workId), link(d, publishPost(d, build("draft")), "saved")), { need: "content.write" });
                 toast(r.ok ? "Saved as draft" : r.reason);
               }}
             >
@@ -468,70 +605,85 @@ function UploadCard({ up, files, onFiles, type }: { up: Upload; files: string[];
   );
 }
 
+/** Lock button label: what the saved Lock asks of fans. */
+function lockLabel(f: Form) {
+  if (!f.locked) return "Lock";
+  const parts = [f.lock.purchase && Number(f.price) > 0 ? money(Number(f.price)) : null, f.lock.points ? `${f.points} Points` : null, f.lock.nft ? "NFT" : null].filter(Boolean);
+  return `Locked${parts.length ? ` · ${parts.join(" · ")}` : ""}`;
+}
+
 function LockCollab({ f, set }: { f: Form; set: Setter }) {
   const btn = "inline-flex h-[40px] items-center gap-[10px] rounded-md bg-accent px-[12px] text-[14px] font-medium hover:brightness-110";
+  const own = useData((d) => d.account.handle);
+  const creators = DEMO_CREATORS.filter((c) => c.handle !== own).map((c) => ({ ...c, avatar: creatorMedia(c.handle).avatar }));
+  const initial: LockDraft = { ...f.lock, price: f.price, pointsValue: f.points, nfts: f.nfts };
+  // A first Lock starts with Individual Purchase on (reference newpost-04).
+  if (!f.locked && !f.lockOpen) Object.assign(initial, { purchase: true });
   return (
     <div className="border-t border-white/[.08] px-[24px] py-[18px]">
       <div className="flex gap-[8px]">
-        <button data-testid="newpost-lock" aria-expanded={f.lockOpen} onClick={() => set("lockOpen", !f.lockOpen)} className={btn}>
+        <button data-testid="newpost-lock" aria-haspopup="dialog" aria-expanded={f.lockOpen} onClick={() => set("lockOpen", !f.lockOpen)} className={btn}>
           <Tag size={20} className="-scale-x-100" />
-          {f.locked ? `Locked${Number(f.price) > 0 ? ` · ${money(Number(f.price))}` : ""}` : "Lock"}
+          {lockLabel(f)}
         </button>
-        <button data-testid="newpost-collaborate" aria-expanded={f.collabOpen} onClick={() => set("collabOpen", !f.collabOpen)} className={btn}>
+        <button data-testid="newpost-collaborate" aria-haspopup="dialog" aria-expanded={f.collabOpen} onClick={() => set("collabOpen", !f.collabOpen)} className={btn}>
           <UserPlus size={20} />
           Collaborate
         </button>
       </div>
-      {f.lockOpen && (
-        // inferred: Lock panel (price to unlock) was not captured
-        <div className="mt-[16px] flex items-center gap-[12px]" data-testid="newpost-lock-panel">
-          <div className="flex h-[44px] w-[220px] items-center rounded-pill bg-bg px-[20px]">
-            <span className="mr-[4px] text-[14px] font-bold">$</span>
-            <input aria-label="Unlock price" data-testid="newpost-lock-price" inputMode="decimal" value={f.price} onChange={(e) => set("price", e.target.value.replace(/[^\d.]/g, ""))} placeholder="Unlock Price" className="w-full bg-transparent text-[14px] font-bold outline-none placeholder:text-muted" />
-          </div>
-          <button data-testid="newpost-lock-apply" onClick={() => (set("locked", !f.locked), set("lockOpen", false))} className="text-[14px] font-bold text-accent">
-            {f.locked ? "Remove Lock" : "Lock Post"}
-          </button>
-        </div>
+      {f.collaborators.length > 0 && (
+        <p className="mt-[12px] text-[13px] text-soft" data-testid="newpost-collab-tagged">
+          Tagged: {f.collaborators.map((h) => `@${h}`).join(", ")}
+        </p>
       )}
-      {f.collabOpen && (
-        // inferred: Collaborate panel was not captured
-        <div className="mt-[16px]" data-testid="newpost-collab-panel">
-          <input aria-label="Collaborators" data-testid="newpost-collab-input" value={f.collaborators} onChange={(e) => set("collaborators", e.target.value)} placeholder="Collaborator usernames, separated by commas" className="h-[44px] w-full rounded-pill bg-bg px-[20px] text-[14px] outline-none placeholder:text-muted" />
-        </div>
-      )}
+      <LockDialog
+        open={f.lockOpen}
+        initial={initial}
+        onCancel={() => set("lockOpen", false)}
+        onSave={(v) => {
+          const any = v.purchase || v.points || v.nft;
+          set("lock", { purchase: v.purchase, points: v.points, nft: v.nft });
+          set("price", v.purchase ? v.price : "");
+          set("points", v.points ? v.pointsValue : "");
+          set("nfts", v.nft ? v.nfts : []);
+          set("locked", any);
+          set("lockOpen", false);
+        }}
+      />
+      <CollabDialog open={f.collabOpen} creators={creators} selected={f.collaborators} onClose={() => set("collabOpen", false)} onTag={(h) => (set("collaborators", h), set("collabOpen", false))} />
     </div>
   );
 }
 
 function InterestsRow({ f, set }: { f: Form; set: Setter }) {
+  const toggle = () => set("interestsOpen", !f.interestsOpen);
   return (
-    <div className="mt-[16px]">
+    <div className={`${card} mt-[16px] rounded-tile`}>
       <div
         role="button"
         tabIndex={0}
         data-testid="newpost-interests"
         aria-expanded={f.interestsOpen}
-        onClick={() => set("interestsOpen", !f.interestsOpen)}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), set("interestsOpen", !f.interestsOpen))}
-        className={`${card} flex h-[56px] w-full cursor-pointer items-center justify-between rounded-tile px-[20px] text-left text-[14px] font-bold`}
+        onClick={toggle}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), toggle())}
+        className="flex h-[56px] w-full cursor-pointer items-center justify-between px-[20px] text-left text-[14px] font-bold"
       >
         <span className="flex items-center">
           Select Interests
           {f.interests.length > 0 && <span className="ml-[8px] font-normal text-muted">({f.interests.length})</span>}
-          <span onClick={(e) => e.stopPropagation()}>
-            <InfoIcon text="Interests help fans who follow these topics discover this post." />
+          <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <InfoIcon text={INTERESTS_INFO} />
           </span>
         </span>
-        <ChevronRight size={20} className={f.interestsOpen ? "rotate-90" : ""} />
+        {f.interestsOpen ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
       </div>
       {f.interestsOpen && (
-        // inferred: the interest picker was not opened in the capture
-        <div className={`${card} mt-[8px] flex flex-wrap gap-[8px] p-[20px]`} data-testid="newpost-interests-panel">
+        // Expands in place inside the same card (newpost-08); the platform's own interest list.
+        <div className="flex flex-wrap gap-x-[8px] gap-y-[14px] px-[16px] pb-[22px] pt-[6px]" data-testid="newpost-interests-panel">
           {INTERESTS.map((i) => {
             const on = f.interests.includes(i);
             return (
-              <button key={i} onClick={() => set("interests", on ? f.interests.filter((x) => x !== i) : [...f.interests, i])} className={`h-[36px] rounded-pill border border-accent px-[16px] text-[13px] ${on ? "bg-accent font-bold" : ""}`}>
+              <button key={i} aria-pressed={on} onClick={() => set("interests", on ? f.interests.filter((x) => x !== i) : [...f.interests, i])} className={`h-[42px] rounded-pill border border-accent px-[22px] text-[14px] font-bold ${on ? "bg-accent" : "hover:bg-accent-tint"}`}>
                 {i}
               </button>
             );
@@ -589,58 +741,60 @@ function PreviewUpload({ value, onChange }: { value: string | null; onChange: (v
 
 function PollCard({ f, set, footer }: { f: Form; set: Setter; footer: ReactNode }) {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const dateRef = useRef<HTMLInputElement>(null);
-  const timeRef = useRef<HTMLInputElement>(null);
+  const [cal, setCal] = useState(false);
+  const [clock, setClock] = useState(false);
+  // Required-option messages show once an option was left empty or Add Another Option was used.
+  const [touched, setTouched] = useState<number[]>([]);
   const pill = "relative flex h-[40px] flex-1 items-center justify-between rounded-[20px] bg-bg px-[20px] text-[14px]";
-  const open = (r: React.RefObject<HTMLInputElement | null>) => {
-    try {
-      r.current?.showPicker();
-    } catch {
-      r.current?.focus();
-    }
-  };
+  const need = (i: number) => i < 2 && touched.includes(i) && !f.options[i].trim();
   return (
     <div className={card}>
       <div className="px-[24px] pb-[24px] pt-[25px]">
         <p className="text-[13px] uppercase">Question</p>
         <textarea aria-label="Poll question" data-testid="newpost-poll-question" value={f.question} onChange={(e) => set("question", e.target.value)} placeholder="What’s your poll question?" className="mt-[16px] h-[128px] w-full resize-none rounded-popover bg-bg px-[10px] py-[12px] text-[18px] outline-none placeholder:text-muted" />
         <p className="mt-[24px] text-[13px] uppercase">Poll Expiration</p>
-        <div className="mt-[16px] flex gap-[24px]">
-          <button type="button" data-testid="newpost-poll-date" onClick={() => open(dateRef)} className={pill}>
+        <div className="relative mt-[16px] flex gap-[24px]">
+          <button type="button" data-testid="newpost-poll-date" aria-haspopup="dialog" aria-expanded={cal} onClick={() => setCal((c) => !c)} className={pill}>
             <span className={f.date ? "" : "text-white/80"}>{f.date ? new Date(`${f.date}T00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Select Date"}</span>
             <CalendarDays size={16} className="text-accent" />
-            <input ref={dateRef} type="date" aria-label="Poll end date" value={f.date} onChange={(e) => set("date", e.target.value)} className="pointer-events-none absolute inset-0 opacity-0" tabIndex={-1} />
           </button>
-          <button type="button" data-testid="newpost-poll-time" onClick={() => open(timeRef)} className={pill}>
+          <button type="button" data-testid="newpost-poll-time" aria-haspopup="dialog" onClick={() => setClock(true)} className={pill}>
             <span className={f.time ? "" : "text-white/80"}>{f.time ? new Date(`2000-01-01T${f.time}`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "Select Time"}</span>
             <Clock size={16} className="fill-accent text-bg" />
-            <input ref={timeRef} type="time" aria-label="Poll end time" value={f.time} onChange={(e) => set("time", e.target.value)} className="pointer-events-none absolute inset-0 opacity-0" tabIndex={-1} />
           </button>
+          {cal && <DatePopover value={f.date} onPick={(v) => (set("date", v), setCal(false))} onClose={() => setCal(false)} />}
         </div>
+        <TimeDialog open={clock} value={f.time} onPick={(v) => (set("time", v), setClock(false))} onClose={() => setClock(false)} />
         <p className="mt-[12px] text-right text-[12px]">Time Zone - {tz}</p>
         <div className="my-[24px] h-px bg-white/[.12]" />
         <p className="text-[13px] uppercase">Options</p>
         <div className="mt-[16px] space-y-[12px]">
           {f.options.map((o, i) => (
-            <div key={i} className="relative">
-              <input
-                aria-label={`Option ${i + 1}`}
-                data-testid={`newpost-poll-option-${i + 1}`}
-                value={o}
-                onChange={(e) => set("options", f.options.map((x, j) => (j === i ? e.target.value : x)))}
-                placeholder={`Option ${i + 1}`}
-                className="h-[40px] w-full rounded bg-bg px-[20px] text-[14px] outline-none placeholder:text-white/80"
-              />
-              {i >= 2 && (
-                <button aria-label={`Remove option ${i + 1}`} onClick={() => set("options", f.options.filter((_, j) => j !== i))} className="absolute right-[12px] top-1/2 -translate-y-1/2 text-muted hover:text-white">
-                  <X size={14} />
-                </button>
-              )}
+            <div key={i}>
+              <div className="relative">
+                <input
+                  aria-label={`Option ${i + 1}`}
+                  aria-invalid={need(i)}
+                  data-testid={`newpost-poll-option-${i + 1}`}
+                  value={o}
+                  onBlur={() => !touched.includes(i) && setTouched([...touched, i])}
+                  onChange={(e) => set("options", f.options.map((x, j) => (j === i ? e.target.value : x)))}
+                  placeholder={`Option ${i + 1}`}
+                  className={`h-[40px] w-full rounded bg-bg px-[20px] text-[14px] outline-none placeholder:text-white/80 ${need(i) ? "ring-1 ring-danger" : ""}`}
+                />
+                {i >= 2 && (
+                  <button aria-label={`Remove option ${i + 1}`} onClick={() => set("options", f.options.filter((_, j) => j !== i))} className="absolute right-[12px] top-1/2 -translate-y-1/2 text-muted hover:text-white">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              {need(i) && <p className="mt-[4px] text-[12px] text-danger" data-testid={`newpost-poll-option-error-${i + 1}`}>* Option {i + 1} is required.</p>}
             </div>
           ))}
         </div>
         <div className="mt-[16px] text-right">
-          <button data-testid="newpost-poll-add-option" onClick={() => set("options", [...f.options, ""])} className="text-[14px] hover:text-accent">
+          {/* Always adds a row (the captured UI refused while options were empty); empty extra rows are ignored on publish. */}
+          <button data-testid="newpost-poll-add-option" onClick={() => (set("options", [...f.options, ""]), setTouched([...new Set([...touched, 0, 1])]))} className="text-[14px] hover:text-accent">
             Add Another Option
           </button>
         </div>
@@ -650,9 +804,13 @@ function PollCard({ f, set, footer }: { f: Form; set: Setter; footer: ReactNode 
   );
 }
 
-function FundraiserCards({ f, set, gifts }: { f: Form; set: Setter; gifts: string[] }) {
-  const lv = f.level;
-  const canAdd = !!lv.title.trim() && Number(lv.amount) > 0;
+function FundraiserCards({ f, set }: { f: Form; set: Setter }) {
+  const products = useData((d) => d.monetize.products);
+  const [storeFor, setStoreFor] = useState<number | null>(null);
+  const [customFor, setCustomFor] = useState<number | null>(null);
+  const row = (i: number, patch: Partial<LevelRow>) => set("rows", f.rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const tid = (base: string, i: number) => (i === 0 ? base : `${base}-${i + 1}`);
+  const storeItems: PickItem[] = products.filter((p) => p.published).map((p) => ({ id: p.id, label: p.title, sub: p.price != null ? money(p.price) : p.kind, image: p.image ?? null }));
   return (
     <>
       <div className={`${card} mt-[24px] px-[22px] pb-[24px] pt-[25px]`}>
@@ -670,102 +828,182 @@ function FundraiserCards({ f, set, gifts }: { f: Form; set: Setter; gifts: strin
       <div className={`${card} mt-[24px] px-[22px] pb-[24px] pt-[25px]`}>
         <p className="text-[16px] uppercase">Add Contribution Levels &amp; Gifts</p>
         <p className="mt-[4px] text-[13px] text-soft">You can now create tiers for your fundraisers and assign specific benefits to each tier.</p>
-        {f.levels.length > 0 && (
-          <ul className="mt-[20px] space-y-[8px]" data-testid="newpost-fund-levels">
-            {f.levels.map((l, i) => (
-              <li key={i} className="flex h-[50px] items-center justify-between rounded-popover bg-bg px-[16px] text-[14px]">
-                <span>
-                  {l.title} <b className="ml-[4px]">{money(l.amount)}</b>
-                  {l.gift && <span className="ml-[8px] text-muted">· {l.gift}</span>}
-                </span>
-                <button aria-label={`Remove ${l.title}`} onClick={() => set("levels", f.levels.filter((_, j) => j !== i))}>
-                  <X size={14} />
+        <ul className="mt-[10px] space-y-[8px]" data-testid="newpost-fund-levels">
+          {f.rows.map((r, i) => (
+            <li key={i} className="flex items-end gap-[14px] px-[6px] pt-[20px]" data-testid={`newpost-fund-row-${i + 1}`}>
+              <div className="w-[176px] shrink-0">
+                <p className="mb-[14px] flex h-[22px] items-center text-[15px]">Contribution Level Title*</p>
+                <input aria-label={`Contribution Level Title ${i + 1}`} data-testid={tid("newpost-fund-level-title", i)} value={r.title} onChange={(e) => row(i, { title: e.target.value })} placeholder="Ex. Silver, Gold, Platinum" className="h-[56px] w-full rounded-pill bg-bg px-[20px] text-[14px] font-bold outline-none placeholder:text-muted" />
+              </div>
+              <div className="w-[230px] shrink-0">
+                <p className="mb-[14px] flex h-[22px] items-center text-[15px]">Contribution Amount*</p>
+                <div className="flex h-[56px] items-center rounded-pill bg-bg pl-[20px] pr-[8px]">
+                  <span className="mr-[8px] text-[14px] font-bold">$</span>
+                  <input aria-label={`Contribution Amount ${i + 1}`} data-testid={tid("newpost-fund-level-amount", i)} inputMode="decimal" value={r.amount} onChange={(e) => row(i, { amount: e.target.value.replace(/[^\d.]/g, "") })} placeholder="Contribution Amount" className="w-full min-w-0 bg-transparent text-[14px] font-bold outline-none placeholder:text-muted" />
+                  <span aria-hidden className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-accent/60">
+                    <Coins size={16} />
+                  </span>
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="mb-[14px] flex h-[22px] items-center text-[15px]">
+                  Optional Gift
+                  <InfoIcon text="You can give fans at this level a comped item from your Store, or add a custom gift that you fulfil yourself." />
+                </p>
+                <div data-testid={tid("newpost-fund-gift", i)}>
+                  <Select
+                    value={r.gift ? r.gift.name : null}
+                    options={["Store Item", "Custom Gift"]}
+                    onChange={(v) => (v === "Store Item" ? setStoreFor(i) : setCustomFor(i))}
+                  />
+                </div>
+              </div>
+              {f.rows.length > 1 && (
+                <button aria-label={`Delete level ${i + 1}`} data-testid={`newpost-fund-delete-${i + 1}`} onClick={() => set("rows", f.rows.filter((_, j) => j !== i))} className="mb-[18px] shrink-0 text-white/80 hover:text-accent">
+                  <Trash2 size={18} />
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="mt-[30px] flex items-end gap-[16px] px-[10px]">
-          <div className="w-[196px]">
-            <p className="mb-[16px] text-[16px]">Contribution Level Title*</p>
-            <input aria-label="Contribution Level Title" data-testid="newpost-fund-level-title" value={lv.title} onChange={(e) => set("level", { ...lv, title: e.target.value })} placeholder="Ex. Silver, Gold, Platinum" className="h-[56px] w-full rounded-pill bg-bg px-[24px] text-[14px] font-bold outline-none placeholder:text-muted" />
-          </div>
-          <div className="w-[276px]">
-            <p className="mb-[16px] text-[16px]">Contribution Amount*</p>
-            <div className="flex h-[56px] items-center rounded-pill bg-bg pl-[22px] pr-[8px]">
-              <span className="mr-[8px] text-[14px] font-bold">$</span>
-              <input aria-label="Contribution Amount" data-testid="newpost-fund-level-amount" inputMode="decimal" value={lv.amount} onChange={(e) => set("level", { ...lv, amount: e.target.value.replace(/[^\d.]/g, "") })} placeholder="Contribution Amount" className="w-full bg-transparent text-[14px] font-bold outline-none placeholder:text-muted" />
-              <span className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-accent/60">
-                <Coins size={16} />
-              </span>
-            </div>
-          </div>
-          <div className="w-[196px]">
-            <p className="mb-[16px] flex items-center text-[16px]">
-              Optional Gift
-              <InfoIcon text="A store item fans receive at this level." />
-            </p>
-            <Select value={lv.gift} options={gifts} onChange={(v) => set("level", { ...lv, gift: v })} />
-          </div>
-        </div>
-        <div className="mt-[35px] text-right">
-          <button
-            data-testid="newpost-fund-add-level"
-            disabled={!canAdd}
-            onClick={() => {
-              set("levels", [...f.levels, { title: lv.title.trim(), amount: Number(lv.amount), gift: lv.gift }]);
-              set("level", { title: "", amount: "", gift: null });
-            }}
-            className="pr-[8px] text-[14px] text-accent disabled:cursor-not-allowed"
-          >
+              )}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-[30px] text-right">
+          <button data-testid="newpost-fund-add-level" onClick={() => set("rows", [...f.rows, blankRow()])} className="pr-[8px] text-[14px] text-accent hover:brightness-125">
             Add Level
           </button>
         </div>
       </div>
+      {/* Dismissing either dialog keeps the gift the row already had (the captured UI cleared it). */}
+      <PickerDialog
+        open={storeFor != null}
+        title="Select Store Item"
+        testid="newpost-gift-store"
+        items={storeItems}
+        empty="No Results Found"
+        primary="Add Gift"
+        initial={storeFor != null && f.rows[storeFor]?.gift?.kind === "store" ? storeItems.find((s) => s.label === f.rows[storeFor].gift!.name)?.id ?? null : null}
+        onClose={() => setStoreFor(null)}
+        onPick={(id) => (row(storeFor!, { gift: { kind: "store", name: storeItems.find((s) => s.id === id)!.label } }), setStoreFor(null))}
+      />
+      <CustomGiftDialog open={customFor != null} onClose={() => setCustomFor(null)} onCreate={(g) => (row(customFor!, { gift: { kind: "custom", name: g.name, note: g.note } }), setCustomFor(null))} />
     </>
   );
 }
 
 /* ---------------- article editor (Quill look; contentEditable + execCommand) ---------------- */
 
-function ArticleEditor({ html, onChange, footer }: { html: string; onChange: (html: string, plain: string) => void; footer: ReactNode }) {
+type Insert = "store" | "portfolio" | "feed" | "event";
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+
+function ArticleEditor({ html, onChange, footer, handle, onGenerated }: { html: string; onChange: (html: string, plain: string) => void; footer: ReactNode; handle: string; onGenerated: (r: AiResult) => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  const toast = useToast();
+  const range = useRef<Range | null>(null);
+  const [panel, setPanel] = useState<"emoji" | "link" | "insert" | null>(null);
+  const [ai, setAi] = useState(false);
+  const [pick, setPick] = useState<Insert | null>(null);
+  const [url, setUrl] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [fileKind, setFileKind] = useState<"Image" | "Video" | "Audio">("Image");
+  const data = useData((d) => ({ products: d.monetize.products, portfolios: d.monetize.portfolios, posts: d.social.posts, events: d.monetize.events }));
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== html) {
       ref.current.innerHTML = html;
       onChange(html, ref.current.innerText);
     }
   }, []);
-  const exec = (cmd: string, arg?: string) => {
+  const keep = () => {
+    const s = window.getSelection();
+    if (s && s.rangeCount && ref.current?.contains(s.anchorNode)) range.current = s.getRangeAt(0).cloneRange();
+  };
+  const restore = () => {
     ref.current?.focus();
+    const s = window.getSelection();
+    if (range.current && s) (s.removeAllRanges(), s.addRange(range.current));
+    else if (ref.current && s) {
+      // No caret yet: write at the end.
+      const r = document.createRange();
+      r.selectNodeContents(ref.current);
+      r.collapse(false);
+      s.removeAllRanges();
+      s.addRange(r);
+    }
+  };
+  const exec = (cmd: string, arg?: string) => {
+    restore();
     document.execCommand(cmd, false, arg);
+    keep();
     if (ref.current) onChange(ref.current.innerHTML, ref.current.innerText);
   };
-  const soon = () => toast("Media embeds are not available in this demo"); // inferred
-  const tools: [Icon, string, () => void][] = [
-    [Smile, "Emoji", () => exec("insertText", "🙂")],
+  const block = (tag: string) => exec("formatBlock", String(document.queryCommandValue("formatBlock")).toLowerCase() === tag ? "p" : tag);
+  const media = (k: "Image" | "Video" | "Audio") => (setFileKind(k), fileRef.current?.click());
+  // [icon, label, action, testid suffix when it differs from the label (kept from earlier builds)]
+  const tools: [typeof Smile, string, () => void, string?][] = [
+    [Smile, "Emoji", () => setPanel(panel === "emoji" ? null : "emoji")],
     [Bold, "Bold", () => exec("bold")],
     [Italic, "Italic", () => exec("italic")],
     [Underline, "Underline", () => exec("underline")],
-    [ALargeSmall, "Text size", () => exec("fontSize", "5")],
+    [ALargeSmall, "Text size", () => block("h3")],
     [ListOrdered, "Ordered list", () => exec("insertOrderedList")],
     [List, "Bullet list", () => exec("insertUnorderedList")],
-    [Link2, "Link", () => exec("createLink", "https://example.com")],
-    [Code, "Code", () => exec("formatBlock", "pre")],
-    [ImagePlus, "Image", soon],
-    [Video, "Video", soon],
-    [Volume2, "Audio", soon],
+    [Link2, "Link", () => (setUrl(""), setPanel(panel === "link" ? null : "link"))],
+    [Code, "Code", () => block("pre")],
+    [ImagePlus, "Image", () => media("Image")],
+    [Video, "Video", () => media("Video")],
+    [Volume2, "Audio", () => media("Audio")],
     [Minus, "Horizontal rule", () => exec("insertHorizontalRule")],
-    [SquareChartGantt, "AI image", soon],
-    [SquareCode, "Embed", soon],
+    [SquareChartGantt, "AI generated content", () => (setPanel(null), setAi(true)), "ai-image"],
+    [SquareCode, "Insert", () => setPanel(panel === "insert" ? null : "insert"), "embed"],
   ];
+  const link = (href: string, label: string) => exec("insertHTML", `<p><a href="${esc(href)}">${esc(label)}</a></p><p><br></p>`);
+  const addLink = () => {
+    let u = url.trim();
+    if (!u) return;
+    if (!/^(https?:|mailto:|\/)/i.test(u)) u = `https://${u}`;
+    setPanel(null);
+    const s = range.current;
+    if (s && !s.collapsed) exec("createLink", u);
+    else exec("insertHTML", `<a href="${esc(u)}">${esc(u)}</a>&nbsp;`);
+  };
+  const pickers: Record<Insert, { title: string; empty: string; placeholder?: string; pills?: string[]; items: PickItem[]; href: (id: string) => string }> = {
+    store: {
+      title: "Select Store Item",
+      empty: "No Results Found",
+      items: data.products.filter((p) => p.published).map((p) => ({ id: p.id, label: p.title, sub: p.price != null ? money(p.price) : p.kind, image: p.image ?? null })),
+      href: (id) => pathFor("public-product", { handle, productId: id }),
+    },
+    portfolio: {
+      title: "Select Portfolio Item",
+      empty: "No portfolios found",
+      items: data.portfolios.map((p) => ({ id: p.id, label: p.title, sub: `${p.type} portfolio`, image: p.banner ?? null })),
+      href: (id) => pathFor("public-videos", { handle, portfolioId: id }),
+    },
+    feed: {
+      title: "Select Post to Feature",
+      empty: "No Results Found",
+      pills: ["All"],
+      items: data.posts.filter((p) => p.status === "published").map((p) => ({ id: p.id, label: p.title || p.text.slice(0, 70) || "Untitled post", sub: TYPES.find((t) => t.id === p.type)?.label, image: p.media?.[0]?.src ?? null })),
+      href: (id) => pathFor("post-detail", { handle, postId: id }),
+    },
+    event: {
+      title: "Select Event to Feature",
+      empty: "No Events Found",
+      placeholder: "Search events",
+      items: data.events.filter((e) => !e.past).map((e) => ({ id: e.id, label: e.title, sub: `${new Date(e.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · ${e.location}`, image: e.image ?? null })),
+      href: (id) => pathFor("public-event-detail", { handle, eventId: id }),
+    },
+  };
+  const INSERTS: [Insert, string, typeof Smile][] = [
+    ["store", "Insert Store Items", ShoppingBag],
+    ["portfolio", "Insert Portfolio Items", FolderOpen],
+    ["feed", "Insert Feed Content", Rss],
+    ["event", "Insert Event Tickets", Ticket],
+  ];
+  const cur = pick ? pickers[pick] : null;
   return (
     <div className={card}>
-      <div className="flex h-[60px] items-center justify-between border-b border-white/[.06] px-[22px]">
+      <div className="relative flex h-[60px] items-center justify-between border-b border-white/[.06] px-[22px]">
         <div className="flex items-center gap-[8px]">
-          {tools.map(([I, label, run]) => (
-            <button key={label} aria-label={label} title={label} data-testid={`newpost-editor-${label.toLowerCase().replace(/\s+/g, "-")}`} onMouseDown={(e) => e.preventDefault()} onClick={run} className="flex h-[24px] w-[24px] items-center justify-center hover:text-accent">
+          {tools.map(([I, label, run, tid]) => (
+            <button key={label} aria-label={label} title={label} data-testid={`newpost-editor-${tid ?? label.toLowerCase().replace(/\s+/g, "-")}`} onMouseDown={(e) => (e.preventDefault(), keep())} onClick={run} className="flex h-[24px] w-[24px] items-center justify-center hover:text-accent">
               <I size={17} strokeWidth={2.3} />
             </button>
           ))}
@@ -780,7 +1018,39 @@ function ArticleEditor({ html, onChange, footer }: { html: string; onChange: (ht
             Redo
           </button>
         </div>
+        {panel === "emoji" && <EmojiPanel onPick={(e) => exec("insertText", e)} onClose={() => setPanel(null)} />}
+        {panel === "link" && (
+          <Popover testid="newpost-editor-link-panel" onClose={() => setPanel(null)} className="left-[180px] top-[48px] flex w-[320px] items-center gap-[8px] p-[10px]">
+            <input autoFocus aria-label="Link URL" data-testid="newpost-editor-link-url" value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addLink())} placeholder="https://" className="h-[34px] flex-1 rounded-pill bg-bg px-[14px] text-[13px] outline-none placeholder:text-muted" />
+            <button data-testid="newpost-editor-link-add" disabled={!url.trim()} onClick={addLink} className="text-[13px] font-black uppercase text-accent disabled:opacity-50">
+              Add
+            </button>
+          </Popover>
+        )}
+        {panel === "insert" && (
+          <Popover testid="newpost-editor-insert-menu" onClose={() => setPanel(null)} className="left-[330px] top-[48px] w-[200px] py-[6px]">
+            {INSERTS.map(([k, label, I]) => (
+              <button key={k} role="menuitem" data-testid={`newpost-insert-${k}`} onClick={() => (setPanel(null), setPick(k))} className="flex w-full items-center gap-[10px] px-[14px] py-[8px] text-left text-[13px] hover:text-accent">
+                <I size={15} />
+                {label}
+              </button>
+            ))}
+          </Popover>
+        )}
       </div>
+      <input
+        ref={fileRef}
+        type="file"
+        hidden
+        data-testid="newpost-editor-file"
+        accept={fileKind === "Image" ? "image/*" : fileKind === "Video" ? "video/*" : "audio/*"}
+        onChange={(e) => {
+          // Mock: only the file name goes into the article; nothing is uploaded.
+          const n = e.target.files?.[0]?.name;
+          if (n) exec("insertHTML", `<p><em>[${fileKind}: ${esc(n)}]</em></p><p><br></p>`);
+          e.target.value = "";
+        }}
+      />
       <div
         ref={ref}
         role="textbox"
@@ -790,16 +1060,47 @@ function ArticleEditor({ html, onChange, footer }: { html: string; onChange: (ht
         contentEditable
         suppressContentEditableWarning
         data-placeholder="Write some text..."
-        onInput={(e) => onChange(e.currentTarget.innerHTML, e.currentTarget.innerText)}
-        className="min-h-[250px] px-[22px] py-[18px] text-[16px] outline-none empty:before:text-white empty:before:content-[attr(data-placeholder)] [&_ol]:list-decimal [&_ol]:pl-[24px] [&_pre]:rounded [&_pre]:bg-bg [&_pre]:p-[8px] [&_ul]:list-disc [&_ul]:pl-[24px]"
+        onInput={(e) => (keep(), onChange(e.currentTarget.innerHTML, e.currentTarget.innerText))}
+        onKeyUp={keep}
+        onMouseUp={keep}
+        className="min-h-[250px] px-[22px] py-[18px] text-[16px] outline-none empty:before:text-white empty:before:content-[attr(data-placeholder)] [&_a]:text-accent [&_a]:underline [&_h3]:mt-[14px] [&_h3]:text-[20px] [&_h3]:font-bold [&_p+p]:mt-[10px] [&_hr]:my-[10px] [&_hr]:border-white/20 [&_ol]:list-decimal [&_ol]:pl-[24px] [&_pre]:rounded [&_pre]:bg-bg [&_pre]:p-[8px] [&_ul]:list-disc [&_ul]:pl-[24px]"
       />
       {footer}
+      <AiDialog
+        open={ai}
+        onClose={() => setAi(false)}
+        onResult={(r) => {
+          if (r.html) exec("insertHTML", r.html);
+          onGenerated(r);
+        }}
+      />
+      {cur && (
+        <PickerDialog
+          open
+          title={cur.title}
+          testid={`newpost-pick-${pick}`}
+          items={cur.items}
+          empty={cur.empty}
+          placeholder={cur.placeholder}
+          pills={cur.pills}
+          primary="Feature"
+          onClose={() => setPick(null)}
+          onPick={(id) => {
+            const it = cur.items.find((i) => i.id === id)!;
+            setPick(null);
+            link(cur.href(id), it.label);
+          }}
+        />
+      )}
     </div>
   );
 }
 
+
 /** An Autopilot draft saved earlier is replaced (not duplicated) when the creator saves their edit. */
-function replaceLinkedDraft(d: AppData, apId?: string) {
-  if (!apId) return;
-  d.social.posts = d.social.posts.filter((p) => !(p.status === "draft" && p.extra?.autopilotDraftId === apId));
+function replaceLinkedDraft(d: AppData, apId?: string, workId?: string) {
+  if (apId) d.social.posts = d.social.posts.filter((p) => !(p.status === "draft" && p.extra?.autopilotDraftId === apId));
+  // Saving the assistant's post again replaces its earlier saved draft instead of duplicating it.
+  const prev = workId ? itemById(d, workId)?.ref?.postId : undefined;
+  if (prev) d.social.posts = d.social.posts.filter((p) => !(p.status === "draft" && p.id === prev));
 }

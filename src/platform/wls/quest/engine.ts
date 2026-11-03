@@ -290,7 +290,7 @@ export interface Colors {
 }
 
 export function readColors(): Colors {
-  const cs = getComputedStyle(document.documentElement);
+  const cs = getComputedStyle(document.body); // body: picks up the account-setup theme
   const v = (n: string, f: string) => cs.getPropertyValue(n).trim() || f;
   return {
     accent: v("--accent", "#bc1111"),

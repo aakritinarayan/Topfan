@@ -88,10 +88,10 @@ Media per route at 1512×805. Slot is the nearest `data-testid`. Avatars and fan
 | monetize-plan-add | `/monetize/subscription/add-plan` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
 | monetize-plan-edit | `/monetize/subscription/edit-plan/gold` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
 | monetize-subscribers | `/monetize/subscription/subscribers/gold` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
-| monetize-newsletter-new | `/monetize/newsletters/new-newsletter` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
-| monetize-newsletter-edit | `/monetize/newsletters/edit-newsletter/nl1` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
+| monetize-newsletter-new | `/monetize/newsletters/add` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
+| monetize-newsletter-edit | `/monetize/newsletters/edit/nl1` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
 | monetize-newsletter-recipients | `/monetize/newsletters/recipients` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
-| monetize-experience-add | `/monetize/experience/add-experience` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
+| monetize-experience-add | `/monetize/experience/create-experience` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
 | monetize-experience-edit | `/monetize/experience/edit-experience/exp-social` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
 | monetize-course-add | `/monetize/courses/add-course` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |
 | monetize-course-edit | `/monetize/courses/edit-course/course-learn` | 2 | 0 | sidebar → `creators/ajwhite/avatar.webp` | Populated |

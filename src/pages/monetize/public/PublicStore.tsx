@@ -67,7 +67,7 @@ export function PublicStorePage({ route, params }: PageProps) {
           </button>
         ))}
       </div>
-      <div className="mt-[30px] grid grid-cols-3 gap-x-[24px] gap-y-[24px]" data-testid="public-store-grid">
+      <div className="mt-[30px] grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-x-[24px] gap-y-[24px]" data-testid="public-store-grid">
         {list.map((p, i) => (
           <StoreCard
             key={p.id}

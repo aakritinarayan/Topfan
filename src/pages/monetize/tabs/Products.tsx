@@ -86,9 +86,20 @@ const byCreated = (a: Product, b: Product) => a.createdAt.localeCompare(b.create
 
 export function SimpleProductTab({ route, kind }: PageProps & { kind: "experience" | "course" | "downloadable" }) {
   const items = useData((d) => d.monetize.products.filter((p) => p.kind === kind).sort(byCreated));
+  const { navigate } = useRouter();
   return (
     <MonetizeFrame routeId={route.id} active={META[kind].tab}>
-      <ProductGrid kind={kind} items={items} withAdd />
+      {kind === "experience" && !items.length ? (
+        // Reference experience-01: shown only when the account has no experiences.
+        <div className="flex flex-col items-center justify-center gap-[46px] rounded-card bg-surface px-[30px] py-[80px]" data-testid="monetize-experience-empty">
+          <p className="text-[16px] text-[#c8c8c8]">You have not setup any experiences yet.</p>
+          <Pill data-testid="monetize-add-experience" onClick={() => navigate(pathFor(META.experience.addRoute))}>
+            Create Experiences
+          </Pill>
+        </div>
+      ) : (
+        <ProductGrid kind={kind} items={items} withAdd />
+      )}
     </MonetizeFrame>
   );
 }

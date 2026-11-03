@@ -152,7 +152,11 @@ export const creatorNicheWord = "snow";
  * Registrars the assistant can hand off to. Only public search/product pages are used (no carts,
  * no checkout links). `searchUrl` = the registrar's public domain-search page for that name.
  * Verify these open correctly in a browser before a live demo (registrars block automated checks).
+ * The assistant recommends and hands off to GoDaddy only (ASSISTANT_REGISTRAR). Namecheap stays here
+ * because the original setup page's "Purchase Domain on Namecheap" button opens it.
  */
+export const ASSISTANT_REGISTRAR = "godaddy";
+
 export const registrars: {
   id: string;
   name: string;
@@ -173,14 +177,7 @@ export const registrars: {
     note: "Widely used. Works with TopFan.",
     searchUrl: (d) => `https://www.godaddy.com/domainsearch/find?domainToCheck=${encodeURIComponent(d)}`,
     homeUrl: "https://www.godaddy.com/",
-  },
-  {
-    id: "cloudflare",
-    name: "Cloudflare",
-    note: "Needs a Cloudflare account. Search for the name after signing in.",
-    searchUrl: null,
-    homeUrl: "https://www.cloudflare.com/products/registrar/",
-  },
+  }
 ];
 
 /** Extensions the (mock) availability service can check. */
@@ -190,7 +187,6 @@ export const supportedTlds = ["com", "net", "co", "me", "club"];
 export const mockPrices: Record<string, Record<string, { first: number; renewal: number } | null>> = {
   namecheap: { com: { first: 11, renewal: 16 }, net: { first: 13, renewal: 17 }, co: { first: 9, renewal: 30 }, me: null, club: { first: 3, renewal: 19 } },
   godaddy: { com: { first: 12, renewal: 22 }, net: { first: 15, renewal: 23 }, co: { first: 13, renewal: 38 }, me: { first: 8, renewal: 25 }, club: { first: 5, renewal: 23 } },
-  cloudflare: { com: null, net: null, co: null, me: null, club: null },
 };
 
 /**

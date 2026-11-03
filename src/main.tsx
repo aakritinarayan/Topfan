@@ -1,3 +1,5 @@
+// First: picks the demo (if opened from a demo link) before any store reads saved state.
+import "./app/demo";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "@fontsource/roboto/300.css";

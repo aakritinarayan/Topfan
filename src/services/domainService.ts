@@ -5,7 +5,7 @@
  * In production `checkAvailability` / `getPrices` call a registrar API (e.g. Namecheap, GoDaddy)
  * from a TopFan backend; the assistant must never make up availability or prices itself.
  */
-import { creatorNicheWord, mockAvailability, mockExistingSites, mockPrices, registrars, supportedTlds } from "../config/demo";
+import { ASSISTANT_REGISTRAR, creatorNicheWord, mockAvailability, mockExistingSites, mockPrices, registrars, supportedTlds } from "../config/demo";
 
 export type Availability = "available" | "taken" | "error" | "unsupported";
 
@@ -46,7 +46,8 @@ function hash(s: string) {
 
 export function getPrices(domain: string): Price[] {
   const tld = tldOf(domain);
-  return registrars.map((r) => {
+  // The assistant only offers GoDaddy for new-domain purchases.
+  return registrars.filter((r) => r.id === ASSISTANT_REGISTRAR).map((r) => {
     const p = mockPrices[r.id]?.[tld] ?? null;
     return { registrarId: r.id, first: p?.first ?? null, renewal: p?.renewal ?? null, period: "1 year", currency: "USD" };
   });
