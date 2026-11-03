@@ -23,6 +23,7 @@ import { registrarById } from "../../services/domainService";
 import { ChatError, getChatStatus, streamChat, type ChatErrorCode, type ChatTurn, type ProposedAction } from "../../services/chatService";
 import { openRegistrar } from "../DomainFinder";
 import { HIGHLIGHTABLE, buildContext, historyOf } from "./context";
+import { SETUP_STARTERS, setupAnswer } from "./setupHelp";
 
 const ROOT_DOMAIN = /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.[a-z0-9-]{1,63})*\.[a-z]{2,}$/i;
 const SUBDOMAIN = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/i;
@@ -53,6 +54,8 @@ const ERROR_COPY: Record<ChatErrorCode, string> = {
   aborted: "Stopped.",
 };
 
+const OUTAGE_NOTE = "I can't reach my AI service right now.";
+
 const FIELD_LABEL: Record<string, string> = {
   hasDomain: "Do you have a domain",
   domainName: "Domain Name",
@@ -77,6 +80,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const live = useRef({ a, platform, finder, quest, agent, messages: a.messages });
   live.current = { a, platform, finder, quest, agent, messages: a.messages };
   const inflight = useRef<AbortController | null>(null);
+  const askRef = useRef<(t: string) => void>(() => {});
 
   useEffect(() => {
     getChatStatus().then((s) => setConnected(s.configured));
@@ -111,6 +115,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (p.name === "prepare_draft") {
       const kind = input.kind as DraftKind;
       if (typeof input.text === "string" && input.text.trim() && input.text.length <= 2000 && kind in DRAFT_LABEL) agent.offerDraft(kind, input.text.trim());
+      return;
+    }
+    if (p.name === "show_goal_options") {
+      if (input.goal === "earn" || input.goal === "engage") agent.showGoal(input.goal);
       return;
     }
     if (p.name === "propose_action") {
@@ -265,8 +273,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           ctl.signal,
         );
         cancelAnimationFrame(frame);
-        live.current.a.update(replyId, { text: answer || "Here's what I can do.", plain: answer, streaming: false });
         live.current.a.setMood("idle");
+        if (!answer.trim() && !actions.length) {
+          // The model said nothing usable: answer anyway, deterministically.
+          live.current.a.dismiss(replyId);
+          offline(text, null);
+          return;
+        }
+        live.current.a.update(replyId, { text: answer || "Here you go.", plain: answer, streaming: false });
         actions.forEach(propose);
       } catch (err) {
         cancelAnimationFrame(frame);
@@ -275,27 +289,23 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (e.code === "aborted") {
           a.update(replyId, { text: answer ? `${answer}\n\n_(Stopped)_` : "Stopped.", plain: answer || "", streaming: false });
           a.setMood("idle");
-        } else if (platformMode && !answer && ["not_configured", "network", "unavailable", "timeout", "busy", "auth"].includes(e.code)) {
-          // The model isn't reachable: answer with the labeled demo mode instead of failing.
+        } else if (!answer) {
+          // No answer from the model (not connected, outage, refusal, bad request): answer deterministically
+          // instead of showing an error. A real outage gets one short, honest note.
           if (e.code === "not_configured") setConnected(false);
           a.dismiss(replyId);
           a.setMood("idle");
-          demoAnswer(text, e.code === "not_configured" ? null : ERROR_COPY[e.code]);
+          offline(text, e.code === "not_configured" ? null : e.code === "refusal" ? ERROR_COPY.refusal : OUTAGE_NOTE);
         } else {
-          if (e.code === "not_configured") setConnected(false);
+          // Part of an answer arrived before the failure: keep it, say so, offer a retry.
           a.update(replyId, {
             llm: false,
             streaming: false,
-            status: "problem",
-            text: answer ? `${answer}\n\n${ERROR_COPY[e.code]}` : ERROR_COPY[e.code],
+            text: `${answer}\n\n${ERROR_COPY[e.code]}`,
             plain: answer,
-            details: e.code === "not_configured" ? "Add ANTHROPIC_API_KEY to the server environment (.env.local) and restart the server." : undefined,
-            actions:
-              e.code === "not_configured" || e.code === "refusal" || e.code === "bad_request"
-                ? undefined
-                : [{ label: "Try again", variant: "outline", onClick: () => retry(text) }],
+            actions: [{ label: "Try again", variant: "outline", onClick: () => retry(text) }],
           });
-          a.setMood("error");
+          a.setMood("idle");
         }
       } finally {
         if (inflight.current === ctl) {
@@ -332,15 +342,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       a.userSays(text);
       // Content Autopilot review commands are deterministic and never wait on the model.
       if (!isOnboarding(platform.state.screen) && autopilot(text)) return;
-      if (connected !== true && !isOnboarding(platform.state.screen)) {
-        demoAnswer(text, null);
+      if (connected !== true) {
+        offline(text, null);
         if (connected === false) getChatStatus().then((s) => setConnected(s.configured));
-        return;
-      }
-      if (connected === false) {
-        a.say({ status: "problem", text: ERROR_COPY.not_configured, details: "Add ANTHROPIC_API_KEY to the server environment (.env.local) and restart the server." });
-        // Check again in case the server was configured since.
-        getChatStatus().then((s) => setConnected(s.configured));
         return;
       }
       const id = a.say({ text: "", llm: true, streaming: true });
@@ -348,30 +352,32 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     },
     [connected, runAsk, autopilot],
   );
+  askRef.current = ask;
 
-  /** Labeled demo mode: the deterministic agent. Never pretends to answer open questions. */
-  const demoAnswer = useCallback((text: string, problem: string | null) => {
-    const { a, agent } = live.current;
-    if (problem) a.say({ status: "problem", text: `${problem} Meanwhile, here's what I can do without it.` });
-    if (agent.handle(text)) return;
-    a.say({
-      text: "In demo mode I can find any feature, guide you through a goal, and tell you what needs attention, but I can't answer open questions without the AI model connected.",
-      plain: "Demo mode: can't answer open questions.",
-      choice: {
-        instant: true,
-        options: [
-          { value: "What needs my attention?", label: "What needs my attention?" },
-          { value: "I want to start earning", label: "I want to start earning" },
-          { value: "Where are my fans?", label: "Where are my fans?" },
-        ],
-        onPick: (v) => {
-          live.current.a.userSays(v);
-          live.current.agent.handle(v);
+  /**
+   * Without the model (demo mode, outage, refusal): the deterministic assistant. It always gives
+   * something to act on: an answer, a screen, a choice or suggestions. It never pretends to be the model.
+   */
+  const offline = useCallback((text: string, note: string | null) => {
+    const { a, agent, platform } = live.current;
+    if (isOnboarding(platform.state.screen)) {
+      const ans = setupAnswer(text, platform.state);
+      a.say({
+        text: note ? `${note} ${ans.text}` : ans.text,
+        plain: ans.text,
+        choice: {
+          instant: true,
+          options: SETUP_STARTERS.filter((q) => q.toLowerCase() !== text.trim().toLowerCase()).slice(0, 3).map((q) => ({ value: q, label: q })),
+          onPick: (v) => askRef.current(v),
         },
-      },
-    });
+      });
+      if (ans.highlight) a.highlight(ans.highlight);
+      return;
+    }
+    if (note) a.say({ text: `${note} Here's a quick answer meanwhile.`, plain: note });
+    if (agent.handle(text)) return;
+    agent.fallback(text);
   }, []);
-
   const cancel = useCallback(() => inflight.current?.abort(), []);
 
   // Reset (review bar) clears the conversation: stop any answer in progress.

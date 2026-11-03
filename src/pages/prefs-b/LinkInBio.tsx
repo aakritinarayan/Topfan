@@ -145,7 +145,7 @@ function ActionCard({ a, c, name }: { a: BioAction; c: PV; name: string }) {
           <p className="mt-[16px] text-[12px] font-bold">Current Price</p>
           <p className="mt-[8px] text-[20px] font-semibold">${(a.price ?? 0).toFixed(2)}</p>
           <div className="mt-[16px] inline-flex h-[44px] items-center gap-[4px] rounded-full px-[4px]" style={{ background: c.bg }}>
-            <button type="button" aria-label="Decrease quantity" onClick={() => setQty((q) => Math.max(1, q - 1))} className="flex h-[36px] w-[36px] items-center justify-center rounded-full text-[12px]" style={{ background: c.btn, color: c.btnText }}>–</button>
+            <button type="button" aria-label="Decrease quantity" disabled={qty <= 1} onClick={() => setQty((q) => Math.max(1, q - 1))} className="flex h-[36px] w-[36px] disabled:opacity-50 items-center justify-center rounded-full text-[12px]" style={{ background: c.btn, color: c.btnText }}>–</button>
             <span className="w-[36px] text-center text-[14px] font-bold">{qty}</span>
             <button type="button" aria-label="Increase quantity" onClick={() => setQty((q) => q + 1)} className="flex h-[36px] w-[36px] items-center justify-center rounded-full text-[12px]" style={{ background: c.btn, color: c.btnText }}>+</button>
           </div>
@@ -203,6 +203,7 @@ function Preview({ device, draft, palettes, edit, onDraft, loading }: { device: 
   const fileRef = useRef<HTMLInputElement>(null);
   const target = useRef<"cover" | "avatar">("cover");
   const dragFrom = useRef<number | null>(null);
+  const toast = useToast();
   const pick = (t: "cover" | "avatar") => {
     target.current = t;
     fileRef.current?.click();
@@ -256,7 +257,7 @@ function Preview({ device, draft, palettes, edit, onDraft, loading }: { device: 
 
   const footer = (
     <div className="flex flex-col items-center gap-[8px] pb-[20px] pt-[16px] text-[14px]" style={{ color: c.btn }}>
-      <a href="#" onClick={(e) => e.preventDefault()} data-testid="pref-lib-get-platform">Get Your Own Platform</a>
+      <a href="#" onClick={(e) => (e.preventDefault(), toast("Preview only: on your live page this link takes fans to TopFan's site."))} data-testid="pref-lib-get-platform">Get Your Own Platform</a>
       <span className="flex items-center gap-[4px] text-[13px] font-medium tracking-[.5px] opacity-90"><Zap size={13} />TOP<b>FAN</b></span>
     </div>
   );

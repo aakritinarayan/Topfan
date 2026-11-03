@@ -3,17 +3,16 @@
  */
 import type { ReactNode } from "react";
 import {
-  Bell, ChartColumn, CircleDollarSign, Globe, House, Lightbulb, MessageCircle, Plus, SquarePlay, Video, Wallet,
+  Bell, ChartColumn, CircleDollarSign, House, Lightbulb, MessageCircle, Plus, SquarePlay, Video, Wallet,
 } from "lucide-react";
 import { assets } from "../config/demo";
-import { useData } from "../store/store";
+import { previewFromUrl, useData, useLogoDraft } from "../store/store";
 import { useRouter } from "../app/router";
 import { openOverlay } from "../app/ui";
 import type { Section } from "../app/routes/types";
 import { AvatarMenu, LanguageMenu } from "../pages/comms/HeaderMenus";
 import { LoggedOutHeaderActions } from "../pages/social/AuthHeader";
 import { Avatar, VerifiedBadge } from "./ui/surfaces";
-import { IconCircle } from "./ui/controls";
 
 const navIcons = {
   home: House,
@@ -26,8 +25,10 @@ const navIcons = {
   resources: Lightbulb,
 };
 
-export function Logo({ size = 36 }: { size?: number }) {
-  const name = useData((d) => d.account.name);
+export function Logo({ size = 36, text }: { size?: number; text?: string }) {
+  const saved = useData((d) => d.account.logo?.text || d.account.name);
+  const draft = useLogoDraft()?.text;
+  const name = text ?? draft ?? previewFromUrl()?.logoText ?? saved;
   const { navigate } = useRouter();
   const handle = useData((d) => d.account.handle);
   const label = (
@@ -204,12 +205,8 @@ function SetupHeader({ overBackdrop = false }: { overBackdrop?: boolean }) {
       <div className="flex h-[75px] items-center justify-between px-[26px]">
         <TopFanLogo />
         <div className="flex items-center gap-3">
-          <IconCircle aria-label="Language">
-            <Globe size={22} />
-          </IconCircle>
-          <button aria-label="Account menu">
-            <Avatar src={avatar} size={42} ring={2} />
-          </button>
+          <LanguageMenu />
+          <AvatarMenu avatar={avatar} />
         </div>
       </div>
     </header>

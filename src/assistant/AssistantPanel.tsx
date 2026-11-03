@@ -186,7 +186,7 @@ export function AssistantPanel() {
           <AutopilotView />
         ) : (
           <>
-            {!onboarding && messages.every((m) => m.dismissible) && <PlatformWelcome onAsk={(t) => chat.ask(t)} />}
+            {!onboarding && messages.every((m) => m.dismissible) && <PlatformWelcome />}
             {messages.map((m) => (
               <MessageView key={m.id} m={m} />
             ))}
@@ -565,12 +565,12 @@ function MessageView({ m }: { m: Msg }) {
   const { resolve, userSays, dismiss } = useAssistant();
   if (m.from === "user")
     return (
-      <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
+      <motion.div data-msg="user" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
         <span className="max-w-[85%] rounded-[20px] rounded-br-md bg-accent px-4 py-2.5 text-sm">{m.text}</span>
       </motion.div>
     );
   return (
-    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="relative min-w-0 break-words rounded-[20px] bg-surface p-4 text-sm leading-5">
+    <motion.div data-msg="assistant" data-status={m.status ?? ""} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="relative min-w-0 break-words rounded-[20px] bg-surface p-4 text-sm leading-5">
       {m.dismissible && !m.resolved && (
         <button
           onClick={() => dismiss(m.id)}

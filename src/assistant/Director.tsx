@@ -563,7 +563,9 @@ export function AssistantDirector() {
             text: "Your drafted first post is still here. Nothing has been posted.",
             actions: [{ label: "Use my drafted post", variant: "primary", onClick: () => navigate("/dashboard/newpost?prefill=assistant") }],
           });
-        agent.showAttention("You're all set up. One thing worth a look next:");
+        // Suggestions follow the real account state (continue a task, fix an issue, next goals).
+        if (state.provisionDone) agent.welcome();
+        else agent.welcome("Welcome to your dashboard. What would you like to do next?");
       });
     else a.once("platform-collapsed", () => a.setOpen(false));
   }, [onboarding]);

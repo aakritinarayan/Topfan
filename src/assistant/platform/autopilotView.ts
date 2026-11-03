@@ -11,7 +11,11 @@ export type APView =
   | { screen: "reject"; draftId: string }
   | { screen: "confirm"; exclude?: string[] }
   | { screen: "complete"; approved: string[] }
-  | { screen: "prefs" };
+  | { screen: "prefs" }
+  | { screen: "plan"; step: PlanStep };
+
+/** Plan my week: one question per step, then the plan, then what happens next. */
+export type PlanStep = "intro" | "happening" | "rhythm" | "topics" | "media" | "review" | "approved";
 
 const KEY = "topfan-autopilot-view-v1";
 let view: APView | null = (() => {

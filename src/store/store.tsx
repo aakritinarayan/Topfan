@@ -9,7 +9,7 @@
  * - Delays: simulated loading (skeletons) via useMockLoading(); ?noDelay=1 or localStorage "tf-no-delay" turns them off.
  */
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { initialAccount, type AccountState } from "./slices/account";
+import { fontStack, initialAccount, LOGO_FONTS, type AccountState } from "./slices/account";
 import { initialPrefsA, type PrefsAState } from "./slices/prefsA";
 import { initialPrefsB, type PrefsBState } from "./slices/prefsB";
 import { initialMonetize, type MonetizeState } from "./slices/monetize";
@@ -209,10 +209,52 @@ const hexToRgb = (h: string) => {
   return m ? `${parseInt(m[1], 16)} ${parseInt(m[2], 16)} ${parseInt(m[3], 16)}` : "188 17 17";
 };
 
-/** Applies the creator's white-label colours to the CSS variables (the live product's mechanism). */
+/**
+ * "Desktop Preview of White Label Site" opens a new tab with ?wlsPreview=<json> carrying the unsaved
+ * appearance (like the live product's preview params). That tab shows it; nothing is saved.
+ */
+export type AppearancePreview = Partial<AccountState["theme"]> & { font?: string; logoText?: string };
+export function previewFromUrl(): AppearancePreview | null {
+  try {
+    const raw = new URLSearchParams(window.location.search).get("wlsPreview");
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const k of ["bg", "secondaryBg", "accent", "text", "buttonText", "postText"]) if (typeof v[k] === "string" && /^#[0-9a-f]{6}$/i.test(v[k] as string)) out[k] = v[k] as string;
+    if (typeof v.font === "string" && LOGO_FONTS.includes(v.font)) out.font = v.font;
+    if (typeof v.logoText === "string" && v.logoText.trim().length <= 40) out.logoText = v.logoText.trim();
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The logo being edited on White Label Site › Site Logo, before Update & Publish. The header logo
+ * follows it live; it's in memory only and is cleared when the editor closes (unsaved = reverts).
+ */
+type LogoDraft = { text: string; font: string } | null;
+let logoDraft: LogoDraft = null;
+const draftSubs = new Set<() => void>();
+export function setLogoDraft(d: LogoDraft) {
+  if (d?.text === logoDraft?.text && d?.font === logoDraft?.font) return;
+  logoDraft = d;
+  draftSubs.forEach((s) => s());
+}
+export const useLogoDraft = () =>
+  useSyncExternalStore(
+    (fn) => (draftSubs.add(fn), () => void draftSubs.delete(fn)),
+    () => logoDraft,
+  );
+
+/** Applies the creator's white-label colours and logo font to the CSS variables (the live product's mechanism). */
 export function ThemeFromStore() {
-  const theme = useData((d) => d.account.theme);
+  const saved = useData((d) => d.account.theme);
+  const draftFont = useLogoDraft()?.font;
+  const savedFont = useData((d) => d.account.logo?.font ?? "Rubik Dirt");
   useEffect(() => {
+    const preview = previewFromUrl();
+    const theme = { ...saved, ...preview };
     const r = document.documentElement.style;
     r.setProperty("--configBgColor", theme.bg);
     r.setProperty("--configSecondaryBgColor", theme.secondaryBg);
@@ -220,7 +262,9 @@ export function ThemeFromStore() {
     r.setProperty("--configThemeColorRgb", hexToRgb(theme.accent));
     r.setProperty("--configBgTextColor", theme.text);
     r.setProperty("--configButtonTextColor", theme.buttonText);
-  }, [theme]);
+    r.setProperty("--configPostTextColor", theme.postText ?? theme.text);
+    r.setProperty("--font-logo", fontStack(draftFont ?? preview?.font ?? savedFont));
+  }, [saved, savedFont, draftFont]);
   return null;
 }
 

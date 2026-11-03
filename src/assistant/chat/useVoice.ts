@@ -45,7 +45,7 @@ const ERRORS: Record<string, string> = {
   "audio-capture": "I couldn't find a microphone. Check that one is connected, or type instead.",
   network: "Voice input needs an internet connection. You can type instead.",
   "no-speech": "I didn't catch anything. Want to try again?",
-  "language-not-supported": "Voice input isn't available for this language. You can type instead.",
+  "language-not-supported": "Voice input supports US English only here. You can type instead.",
 };
 
 export function useVoice() {
@@ -64,7 +64,8 @@ export function useVoice() {
     if (!C) return;
     rec.current?.abort();
     const r = new C();
-    r.lang = navigator.language || "en-US";
+    // The assistant answers in US English, so listen in US English (not the browser's language).
+    r.lang = "en-US";
     r.continuous = true;
     r.interimResults = true;
     r.maxAlternatives = 1;

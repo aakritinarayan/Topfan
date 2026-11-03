@@ -1,28 +1,77 @@
 /**
  * Preferences › White Label Site, Manage mode (P50; screenshots 50-part1…4, 50a–50e).
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, LayoutTemplate, Settings, Trash2 } from "lucide-react";
-import { appearance, creator, domain as demoDomain, seo } from "../../config/demo";
+import { appearance, domain as demoDomain, seo } from "../../config/demo";
 import { siteAddress, usePlatform } from "../../state/platformStore";
 import { Button, CopyField, IconCircle, Input, InfoIcon, OutlineButton, Radio, Select } from "../ui/controls";
 import { ActiveBadge, DarkBadge, Modal } from "../ui/surfaces";
 import { useToast } from "../ui/toast";
-import { act } from "../../store/store";
+import { act, getData, setLogoDraft, useData } from "../../store/store";
+import { fontStack, LOGO_FONTS, type AccountState } from "../../store/slices/account";
+import { ConfirmModal } from "../../pages/prefs-b/ui";
+import { useRouter } from "../../app/router";
 import { GoDaddySteps, useRecords } from "./DnsRecordsStep";
 import { SitePreview } from "./SitePreview";
 
+type Theme = AccountState["theme"];
+/** The six color rows, in page order, and the saved theme key each one edits. */
+const COLOR_KEYS: (keyof Theme)[] = ["bg", "text", "secondaryBg", "postText", "accent", "buttonText"];
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/*
+ * Choosing "Standard Color Palettes" or "Standard Themes" shows a "Choose Color Palette" picker in the
+ * live product (P50: not opened in the captures). These presets are this demo's own (inferred).
+ */
+const PRESETS: Record<string, { name: string; theme: Partial<Theme> }[]> = {
+  "Standard Color Palettes": [
+    { name: "TopFan Red", theme: { accent: "#bc1111", buttonText: "#ffffff" } },
+    { name: "Ocean", theme: { accent: "#1d6fd8", buttonText: "#ffffff" } },
+    { name: "Violet", theme: { accent: "#7c3aed", buttonText: "#ffffff" } },
+    { name: "Sunset", theme: { accent: "#e2561d", buttonText: "#ffffff" } },
+  ],
+  "Standard Themes": [
+    { name: "Dark", theme: { bg: "#191a1c", secondaryBg: "#272a2b", text: "#ffffff", postText: "#ffffff" } },
+    { name: "Midnight", theme: { bg: "#0d1220", secondaryBg: "#182035", text: "#ffffff", postText: "#e6e9f2" } },
+    { name: "Graphite", theme: { bg: "#202020", secondaryBg: "#303030", text: "#f2f2f2", postText: "#f2f2f2" } },
+  ],
+};
+
 export function ManageWls() {
-  const { state, go } = usePlatform();
+  const { state, go, reset } = usePlatform();
+  const { navigate } = useRouter();
   const toast = useToast();
   const url = `https://${siteAddress(state)}`;
+  const savedTheme = useData((d) => d.account.theme);
+  const savedLogo = useData((d) => d.account.logo) ?? { text: getData().account.name, font: "Rubik Dirt" };
+  const coverEnabled = useData((d) => d.account.whiteLabel.coverEnabled);
   const [dnsOpen, setDnsOpen] = useState(false);
   const [seoOpen, setSeoOpen] = useState(false);
-  const [coverEnabled, setCoverEnabled] = useState(true);
+  const [removeOpen, setRemoveOpen] = useState(false);
   const [tab, setTab] = useState<"cover" | "feed">("cover");
   const [palette, setPalette] = useState(appearance.palette);
+  // Unsaved appearance: shown in the preview right away, saved by Update & Publish.
+  const [theme, setTheme] = useState<Theme>({ postText: savedTheme.text, ...savedTheme });
   const [logoMode, setLogoMode] = useState<"text" | "image">("text");
-  const [logoText, setLogoText] = useState(creator.name);
+  const [logoText, setLogoText] = useState(savedLogo.text);
+  const [font, setFont] = useState(Math.max(0, LOGO_FONTS.indexOf(savedLogo.font)));
+  const [logoImage, setLogoImage] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const setColor = (k: keyof Theme, v: string) => HEX.test(v) && setTheme((t) => ({ ...t, [k]: v.toLowerCase() }));
+  // The header logo follows the font and text being edited; leaving without publishing reverts it.
+  useEffect(() => setLogoDraft({ text: logoText.trim() || savedLogo.text, font: LOGO_FONTS[font] }), [logoText, font, savedLogo.text]);
+  useEffect(() => () => setLogoDraft(null), []);
+  const stepFont = (dir: 1 | -1) => setFont((i) => (i + dir + LOGO_FONTS.length) % LOGO_FONTS.length);
+  const setCover = (on: boolean) => {
+    const res = act("wls.coverEnabled", (d) => void (d.account.whiteLabel.coverEnabled = on), { need: "account.admin" });
+    toast(!res.ok ? res.reason : on ? "Your Cover Page will now be visible on your White Label Site." : "Your Cover Page will no longer be visible on your White Label Site.");
+  };
+  const desktopPreview = () => {
+    // Like the live product: the site in a new tab, with the unsaved appearance as preview params.
+    const params = new URLSearchParams({ wlsPreview: JSON.stringify({ ...theme, font: LOGO_FONTS[font], logoText }) });
+    window.open(`${tab === "cover" ? "/" : `/${getData().account.handle}`}?${params}`, "_blank", "noopener");
+  };
 
   return (
     <>
@@ -32,7 +81,7 @@ export function ManageWls() {
         <div className="flex flex-col items-end">
           <div className="flex items-center gap-2">
             <ActiveBadge>Active</ActiveBadge>
-            <IconCircle size={36} aria-label="Delete domain">
+            <IconCircle size={36} aria-label="Delete domain" onClick={() => setRemoveOpen(true)}>
               <Trash2 size={17} />
             </IconCircle>
           </div>
@@ -72,19 +121,13 @@ export function ManageWls() {
         <div className="flex shrink-0 items-center gap-3">
           <div className="flex">
             <button
-              onClick={() => {
-                setCoverEnabled(false);
-                toast("Your Cover Page will no longer be visible on your White Label Site.");
-              }}
+              onClick={() => setCover(false)}
               className={`h-9 rounded-l-pill px-[18px] text-[13px] font-black uppercase ${coverEnabled ? "bg-bg" : "bg-accent"}`}
             >
               Disable
             </button>
             <button
-              onClick={() => {
-                setCoverEnabled(true);
-                toast("Your Cover Page will now be visible on your White Label Site.");
-              }}
+              onClick={() => setCover(true)}
               className={`h-9 rounded-r-pill px-[18px] text-[13px] font-black uppercase ${coverEnabled ? "bg-accent" : "bg-bg"}`}
             >
               Enable
@@ -102,20 +145,44 @@ export function ManageWls() {
             <h4 className="text-base font-semibold">Site Colors &amp; Themes</h4>
             <p className="mb-4 mt-6 text-base">Choose a Color Palette or Theme Type *</p>
             <Select tone="surface" value={palette} options={appearance.paletteOptions} onChange={setPalette} />
-            <div className="mt-6 flex flex-col gap-5">
-              {appearance.colors.map((c) => (
-                <div key={c.label}>
-                  <p className="mb-2.5 text-sm font-medium">{c.label}</p>
-                  <div className="flex h-14 items-center rounded-pill bg-surface pl-6 pr-[22px]">
-                    <span className="h-8 w-11 rounded-[5px] border border-accent" style={{ background: c.value }} />
-                    <span className="ml-5 flex-1 text-sm font-black">{c.value}</span>
-                    <span className="relative h-[18px] w-[26px]" aria-hidden>
-                      <span className="absolute left-0 top-0 h-[18px] w-[18px] rounded-full border border-accent" />
-                      <span className="absolute left-2 top-0 h-[18px] w-[18px] rounded-full border border-accent" />
-                    </span>
-                  </div>
+            {PRESETS[palette] && (
+              <div className="mt-5" data-testid="wls-palette-presets">
+                <p className="mb-2.5 text-sm font-medium">Choose Color Palette</p>
+                <div className="flex flex-wrap gap-2">
+                  {PRESETS[palette].map((pr) => (
+                    <button
+                      key={pr.name}
+                      type="button"
+                      onClick={() => setTheme((t) => ({ ...t, ...pr.theme }))}
+                      className="flex h-9 items-center gap-2 rounded-pill bg-surface px-3 text-[13px] font-bold hover:ring-1 hover:ring-accent"
+                    >
+                      <span className="h-4 w-4 rounded-full border border-white/40" style={{ background: pr.theme.accent ?? pr.theme.bg }} />
+                      {pr.name}
+                    </button>
+                  ))}
                 </div>
-              ))}
+              </div>
+            )}
+            <div className="mt-6 flex flex-col gap-5">
+              {appearance.colors.map((c, i) => {
+                const k = COLOR_KEYS[i];
+                const value = (theme[k] as string | undefined) ?? c.value;
+                return (
+                  <div key={c.label}>
+                    <p className="mb-2.5 text-sm font-medium">{c.label}</p>
+                    {/* Clicking the swatch or the picker icon opens the browser's color picker. */}
+                    <label className="flex h-14 cursor-pointer items-center rounded-pill bg-surface pl-6 pr-[22px]" data-testid={`wls-color-${k}`}>
+                      <span className="h-8 w-11 rounded-[5px] border border-accent" style={{ background: value }} />
+                      <span className="ml-5 flex-1 text-sm font-black">{value}</span>
+                      <span className="relative h-[18px] w-[26px]" aria-hidden>
+                        <span className="absolute left-0 top-0 h-[18px] w-[18px] rounded-full border border-accent" />
+                        <span className="absolute left-2 top-0 h-[18px] w-[18px] rounded-full border border-accent" />
+                      </span>
+                      <input type="color" className="sr-only" aria-label={c.label.replace(" *", "")} value={value} onChange={(e) => setColor(k, e.target.value)} />
+                    </label>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -134,15 +201,38 @@ export function ManageWls() {
                 <p className="mb-4 mt-6 text-base">Logo Text*</p>
                 <Input tone="surface" value={logoText} placeholder="Miles Karston" onChange={(e) => setLogoText(e.target.value)} />
                 <p className="mb-3 mt-6 text-base">Logo Font</p>
-                <div className="flex items-center justify-center gap-4">
-                  <ChevronLeft size={22} />
-                  <span className="font-logo text-4xl text-accent">{logoText}</span>
-                  <ChevronRight size={22} />
+                <div className="flex items-center justify-center gap-4" data-testid="wls-logo-font">
+                  <button type="button" aria-label="Previous logo font" onClick={() => stepFont(-1)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface">
+                    <ChevronLeft size={22} />
+                  </button>
+                  <span className="text-4xl" style={{ fontFamily: fontStack(LOGO_FONTS[font]), color: theme.accent }} title={LOGO_FONTS[font]} data-font={LOGO_FONTS[font]}>
+                    {logoText || savedLogo.text}
+                  </span>
+                  <button type="button" aria-label="Next logo font" onClick={() => stepFont(1)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface">
+                    <ChevronRight size={22} />
+                  </button>
                 </div>
               </>
             ) : (
               <>
-                <Button className="mt-6">Select File</Button>
+                <Button className="mt-6" onClick={() => fileRef.current?.click()}>
+                  Select File
+                </Button>
+                {/* Demo: the image stays in this browser tab for the preview; nothing is uploaded. */}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/png"
+                  className="hidden"
+                  data-testid="wls-logo-file"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    if (f.type !== "image/png") return void toast("Please choose a PNG image.");
+                    setLogoImage(URL.createObjectURL(f));
+                  }}
+                />
+                {logoImage && <img src={logoImage} alt="Selected logo" className="mt-4 h-8 max-w-[335px] object-contain" />}
                 <p className="mt-3 text-sm text-soft">
                   Upload a transparent PNG image that is 32px in Height, and between 32px and 335px Wide.
                 </p>
@@ -176,9 +266,11 @@ export function ManageWls() {
             Below is how your site will look on Mobile. Click the Desktop Preview button below to see how it will look on full size
             browsers.
           </p>
-          <OutlineButton className="mt-5 w-full">Desktop Preview of White Label Site</OutlineButton>
+          <OutlineButton className="mt-5 w-full" onClick={desktopPreview}>
+            Desktop Preview of White Label Site
+          </OutlineButton>
           <div className="mt-5">
-            <SitePreview tab={tab} />
+            <SitePreview tab={tab} theme={theme} font={LOGO_FONTS[font]} logoText={logoText || savedLogo.text} logoImage={logoMode === "image" ? logoImage : null} />
           </div>
         </div>
       </div>
@@ -188,20 +280,47 @@ export function ManageWls() {
         data-testid="wls-update-publish"
         onClick={() => {
           // Records the publish in the mock store (owner only) so progress and the assistant see it.
-          const res = act("wls.publish", (d) => void (d.account.whiteLabel.lastPublishedAt = new Date().toISOString()), { need: "account.admin" });
+          if (logoMode === "text" && !logoText.trim()) return void toast("Logo Text is required.");
+          const res = act(
+            "wls.publish",
+            (d) => {
+              d.account.theme = { ...theme };
+              d.account.logo = { text: logoText.trim() || d.account.name, font: LOGO_FONTS[font] };
+              d.account.whiteLabel.lastPublishedAt = new Date().toISOString();
+            },
+            { need: "account.admin" },
+          );
           toast(res.ok ? "White Label site updated and published successfully" : res.reason);
         }}
       >
         Update &amp; Publish
       </Button>
 
-      <DomainDetailsModal open={dnsOpen} onClose={() => setDnsOpen(false)} />
+      <DomainDetailsModal open={dnsOpen} onClose={() => setDnsOpen(false)} onDelete={() => (setDnsOpen(false), setRemoveOpen(true))} />
+      <ConfirmModal
+        open={removeOpen}
+        title="Remove White Label Site"
+        confirmLabel="Remove"
+        testid="modal-wls-remove"
+        onClose={() => setRemoveOpen(false)}
+        onConfirm={() => {
+          // Demo data only: the site goes back to "not set up" and setup starts again.
+          const res = act("wls.remove", (d) => void (d.account.whiteLabel.status = "not-set-up"), { need: "account.admin" });
+          setRemoveOpen(false);
+          if (!res.ok) return void toast(res.reason);
+          toast("Your White Label Site was removed. Your content and cover pages are still here.");
+          reset();
+          navigate("/edit-preference/whitelabel/setup/domain");
+        }}
+      >
+        If you delete your domain settings, your content and cover pages will remain intact, but you'll need to set up your domain name and white label site color and logo preferences again.
+      </ConfirmModal>
       <SeoModal open={seoOpen} onClose={() => setSeoOpen(false)} />
     </>
   );
 }
 
-export function DomainDetailsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function DomainDetailsModal({ open, onClose, onDelete }: { open: boolean; onClose: () => void; onDelete?: () => void }) {
   const { state } = usePlatform();
   const records = useRecords();
   return (
@@ -234,9 +353,11 @@ export function DomainDetailsModal({ open, onClose }: { open: boolean; onClose: 
       <div className="mt-6">
         <GoDaddySteps />
       </div>
-      <button className="mt-6 h-[42px] w-full rounded-pill bg-[linear-gradient(#fd9292,#fb6767)] text-sm font-black uppercase text-white">
-        Delete White Label Site
-      </button>
+      {onDelete && (
+        <button onClick={onDelete} className="mt-6 h-[42px] w-full rounded-pill bg-[linear-gradient(#fd9292,#fb6767)] text-sm font-black uppercase text-white">
+          Delete White Label Site
+        </button>
+      )}
     </Modal>
   );
 }

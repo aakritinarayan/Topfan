@@ -19,7 +19,7 @@ import { AUTOMATED_EVENT_TYPES, saveAutomatedMessage } from "../../store/slices/
 import { actionById } from "../../app/agent-context/actions";
 import { roleCan, ROLE_LABEL } from "../../store/permissions";
 import { FEATURES, featureById, type Feature } from "../../app/agent-context/features";
-import { classify, type Clarify } from "../../app/agent-context/intent";
+import { classify, GOALS, isImperativeNav, normalizeText, type Clarify, type GoalId, type GoalOption } from "../../app/agent-context/intent";
 import { canBuild, urlFor } from "../../app/agent-context/routes";
 import { recommend, topRecommendation } from "../../app/agent-context/recommendations";
 import { metrics, taskById, type TaskDef } from "../../app/agent-context/tasks";
@@ -36,7 +36,9 @@ import {
   resumeTask,
   setTaskDraft,
   startTask,
+  takeExpired,
 } from "../../app/agent-context/workflow-state";
+import { isOnboarding, usePlatform } from "../../state/platformStore";
 import type { HealthItem } from "../../app/agent-context/account-state";
 import { CopyLine } from "../AssistantPanel";
 import { DRAFT_LABEL, makeDraft, type DraftKind } from "./drafts";
@@ -44,8 +46,17 @@ import { DRAFT_LABEL, makeDraft, type DraftKind } from "./drafts";
 interface Ctx {
   /** Deterministic handling of a typed/spoken request (demo mode). Returns false if not understood. */
   handle: (text: string) => boolean;
-  navigateTo: (featureId: string, opts?: { quiet?: boolean; params?: Record<string, string> }) => boolean;
-  beginTask: (taskId: string) => boolean;
+  navigateTo: (featureId: string, opts?: { quiet?: boolean; params?: Record<string, string>; topic?: string }) => boolean;
+  beginTask: (taskId: string, opts?: TaskOpts) => boolean;
+  /** Never leaves the creator with nothing: closest features, or what I can help with. */
+  fallback: (text: string, note?: string) => void;
+  /** Suggested next actions from the real account and task state (≈4). */
+  suggestions: () => Suggestion[];
+  /** "Your site is ready. What would you like to do next?" with suggestions. */
+  welcome: (heading?: string) => void;
+  showGoal: (goal: GoalId) => void;
+  /** Run a suggestion as if the creator said it. */
+  pickSuggestion: (s: Suggestion) => void;
   taskControl: (c: "pause" | "resume" | "cancel" | "back" | "status") => void;
   showAttention: (intro?: string) => void;
   showNext: () => void;
@@ -57,13 +68,72 @@ interface Ctx {
   dismissed: React.MutableRefObject<string[]>;
 }
 
+interface TaskOpts {
+  /** Open the step's screen right away (default). Otherwise offer it as the primary action. */
+  navigate?: boolean;
+  /** The creator's goal, kept with the task. */
+  goal?: string;
+  /** Replaces the task summary (e.g. the explanation for a chosen goal). */
+  intro?: string;
+  /** Primary action label (default: the step's CTA). */
+  cta?: string;
+}
+
+export interface Suggestion {
+  id: string;
+  label: string;
+  run: () => void;
+}
+
+/** What to say when the creator lands on a screen for a specific reason ("change my logo"). */
+const TOPICS: { featureId: string; words: string[]; hint: string; target?: string }[] = [
+  { featureId: "white-label", words: ["logo"], hint: "Your logo is in Customize Appearance › Site Logo. Change it there, then click Update & Publish.", target: "logo" },
+  { featureId: "white-label", words: ["color", "colors", "colour", "theme", "branding", "appearance", "design", "look"], hint: "Colors and logo are in Customize Appearance. Make your changes, then click Update & Publish.", target: "colors" },
+  { featureId: "white-label", words: ["seo", "gtm", "tag manager"], hint: "SEO and the Google Tag Manager ID are under Feed Page SEO Settings & GTM Tag.", target: "seo-keywords" },
+];
+const topicFor = (featureId: string, text?: string) => {
+  if (!text) return null;
+  const t = normalizeText(text);
+  return TOPICS.find((x) => x.featureId === featureId && x.words.some((w) => t.includes(` ${w}`))) ?? null;
+};
+
+const STOP = new Set(
+  "a an the my me i to of for in on and or is are do does how can could would what where when which who why with my your it this that want need like please get set up about from have has be into some any just more make use today now time day thing things stuff good best new see know tell show help there here their will should was were it's its whats what's how's where's you you're yours our out all also very really lot much many one two".split(" "),
+);
+const stem = (w: string) => w.replace(/(ings|ing|ers|er|ies|es|s|ed)$/, "");
+/** Loose word overlap with the registry (name, synonyms, description) when no phrase matched. */
+function closestFeatures(text: string, n = 3) {
+  const words = normalizeText(text).split(" ").filter((w) => w.length > 2 && !STOP.has(w)).map(stem);
+  if (!words.length) return [];
+  return FEATURES.filter((f) => !f.overlay)
+    .map((f) => {
+      const hay = new Set(normalizeText([f.name, ...f.synonyms, f.description, f.where].join(" ")).split(" ").filter((w) => w.length > 2).map(stem));
+      return { f, score: words.filter((w) => hay.has(w)).length };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n)
+    .map((x) => x.f);
+}
+
+const SETUP_PATH = "/edit-preference/whitelabel/setup/";
+
+/** Suggestion labels for verified issues, in the creator's terms. */
+const ISSUE_LABEL: Record<string, string> = {
+  "outbound-failed": "Fix my email sending",
+  "wls-not-active": "Finish setting up my website",
+};
+
 const C = createContext<Ctx | null>(null);
 
 export function PlatformAgentProvider({ children }: { children: ReactNode }) {
   const a = useAssistant();
   const { navigate, path } = useRouter();
-  const live = useRef({ a, navigate, path });
-  live.current = { a, navigate, path };
+  const platform = usePlatform();
+  const live = useRef({ a, navigate, path, platform });
+  live.current = { a, navigate, path, platform };
+  const setupReached = useRef(false);
+  if (platform.state.screen === "step2" || platform.state.screen === "provisioning") setupReached.current = true;
   const dismissed = useRef<string[]>([]);
 
   const blocked = (need: Feature["need"] | TaskDef["need"]) => {
@@ -82,9 +152,13 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     if (target) setTimeout(() => live.current.a.highlight(target), 450);
   };
 
-  const navigateTo = useCallback((featureId: string, opts: { quiet?: boolean; params?: Record<string, string> } = {}) => {
+  const navigateTo = useCallback((featureId: string, opts: { quiet?: boolean; params?: Record<string, string>; topic?: string } = {}) => {
     const f = featureById(featureId);
-    if (!f) return false;
+    if (!f) {
+      live.current.a.say({ text: "I couldn't find that screen. Here's what I can help with instead.", plain: "Unknown screen." });
+      showSuggestionsRef.current();
+      return false;
+    }
     if (blocked(f.need)) {
       noAccess(f.name);
       return false;
@@ -96,9 +170,24 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     }
     const d = getData();
     const params = { ...f.params, ...opts.params };
-    if (!canBuild(f.routeId, d, params)) return false;
-    go(urlFor(f.routeId, d, params));
-    if (!opts.quiet) live.current.a.say({ text: <>Here's <b>{f.name}</b>. You'll find it under {f.where}.</>, plain: `Opened ${f.name} (${f.where}).` });
+    const topic = topicFor(f.id, opts.topic);
+    // Already there: no navigation, just help with the next thing on this page.
+    const here = resolve(live.current.path).route.id === f.routeId && (!params.tab || new URLSearchParams(window.location.search).get("tab") === params.tab);
+    if (here) {
+      live.current.a.say({
+        text: <>You're already on <b>{f.name}</b>. {topic?.hint ?? f.description}</>,
+        plain: `Already on ${f.name}. ${topic?.hint ?? f.description}`,
+      });
+      if (topic?.target) live.current.a.highlight(topic.target);
+      return true;
+    }
+    if (!canBuild(f.routeId, d, params)) {
+      live.current.a.say({ status: "problem", text: <>I couldn't open <b>{f.name}</b> right now. You'll find it under {f.where}.</>, plain: `Couldn't open ${f.name}.` });
+      return false;
+    }
+    go(urlFor(f.routeId, d, params), topic?.target);
+    if (topic && !opts.quiet) live.current.a.say({ text: <>Here's <b>{f.name}</b>. {topic.hint}</>, plain: `Opened ${f.name}. ${topic.hint}` });
+    else if (!opts.quiet) live.current.a.say({ text: <>Here's <b>{f.name}</b>. You'll find it under {f.where}.</>, plain: `Opened ${f.name} (${f.where}).` });
     return true;
   }, []);
 
@@ -190,34 +279,44 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const beginTask = useCallback((taskId: string) => {
+  const beginTask = useCallback((taskId: string, opts: TaskOpts = {}) => {
     const def = taskById(taskId);
     if (!def) return false;
+    const navigateNow = opts.navigate ?? true;
     if (blocked(def.need)) {
       noAccess(def.name);
       return false;
     }
     const m = metrics(getData());
     const warn = def.dependsOn?.find((x) => x.when(m));
-    startTask(taskId);
+    startTask(taskId, opts.goal);
     const w = getWorkflow();
     const p = w.active ? progressOf(w.active) : null;
     const { a } = live.current;
+    const onStepPage = !!p?.step && resolve(live.current.path).route.id === p.step.routeId;
+    // Offer the screen as one clear action unless we're opening it now (or it's already open).
+    const primary = !navigateNow && p?.step && !onStepPage ? [{ label: opts.cta ?? p.step.cta, variant: "primary" as const, onClick: goToStep }] : [];
     a.say({
       text: (
         <>
-          <b>{def.name}.</b> {def.summary} {p?.step ? stepLine(def, p.index) : ""}
+          {opts.intro ?? (
+            <>
+              <b>{def.name}.</b> {def.summary}
+            </>
+          )}{" "}
+          {p?.step ? (onStepPage ? `You're on the right page. Next: ${p.step.title}.` : stepLine(def, p.index)) : ""}
         </>
       ),
       plain: `Started: ${def.name}. ${p?.step ? stepLine(def, p.index) : ""}`,
       details: warn ? warn.note : undefined,
       actions: [
+        ...primary,
         ...(warn ? [{ label: "Fix that first", variant: "outline" as const, onClick: () => beginTaskRef.current(warn.taskId) }] : []),
         ...(ASSISTS[def.id] ? [{ label: ASSISTS[def.id].label, variant: "outline" as const, onClick: () => proposeActionRef.current(ASSISTS[def.id].actionId, ASSISTS[def.id].input()) }] : []),
         ...(def.draft && !ASSISTS[def.id] ? [{ label: `Draft ${DRAFT_LABEL[def.draft].toLowerCase()}`, variant: "outline" as const, onClick: () => offerDraft(def.draft!) }] : []),
       ],
     });
-    goToStep();
+    if (navigateNow || onStepPage) goToStep();
     return true;
   }, []);
   const proposeActionRef = useRef(proposeAction);
@@ -361,6 +460,136 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     else a.say({ text: <>This is <b>{route.title}</b> ({route.menu}). Tell me what you'd like to do and I'll take you there.</>, plain: `This is ${route.title}.` });
   };
 
+  /* ---------------- broad goals: explain, offer up to three choices, then one next step ---------------- */
+
+  const runOption = (goal: GoalId, o: GoalOption, which: "primary" | "secondary") => {
+    const t = o[which]!;
+    const goalText = `${goal === "earn" ? "Earn from my fans" : "Engage my fans"}: ${o.label}`;
+    if (t.taskId) beginTaskRef.current(t.taskId, { navigate: true, goal: goalText, intro: o.explain });
+    else if (t.featureId) navigateTo(t.featureId);
+  };
+
+  const showGoal = useCallback((goal: GoalId) => {
+    const g = GOALS[goal];
+    live.current.a.say({
+      text: <>{g.intro} {g.question}</>,
+      plain: `${g.intro} ${g.question}`,
+      choice: {
+        instant: true,
+        options: g.options.map((o) => ({ value: o.id, label: o.label })),
+        onPick: (id) => {
+          const o = g.options.find((x) => x.id === id);
+          if (!o) return;
+          // The choice is the creator's goal: keep it with the task (no navigation yet).
+          if (o.primary.taskId) {
+            beginTaskRef.current(o.primary.taskId, {
+              navigate: false,
+              goal: `${goal === "earn" ? "Earn from my fans" : "Engage my fans"}: ${o.label}`,
+              intro: o.explain,
+              cta: o.primary.label,
+            });
+            if (o.secondary) live.current.a.say({ text: "Prefer the other option?", actions: [{ label: o.secondary.label, variant: "outline", onClick: () => runOption(goal, o, "secondary") }] });
+            return;
+          }
+          live.current.a.say({
+            text: o.explain,
+            actions: [
+              { label: o.primary.label, variant: "primary", onClick: () => runOption(goal, o, "primary") },
+              ...(o.secondary ? [{ label: o.secondary.label, variant: "outline" as const, onClick: () => runOption(goal, o, "secondary") }] : []),
+            ],
+          });
+        },
+      },
+    });
+  }, []);
+
+  /* ---------------- suggestions from the real account and task state ---------------- */
+
+  /** Direct open: one sentence, one primary action (no navigation until the creator clicks). */
+  const offerOpen = (featureId: string, topicText?: string) => {
+    const f = featureById(featureId);
+    if (!f) return false;
+    // Same access rule as navigating: never offer a button to a screen this role can't use.
+    if (blocked(f.need)) {
+      noAccess(f.name);
+      return true;
+    }
+    const topic = topicFor(f.id, topicText);
+    if (resolve(live.current.path).route.id === f.routeId) return navigateTo(f.id, { topic: topicText });
+    live.current.a.say({
+      text: <>{topic ? <>That's in <b>{f.name}</b> ({f.where}). </> : <><b>{f.name}</b> is under {f.where}. </>}{topic ? "" : f.description}</>,
+      plain: `${f.name} is under ${f.where}.`,
+      actions: [{ label: `Open ${f.name}`, variant: "primary", onClick: () => navigateTo(f.id, { topic: topicText }) }],
+    });
+    return true;
+  };
+
+  const suggestions = useCallback((): Suggestion[] => {
+    const d = getData();
+    const w = getWorkflow();
+    const ps = live.current.platform.state;
+    const out: Suggestion[] = [];
+    const doneTasks = new Set(w.finished.filter((f) => f.status === "done").map((f) => f.taskId));
+    if (w.active) {
+      const def = taskById(w.active.taskId)!;
+      out.push({ id: `continue-${def.id}`, label: def.resumeLabel ?? `Continue: ${def.name}`, run: () => (taskControl("status"), goToStep()) });
+    }
+    const paused = w.paused[w.paused.length - 1];
+    if (paused) {
+      const def = taskById(paused.taskId)!;
+      out.push({ id: `resume-${def.id}`, label: def.resumeLabel ?? `Continue: ${def.name}`, run: () => taskControl("resume") });
+    }
+    // Account setup really started in this session (Step 2 or later reached) but not finished.
+    if (setupReached.current && !ps.provisionDone && !isOnboarding(ps.screen)) {
+      const step = ps.provisionStartedAt ? "provisioning" : ps.recordsVerified || ps.screen === "step2" ? "dns" : "domain";
+      out.push({ id: "finish-setup", label: "Finish setting up my website", run: () => (markAssistantNavigation(), live.current.navigate(SETUP_PATH + step)) });
+    }
+    // The most important verified issue (not tips).
+    const issue = recommend(d, { dismissed: dismissed.current, limit: 1 })[0];
+    if (issue && issue.priority <= 1 && !out.some((x) => x.id.endsWith(issue.taskId ?? "-"))) out.push({ id: `issue-${issue.id}`, label: ISSUE_LABEL[issue.id] ?? issue.title, run: itemAction(issue) });
+    const brandingActive = w.active?.taskId === "white-label" || w.paused.some((t) => t.taskId === "white-label");
+    if (!brandingActive && !doneTasks.has("white-label")) out.push({ id: "customize", label: "Customize my website", run: () => beginTaskRef.current("white-label", { goal: "Customize my website" }) });
+    const posts = metrics(d).posts;
+    out.push({ id: "post", label: posts ? "Create a post" : "Create my first post", run: () => beginTaskRef.current("create-post", { goal: posts ? "Create a post" : "Create my first post" }) });
+    out.push({ id: "earn", label: "Start earning from fans", run: () => showGoal("earn") });
+    out.push({ id: "engage", label: "Explore fan engagement", run: () => showGoal("engage") });
+    const role = d.account.session.role;
+    return out.filter((x) => {
+      const t = x.id.startsWith("continue-") || x.id.startsWith("resume-") ? null : x.id === "customize" ? taskById("white-label") : x.id === "post" ? taskById("create-post") : null;
+      return !t?.need || roleCan(role, t.need);
+    }).slice(0, 4);
+  }, []);
+
+  const pickSuggestion = (sg: Suggestion) => {
+    live.current.a.userSays(sg.label);
+    sg.run();
+  };
+
+  const showSuggestions = (text = "Here's what I can help with:") =>
+    live.current.a.say({
+      text,
+      choice: { instant: true, options: suggestions().map((x) => ({ value: x.id, label: x.label })), onPick: (id) => suggestions().find((x) => x.id === id)?.run() },
+    });
+  const showSuggestionsRef = useRef(showSuggestions);
+  showSuggestionsRef.current = showSuggestions;
+
+  const welcome = useCallback((heading = "Your site is ready. What would you like to do next?") => showSuggestions(heading), []);
+
+  /** Nothing matched: closest features if any word overlaps, otherwise what I can help with. Never empty. */
+  const fallback = useCallback((text: string, note?: string) => {
+    const close = closestFeatures(text);
+    const { a } = live.current;
+    if (close.length) {
+      a.say({
+        text: <>{note ? `${note} ` : ""}I'm not sure I understood. Is it one of these?</>,
+        plain: `${note ?? ""} Not sure; closest: ${close.map((f) => f.name).join(", ")}.`.trim(),
+        choice: { instant: true, options: close.map((f) => ({ value: f.id, label: `${f.name} (${f.where})` })), onPick: (id) => navigateTo(id) },
+      });
+      return;
+    }
+    showSuggestions(`${note ? `${note} ` : ""}I don't have an answer for that here. I can take you to any TopFan feature or help with a goal. For example:`);
+  }, []);
+
   /* ---------------- demo-mode entry ---------------- */
 
   const handle = useCallback((text: string) => {
@@ -371,7 +600,7 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     const { a } = live.current;
     switch (intent.kind) {
       case "smalltalk":
-        a.say({ text: intent.reply === "greeting" ? `Hi ${getData().account.firstName}! What would you like to do?` : "Anytime." });
+        a.say({ text: intent.reply === "greeting" ? `Hi ${getData().account.firstName}! What would you like to do?` : "Anytime! Tell me if there's anything else." });
         return true;
       case "health":
         showAttention();
@@ -388,16 +617,21 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
           goToStep();
           return true;
         }
-        return beginTask(intent.task.id) || true;
+        return beginTask(intent.task.id, { navigate: isImperativeNav(text), goal: text.slice(0, 120) }) || true;
       }
       case "clarify":
         clarify(intent.clarify);
+        return true;
+      case "goal":
+        showGoal(intent.goal);
         return true;
       case "explain":
         explain(intent.feature);
         return true;
       case "navigate":
-        navigateTo(intent.feature.id);
+        // "Take me to…" goes now; "I want to change my logo" gets one clear "Open …" action.
+        if (isImperativeNav(text)) navigateTo(intent.feature.id, { topic: text });
+        else offerOpen(intent.feature.id, text);
         return true;
       case "page-help":
         pageHelp();
@@ -406,6 +640,34 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
         return false;
     }
   }, []);
+
+  /* ---------------- panel reopened: offer to continue, mention expired tasks ---------------- */
+
+  const wasOpen = useRef(a.open);
+  useEffect(() => {
+    const opened = a.open && !wasOpen.current;
+    wasOpen.current = a.open;
+    if (!opened || isOnboarding(live.current.platform.state.screen) || !live.current.a.messages.length) return;
+    const expired = takeExpired();
+    if (expired.length) {
+      const def = taskById(expired[0]);
+      if (def) live.current.a.say({ text: <>Your <b>{def.name}</b> task was from a while ago, so I cleared it. Want to start it again?</>, actions: [{ label: "Start again", variant: "outline", onClick: () => beginTaskRef.current(def.id) }] });
+    }
+    const w = getWorkflow();
+    const t = w.active ?? w.paused[w.paused.length - 1];
+    if (!t) return;
+    const p = progressOf(t);
+    if (!p.step || resolve(live.current.path).route.id === p.step.routeId) return;
+    const def = p.def;
+    const label = def.resumeLabel ?? `Continue: ${def.name}`;
+    const last = live.current.a.messages[live.current.a.messages.length - 1];
+    if (last && (last.plain ?? "").startsWith(label)) return; // already offered
+    live.current.a.say({
+      text: <>{label}? Next: {p.step.title}.</>,
+      plain: `${label}? Next: ${p.step.title}.`,
+      actions: [{ label, variant: "primary", onClick: () => (w.active ? goToStep() : taskControl("resume")) }],
+    });
+  }, [a.open]);
 
   /* ---------------- task progress → short updates ---------------- */
 
@@ -435,7 +697,10 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const value = useMemo(() => ({ handle, navigateTo, beginTask, taskControl, showAttention, showNext, offerDraft, goToStep, proposeAction, dismissed }), []);
+  const value = useMemo(
+    () => ({ handle, navigateTo, beginTask, taskControl, showAttention, showNext, offerDraft, goToStep, proposeAction, dismissed, fallback, suggestions, welcome, showGoal, pickSuggestion }),
+    [],
+  );
   return <C.Provider value={value}>{children}</C.Provider>;
 }
 

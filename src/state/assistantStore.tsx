@@ -182,9 +182,13 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
   const highlight = useCallback((field: string) => {
     // Overlay only: briefly ring an existing field (data-field or data-testid) without changing it.
-    requestAnimationFrame(() => {
+    // The page may still be rendering after a navigation: look for up to ~1.5s.
+    const find = (tries: number) => {
       const el = document.querySelector<HTMLElement>(`[data-field="${CSS.escape(field)}"], [data-testid="${CSS.escape(field)}"]`);
-      if (!el) return;
+      if (!el) {
+        if (tries > 0) setTimeout(() => find(tries - 1), 150);
+        return;
+      }
       // Only scroll when needed: Chrome cancels concurrent smooth scrolls (e.g. the panel's own).
       const r = el.getBoundingClientRect();
       if (r.top < 0 || r.bottom > window.innerHeight) el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -192,7 +196,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       void el.offsetWidth;
       el.classList.add("assist-highlight");
       setTimeout(() => el.classList.remove("assist-highlight"), 1800);
-    });
+    };
+    requestAnimationFrame(() => find(10));
   }, []);
 
   const markDetected = useCallback(

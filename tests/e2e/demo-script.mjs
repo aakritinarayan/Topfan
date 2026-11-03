@@ -20,23 +20,39 @@ await sleep(1200);
 if (!(await p.$('[data-testid="ai-panel"]'))) { await p.click('[data-testid="ai-launcher"]'); await sleep(600); }
 const panel = () => p.evaluate(() => document.querySelector('[data-testid="ai-panel"]').innerText);
 const path = () => new URL(p.url()).pathname;
+const replies = () => p.$$eval('[data-msg="assistant"]', (x) => x.map((m) => m.innerText));
 const ask = async (q) => {
-  const before = (await panel()).length;
+  const before = (await replies()).length;
   await p.click('[data-testid="ai-input"]', { clickCount: 3 });
+  await p.keyboard.press("Backspace");
   await p.type('[data-testid="ai-input"]', q);
   await p.keyboard.press("Enter");
   await sleep(wait);
-  return (await panel()).slice(before);
+  return (await replies()).slice(before).join("\n");
 };
+const tap = (re) => p.evaluate((src) => { const x = [...document.querySelectorAll('[data-testid="ai-panel"] button')].reverse().find((b) => new RegExp(src, "i").test(b.innerText.trim())); x?.click(); return !!x; }, re.source);
 
 let t = await ask("Where do I set what fans pay to message me?");
-check("pay-to-message → Preferences › Monetization", path() === "/edit-preference/monetization", path());
+check("pay-to-message → offers Preferences › Monetization", /Monetization/.test(t) && (await tap(/^Open Monetization$/)), t);
+await sleep(1000);
+check("…and opens it", path() === "/edit-preference/monetization", path());
 
 t = await ask("Take me to my wallet");
 check("'my wallet' asks which one", /NFT/i.test(t) && /earning|withdraw/i.test(t), t);
 
-t = await ask("I want to start earning");
-check("'start earning' starts a guided task", /Step \d of \d/.test(t) && path() === "/monetize/subscription", `${path()} ${t}`);
+t = await ask("I want to change my website logo.");
+check("logo → offers Open White Label Site", /White Label Site/.test(t) && (await tap(/^Open White Label Site$/)), t);
+await sleep(1000);
+check("…and opens it", path() === "/edit-preference/whitelabel", path());
+
+t = await ask("I want to start earning from my fans, but I don't know where to start.");
+check("'start earning' offers three paths", /Exclusive content|membership/i.test(t) && /products/i.test(t), t);
+await tap(/Exclusive content|membership/);
+await sleep(wait);
+await p.click('[data-testid="ai-task-go"]');
+await sleep(1000);
+t = (await replies()).slice(-2).join("\n");
+check("membership → guided task on the plans page", path() === "/monetize/subscription" && !!(await p.$('[data-testid="ai-task-card"]')), `${path()} ${t}`);
 check("no 'I saw that' for the assistant's own navigation", !/I saw that/.test(t), t);
 
 t = await ask("What should I focus on?");
@@ -55,6 +71,10 @@ check("asking again doesn't duplicate it", /already have/i.test(t) && !(await p.
 await ask("Review my posts");
 t = await panel(); // Autopilot replaces the chat view
 check("'Review my posts' opens Content Autopilot", /4 ready/.test(t) && /REVIEW READY POSTS/i.test(t), t);
+await p.evaluate(() => document.querySelector('[data-testid="ap-close"]')?.click());
+await ask("Plan my week");
+check("'Plan my week' opens planning", !!(await p.$('[data-testid="ap-plan-intro"]')));
+await p.evaluate(() => document.querySelector('[data-testid="ap-close"]')?.click());
 
 // A Content delegate asks the same pricing question: told who can, not taken there.
 await p.evaluate(() => { const d = JSON.parse(localStorage.getItem("topfan-mock-v1")); d.account.session.role = "content"; localStorage.setItem("topfan-mock-v1", JSON.stringify(d)); });

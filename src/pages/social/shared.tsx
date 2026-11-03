@@ -349,6 +349,7 @@ export function PostCard({ post, canManage }: { post: Post; canManage: boolean }
   const go = useGo();
   const act = useAct();
   const toCta = () => go("post-detail", { handle, postId: post.id });
+  const toast = useToast();
   const pill = "mt-[16px] flex h-[40px] w-full items-center justify-center rounded-pill bg-accent text-[14px] font-black uppercase tracking-caps text-white hover:brightness-110";
   return (
     <article data-testid={`feed-post-${post.id}`} className="rounded-[32px] bg-surface px-[16px] pb-[16px] pt-[23px]">
@@ -367,7 +368,11 @@ export function PostCard({ post, canManage }: { post: Post; canManage: boolean }
       )}
       {post.type === "audio" && (
         <div className="mt-[8px] flex h-[66px] items-center gap-[12px] rounded-popover bg-bg px-[20px]">
-          <button aria-label="Play" data-testid={`feed-audio-play-${post.id}`} className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-accent">
+          <button
+            aria-label="Play"
+            data-testid={`feed-audio-play-${post.id}`}
+            onClick={() => toast("This demo post has no audio file attached, so there's nothing to play.")}
+            className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-accent">
             <Play size={16} className="ml-[2px] fill-white" />
           </button>
           <span className="relative h-[3px] flex-1 rounded bg-white/25">

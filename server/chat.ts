@@ -90,7 +90,10 @@ Truthfulness:
 - For questions unrelated to TopFan, answer briefly if harmless, then offer to help with their page.
 
 Actions (tools): the app validates every action; you can only propose.
+- If currentPage is already the screen they want, don't navigate: help with the next thing on that page (use highlight_element if the control is in currentPage.highlightable).
+- If an activeTask exists and the creator asks to continue, use task_control "resume"/"status" instead of starting over. Never treat a step as done unless activeTask shows it.
 - navigate_to_feature opens an existing screen right away. Use it whenever the creator wants to go somewhere or asks where something is, and keep your text to one short sentence.
+- show_goal_options: for a broad goal with no specific product ("I want to start earning from my fans", "help me engage my fans"), show the creator up to three ways to do it instead of picking a screen for them. Use it before start_task when the goal is broad.
 - start_task starts a guided goal (one of <app_state>.tasks) when the creator states a goal that spans steps ("I want to start earning", "create a VIP group", "fix my email"). The app shows the steps; don't list them all.
 - task_control pauses, resumes, cancels, steps back or reports the active task.
 - show_attention shows what needs attention (for "what should I focus on?").
@@ -141,6 +144,12 @@ const platformTools: Anthropic.Beta.Messages.BetaTool[] = [
       required: ["kind", "text"],
       additionalProperties: false,
     },
+    eager_input_streaming: true,
+  },
+  {
+    name: "show_goal_options",
+    description: "Show up to three ways to reach a broad goal (earn from fans, engage fans) as choices; each leads to an existing TopFan screen.",
+    input_schema: { type: "object", properties: { goal: { type: "string", enum: ["earn", "engage"] } }, required: ["goal"], additionalProperties: false },
     eager_input_streaming: true,
   },
   {
@@ -291,6 +300,8 @@ export function validateAction(name: string, input: unknown, mode: ChatRequest["
         return {};
       case "prepare_draft":
         return typeof i.kind === "string" && DRAFT_KINDS.includes(i.kind) && typeof i.text === "string" && i.text.trim() && i.text.length <= 2000 ? { kind: i.kind, text: i.text.trim() } : null;
+      case "show_goal_options":
+        return i.goal === "earn" || i.goal === "engage" ? { goal: i.goal } : null;
       case "propose_action": {
         const s = (v: unknown, max: number) => (typeof v === "string" && v.trim() && v.trim().length <= max ? v.trim() : undefined);
         if (typeof i.actionId !== "string" || !APPROVAL_ACTIONS.includes(i.actionId)) return null;

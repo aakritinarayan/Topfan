@@ -11,7 +11,7 @@ import { FEATURES } from "./features";
 import { candidatesFor } from "./intent";
 import { recommend } from "./recommendations";
 import { TASKS, taskById } from "./tasks";
-import { progressOf, type WorkflowState } from "./workflow-state";
+import { progressOf, taskSnapshot, type WorkflowState } from "./workflow-state";
 
 /** Facts about the current page that a question like "why is it failing?" refers to. */
 export function pageFacts(routeId: string, d: AppData): Record<string, unknown> | null {
@@ -81,20 +81,22 @@ export function buildPlatformContext(d: AppData, path: string, message: string, 
       where: route.menu,
       features: FEATURES.filter((f) => f.routeId === route.id).map((f) => f.id),
       facts: pageFacts(route.id, d),
+      activeTab: new URLSearchParams(typeof window === "undefined" ? "" : window.location.search).get("tab"),
       highlightable: onScreen.slice(0, 40),
     },
+    setup: { whiteLabelSite: d.account.whiteLabel.status, siteUrl: d.account.whiteLabel.siteUrl },
     needsAttention: recommend(d, { limit: 4 }).map((i) => ({ id: i.id, title: i.title, why: i.why, featureId: i.featureId, taskId: i.taskId })),
+    // Task progress is verified against app data (never inferred from the conversation).
     activeTask: active
       ? {
-          id: active.def.id,
-          name: active.def.name,
+          ...taskSnapshot(wf.active!),
           step: `${Math.min(active.index + 1, active.def.steps.length)} of ${active.def.steps.length}`,
-          next: active.step?.title ?? null,
           nextHappensOn: active.step?.routeId ?? null,
           approval: active.step?.approval ?? null,
+          lastCompletedStep: [...active.def.steps].reverse().find((s) => s.done(active.ctx))?.title ?? null,
         }
       : null,
-    pausedTasks: wf.paused.map((p) => ({ id: p.taskId, name: taskById(p.taskId)?.name })),
+    pausedTasks: wf.paused.map((p) => ({ id: p.taskId, name: taskById(p.taskId)?.name, goal: p.goal ?? null })),
     candidateFeatures: candidatesFor(message, 6)
       .filter((f) => allowed(f.need))
       .map((f) => ({ id: f.id, name: f.name, where: f.where, about: f.description })),

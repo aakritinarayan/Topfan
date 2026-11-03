@@ -10,6 +10,8 @@ import { useQuest } from "../../state/questStore";
 import { PROVISION_ESTIMATE_S, siteAddress, usePlatform } from "../../state/platformStore";
 import { Button, OutlineButton } from "../ui/controls";
 import { OutlinePill } from "../ui/surfaces";
+import { Link } from "../../app/router";
+import { pathFor } from "../../app/routeCatalog";
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
@@ -298,9 +300,10 @@ export function ProvisioningStep() {
             <p className="mt-9 text-sm text-soft">You don't need to stay on this page - You can safely navigate away and explore other features.</p>
             <p className="mt-2 text-sm text-soft">
               While you wait, we recommend downloading and reviewing our{" "}
-              <a href="#" onClick={(e) => e.preventDefault()} className="font-bold text-accent underline">
+              {/* inferred: the guide's file isn't in the references, so this opens Resources › Guides */}
+              <Link to={pathFor("resources-guides")} className="font-bold text-accent underline">
                 Onboarding Guide.
-              </a>
+              </Link>
             </p>
           </>
         ) : (

@@ -85,7 +85,14 @@ export function BlackCircle({ label, children, ...rest }: Btn & { label: string 
 }
 
 /** Red filled circle icon button (card actions, 40px). */
-export function RedCircle({ label, size = 40, children, className = "", ...rest }: Btn & { label: string; size?: number }) {
+export function RedCircle({ label, size = 40, children, className = "", badge, ...rest }: Btn & { label: string; size?: number; badge?: boolean }) {
+  // A status badge (e.g. Locked) isn't an action: render it as an image, not a button.
+  if (badge)
+    return (
+      <span role="img" aria-label={label} title={label} style={{ width: size, height: size }} className={`inline-flex shrink-0 items-center justify-center rounded-full bg-accent text-white ${className}`}>
+        {children}
+      </span>
+    );
   return (
     <button
       type="button"

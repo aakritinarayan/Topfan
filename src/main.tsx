@@ -6,6 +6,12 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import "@fontsource/roboto/900.css";
 import "@fontsource/rubik-dirt/400.css";
+// Logo Font carousel options (Preferences › White Label Site).
+import "@fontsource/bebas-neue/400.css";
+import "@fontsource/permanent-marker/400.css";
+import "@fontsource/bungee/400.css";
+import "@fontsource/black-ops-one/400.css";
+import "@fontsource/pacifico/400.css";
 import "./styles/tokens.css";
 import "./styles/index.css";
 import App from "./App";

@@ -7,6 +7,7 @@ import { useData } from "../../../store/store";
 import type { ChatBody, ChatMessage, ChatStoreItem } from "../../../store/slices/comms";
 import { Avatar, ImageSlot } from "../../../platform/ui/surfaces";
 import { useOutside } from "../../../platform/ui/controls";
+import { useToast } from "../../../platform/ui/toast";
 import { SCROLL, money } from "../ui";
 
 const PAGE = 8;
@@ -135,22 +136,7 @@ function BubbleBody({ body, out, storeItems }: { body: ChatBody; out: boolean; s
     }
     case "course": {
       const item = storeItems.find((s) => s.id === body.itemId);
-      if (!item) return null;
-      return (
-        <div className="w-[300px] max-w-full rounded-lg bg-accent p-[12px]">
-          <div className="rounded-lg bg-surface p-[16px]">
-            <StoreItemImage item={item} className="mb-[12px] h-[120px] w-full" />
-            <p className="text-[16px] font-bold">{item.title}</p>
-            <p className="mt-[8px] text-[12px] leading-[16px] text-soft">{item.description}</p>
-            <button type="button" className="mt-[12px] h-[36px] w-full rounded-pill bg-accent text-[12px] font-black uppercase tracking-caps">
-              Enroll in course for {money(item.price ?? 0)}
-            </button>
-            <button type="button" className="mt-[8px] h-[36px] w-full rounded-pill border border-accent text-[12px] font-black uppercase tracking-caps text-white">
-              Enroll in course via subscription
-            </button>
-          </div>
-        </div>
-      );
+      return item ? <CourseCard item={item} /> : null;
     }
     case "audio":
       return (
@@ -180,6 +166,27 @@ function BubbleBody({ body, out, storeItems }: { body: ChatBody; out: boolean; s
         </div>
       );
   }
+}
+
+/** A course offer as the fan receives it. The creator sent it, so the buttons explain rather than buy. */
+function CourseCard({ item }: { item: ChatStoreItem }) {
+  const toast = useToast();
+  const fanOnly = () => toast("Fans enroll from this card in their messages. Nothing is charged here.");
+  return (
+    <div className="w-[300px] max-w-full rounded-lg bg-accent p-[12px]">
+      <div className="rounded-lg bg-surface p-[16px]">
+        <StoreItemImage item={item} className="mb-[12px] h-[120px] w-full" />
+        <p className="text-[16px] font-bold">{item.title}</p>
+        <p className="mt-[8px] text-[12px] leading-[16px] text-soft">{item.description}</p>
+        <button type="button" onClick={fanOnly} className="mt-[12px] h-[36px] w-full rounded-pill bg-accent text-[12px] font-black uppercase tracking-caps">
+          Enroll in course for {money(item.price ?? 0)}
+        </button>
+        <button type="button" onClick={fanOnly} className="mt-[8px] h-[36px] w-full rounded-pill border border-accent text-[12px] font-black uppercase tracking-caps text-white">
+          Enroll in course via subscription
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function PaidCard({ title, kind, locked, media }: { title: string; kind: "image" | "audio"; locked?: boolean; media?: string | null }) {

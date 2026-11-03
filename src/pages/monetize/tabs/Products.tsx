@@ -47,7 +47,7 @@ function ProductGrid({ kind, items, withAdd }: { kind: ProductKind; items: Produ
                   <DarkPill>Published</DarkPill>
                 </span>
               ) : p.locked ? (
-                <RedCircle label="Locked" className="pointer-events-none">
+                <RedCircle label="Locked" badge>
                   <Lock size={18} strokeWidth={2.5} />
                 </RedCircle>
               ) : undefined

@@ -143,7 +143,7 @@ function StoreCard({
       {full && <span className="absolute left-[10px] top-[12px] rounded-pill bg-accent px-[10px] py-[8px] text-[13px] leading-none">{KIND_LABEL[p.kind].badge}</span>}
       <div className="absolute right-[12px] top-[12px] flex gap-[10px]" ref={ref}>
         {p.locked && (
-          <RedCircle label="Locked" size={34} className="pointer-events-none">
+          <RedCircle label="Locked" size={34} badge>
             <Lock size={16} strokeWidth={2.5} />
           </RedCircle>
         )}

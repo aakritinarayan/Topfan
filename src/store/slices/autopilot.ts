@@ -136,8 +136,48 @@ export interface AutopilotState {
   preferences: Preference[];
   /** The creator approved "use suggested times" (don't ask per draft). */
   timingRule: boolean;
-  batch: { id: ID; seq: number; createdAt: string; drafts: APDraft[]; skipped: { idea: string; why: string }[]; dismissed: boolean; notified: boolean } | null;
+  batch: { id: ID; seq: number; createdAt: string; drafts: APDraft[]; skipped: { idea: string; why: string }[]; dismissed: boolean; notified: boolean; planWeekOf?: string } | null;
+  /** "Plan my week": the creator's brief and the slots built from it (see planning below). */
+  plan?: WeekPlan | null;
   log: { at: string; text: string }[];
+}
+
+/** Topics a week can mix. Each maps to ideas built only from approved sources. */
+export type Pillar = "coming-up" | "training" | "fan-questions" | "poll" | "behind-scenes";
+export const PILLARS: { id: Pillar; label: string; hint: string }[] = [
+  { id: "coming-up", label: "What's coming up", hint: "From what you tell me about this week" },
+  { id: "training", label: "Training and progress", hint: "From your training notes" },
+  { id: "fan-questions", label: "Answering fan questions", hint: "From your fan questions inbox" },
+  { id: "poll", label: "Polls for fans", hint: "Let fans pick what's next" },
+  { id: "behind-scenes", label: "Behind the scenes", hint: "Photos and clips you choose" },
+];
+
+export interface WeekBrief {
+  /** The creator's own lines about the week. They become an approved source, word for word. */
+  happening: string[];
+  /** Weekdays to post on (0 = Sunday). One post per day. */
+  days: number[];
+  pillars: Pillar[];
+  /** Library files the creator allowed for this week. */
+  assetIds: ID[];
+  /** Words to leave out (ideas mentioning them are skipped). */
+  avoid: string;
+}
+export interface PlanSlot {
+  id: ID;
+  at: string; // ISO, suggested
+  pillar: Pillar;
+  idea: string;
+  title: string;
+  type: APDraft["type"];
+  basis: string;
+}
+export interface WeekPlan {
+  weekOf: string; // ISO date of the Monday
+  brief: WeekBrief;
+  slots: PlanSlot[];
+  status: "draft" | "approved" | "prepared";
+  approvedAt?: string;
 }
 
 /* ------------------------------------------------------------------ demo seed (fictional) */
@@ -161,6 +201,7 @@ export const initialAutopilot = (): AutopilotState => ({
   preferences: [],
   timingRule: false,
   batch: null,
+  plan: null,
   log: [],
 });
 
@@ -674,3 +715,228 @@ export function syncFromPosts(d: AppData): string[] {
 }
 
 export type _Draft = AppData;
+
+/* ------------------------------------------------------------------ plan my week */
+
+/**
+ * The creator plans a week in a few answers; Autopilot then drafts each post from that plan. The brief's
+ * lines are stored as an approved source ("Your weekly brief"), so drafts can only state what the creator
+ * said. Approving the plan authorizes drafting, never publishing (TopFan posts can't be scheduled here).
+ */
+const BRIEF_SOURCE = "src-brief";
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** Monday of next week (local time). */
+export function nextWeekStart(now = new Date()) {
+  const m = new Date(now);
+  m.setHours(0, 0, 0, 0);
+  m.setDate(m.getDate() + ((8 - m.getDay()) % 7 || 7));
+  return m;
+}
+
+/** Suggested posting days and hour, from the creator's own activity (Smart Timing). */
+export function suggestedRhythm(d: AppData) {
+  const w = timingWindows(d);
+  const hour = new Date(w[0].at).getHours();
+  const days = [...new Set(w.map((s) => new Date(s.at).getDay()))].slice(0, d.autopilot.strategy.frequency);
+  return { days: days.sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)), hour, basis: w[0].basis };
+}
+
+export function defaultBrief(d: AppData): WeekBrief {
+  const ap = d.autopilot;
+  return {
+    happening: [],
+    days: suggestedRhythm(d).days,
+    pillars: ["training", "fan-questions", "poll", "behind-scenes"],
+    assetIds: ap.assets.filter((a) => a.approved).map((a) => a.id),
+    avoid: "",
+  };
+}
+
+/** The weekday a brief line names, if any (0 = Sunday). */
+export function namedDay(line: string): number | null {
+  const m = line.toLowerCase().match(/\b(sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)(day|nesday|sday|rsday|urday)?\b/);
+  if (!m) return null;
+  return ["sun", "mon", "tue", "wed", "thu", "fri", "sat"].indexOf(m[1].slice(0, 3));
+}
+
+/** Start (or continue) planning next week. */
+export function startPlan(d: AppData) {
+  const weekOf = nextWeekStart().toISOString();
+  if (d.autopilot.plan?.status === "draft" && d.autopilot.plan.weekOf === weekOf) return;
+  d.autopilot.plan = { weekOf, brief: defaultBrief(d), slots: [], status: "draft" };
+}
+
+export function updateBrief(d: AppData, patch: Partial<WeekBrief>) {
+  const p = d.autopilot.plan;
+  if (!p || p.status !== "draft") return;
+  p.brief = { ...p.brief, ...patch };
+  // "What's coming up" only makes sense with something coming up.
+  if (patch.happening) {
+    // A day the creator names ("on Saturday") becomes a posting day.
+    for (const h of patch.happening) {
+      const day = namedDay(h);
+      if (day !== null && !p.brief.days.includes(day)) p.brief.days = [...p.brief.days, day];
+    }
+    const has = p.brief.happening.length > 0;
+    if (has && !p.brief.pillars.includes("coming-up")) p.brief.pillars = ["coming-up", ...p.brief.pillars];
+    if (!has) p.brief.pillars = p.brief.pillars.filter((x) => x !== "coming-up");
+  }
+}
+
+/** Idea pool per pillar, built only from approved sources, the brief and allowed library files. */
+function planIdeas(d: AppData, brief: WeekBrief): (Candidate & { pillar: Pillar; basis: string })[] {
+  const ap = d.autopilot;
+  const assets = ap.assets.filter((a) => a.approved && brief.assetIds.includes(a.id));
+  const out: (Candidate & { pillar: Pillar; basis: string })[] = [];
+  const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  if (brief.pillars.includes("coming-up"))
+    brief.happening.forEach((h, i) =>
+      out.push({
+        pillar: "coming-up",
+        basis: "Your weekly brief",
+        idea: `brief-${i}`,
+        type: "text",
+        title: cap(h.length > 34 ? `${h.slice(0, 32).trim()}…` : h),
+        text: `This week: ${h.replace(/[.!]+$/, "")}. I'll share how it goes.`,
+        sourceIds: [BRIEF_SOURCE],
+        claims: [{ text: h, sourceId: BRIEF_SOURCE }],
+        tags: ["coming-up"],
+      }),
+    );
+  if (brief.pillars.includes("training"))
+    out.push(
+      { pillar: "training", basis: "Training notes (Oct)", idea: "training-update", type: "text", title: "Training update", text: "Back on snow this week and working on a switch backside 540. Filming new clips for the season, so stay tuned.", sourceIds: ["src-notes"], claims: [{ text: "back on snow this week", sourceId: "src-notes" }, { text: "working on a switch backside 540", sourceId: "src-notes" }], tags: ["training"] },
+    );
+  if (brief.pillars.includes("fan-questions"))
+    out.push(
+      { pillar: "fan-questions", basis: "Fan questions inbox", idea: "first-board", type: "text", title: "Picking a first snowboard", text: "A lot of you keep asking how to pick your first snowboard. I'll share my quick checklist this week. What kind of riding do you want to do?", sourceIds: ["src-qa"], claims: [{ text: "fans keep asking how to pick a first snowboard", sourceId: "src-qa" }], tags: ["fan-questions"] },
+      { pillar: "fan-questions", basis: "Fan questions inbox", idea: "offseason-qa", type: "text", title: "Your training questions", text: "You asked about off-season training, so I'm answering your top questions this week. Drop yours below.", sourceIds: ["src-qa"], claims: [{ text: "fans asked about off-season training", sourceId: "src-qa" }], tags: ["fan-questions"] },
+    );
+  if (brief.pillars.includes("poll"))
+    out.push(
+      { pillar: "poll", basis: "Trick list", idea: "trick-poll", type: "poll", title: "Which trick next?", text: "Which trick should I film next?", pollOptions: ["Switch backside 540", "Frontside 720", "Cab 900"], sourceIds: ["src-tricks"], claims: [], tags: ["poll"] },
+    );
+  if (brief.pillars.includes("behind-scenes")) {
+    for (const a of assets)
+      out.push(
+        a.kind === "image"
+          ? { pillar: "behind-scenes", basis: a.label, idea: `photos-${a.id}`, type: "images", title: `Photos: ${a.label}`, text: `Some favorite shots from the ${a.label.charAt(0).toLowerCase()}${a.label.slice(1)}.`, media: { need: a.label, assetId: null }, sourceIds: [], claims: [], tags: ["behind-the-scenes"] }
+          : { pillar: "behind-scenes", basis: a.label, idea: `clips-${a.id}`, type: "video", title: "Clips coming", text: "Filming new clips for the season. First edit drops soon.", media: { need: a.label, assetId: null }, sourceIds: ["src-notes"], claims: [{ text: "filming new clips for the season", sourceId: "src-notes" }], tags: ["behind-the-scenes"] },
+      );
+  }
+  const avoid = brief.avoid.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+  return out.filter((c) => !avoid.some((w) => `${c.title} ${c.text} ${c.tags.join(" ")}`.toLowerCase().includes(w)));
+}
+
+/** Build the week's slots: one per chosen day, coming-up items first, then the other topics in turn. */
+export function buildPlan(d: AppData) {
+  const p = d.autopilot.plan;
+  if (!p) return;
+  const ideas = planIdeas(d, p.brief);
+  const byPillar = new Map<Pillar, typeof ideas>();
+  ideas.forEach((c) => byPillar.set(c.pillar, [...(byPillar.get(c.pillar) ?? []), c]));
+  const order: typeof ideas = [...(byPillar.get("coming-up") ?? [])];
+  const rest = p.brief.pillars.filter((x) => x !== "coming-up");
+  for (let round = 0; order.length < ideas.length; round++) {
+    let added = false;
+    for (const pl of rest) {
+      const c = byPillar.get(pl)?.[round];
+      if (c) (order.push(c), (added = true));
+    }
+    if (!added) break;
+  }
+  const { hour } = suggestedRhythm(d);
+  const monday = new Date(p.weekOf);
+  const days = [...p.brief.days].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+  // Lines that name a day go on that day; everything else fills the remaining days in order.
+  const placed = new Map<number, (typeof ideas)[number]>();
+  const queue: typeof ideas = [];
+  for (const c of order) {
+    const day = c.pillar === "coming-up" ? namedDay(p.brief.happening[Number(c.idea.slice(6))] ?? "") : null;
+    if (day !== null && days.includes(day) && !placed.has(day)) placed.set(day, c);
+    else queue.push(c);
+  }
+  for (const day of days) if (!placed.has(day) && queue.length) placed.set(day, queue.shift()!);
+  p.slots = days
+    .filter((day) => placed.has(day))
+    .map((day) => {
+      const at = new Date(monday);
+      at.setDate(monday.getDate() + ((day + 6) % 7));
+      at.setHours(hour, 0, 0, 0);
+      const c = placed.get(day)!;
+      return { id: nid("slot"), at: at.toISOString(), pillar: c.pillar, idea: c.idea, title: c.title, type: c.type, basis: c.basis };
+    });
+}
+
+/** Ideas not used in the plan yet (for "Try another idea"). */
+export function spareIdeas(d: AppData) {
+  const p = d.autopilot.plan;
+  if (!p) return [];
+  const used = new Set(p.slots.map((s) => s.idea));
+  return planIdeas(d, p.brief).filter((c) => !used.has(c.idea));
+}
+
+export function swapSlot(d: AppData, slotId: ID) {
+  const p = d.autopilot.plan;
+  const s = p?.slots.find((x) => x.id === slotId);
+  if (!p || !s) return false;
+  const spare = spareIdeas(d);
+  const next = spare.find((c) => c.pillar !== s.pillar) ?? spare[0];
+  if (!next) return false;
+  Object.assign(s, { pillar: next.pillar, idea: next.idea, title: next.title, type: next.type, basis: next.basis });
+  return true;
+}
+
+export function removeSlot(d: AppData, slotId: ID) {
+  const p = d.autopilot.plan;
+  if (p) p.slots = p.slots.filter((x) => x.id !== slotId);
+}
+
+export function approvePlan(d: AppData) {
+  const p = d.autopilot.plan;
+  if (!p || !p.slots.length) return;
+  p.status = "approved";
+  p.approvedAt = new Date().toISOString();
+  // The brief's lines become an approved source, word for word.
+  const facts = p.brief.happening;
+  d.autopilot.sources = [...d.autopilot.sources.filter((s) => s.id !== BRIEF_SOURCE), ...(facts.length ? [{ id: BRIEF_SOURCE, label: "Your weekly brief", kind: "notes" as const, facts }] : [])];
+  log(d, `Week plan approved: ${p.slots.length} posts.`);
+}
+
+/**
+ * Draft every planned post now (the live product would draft each one ahead of its day). Same checks as
+ * any batch; drafts that fail are held, never filled in. Already-saved drafts stay as TopFan posts.
+ */
+export function prepareFromPlan(d: AppData) {
+  const ap = d.autopilot;
+  const p = ap.plan;
+  if (!p || p.status !== "approved") return;
+  const ideas = new Map(planIdeas(d, p.brief).map((c) => [c.idea, c]));
+  const seq = (ap.batch?.seq ?? 0) + 1;
+  const drafts: APDraft[] = [];
+  ap.batch = { id: nid("batch"), seq, createdAt: new Date().toISOString(), drafts, skipped: [], dismissed: false, notified: true, planWeekOf: p.weekOf };
+  for (const s of p.slots) {
+    const c = ideas.get(s.idea);
+    if (!c) continue;
+    const { pillar: _p, basis: _b, ...cand } = c;
+    void _p;
+    void _b;
+    const day = DAY_NAMES[new Date(s.at).getDay()];
+    const draft: APDraft = { ...cand, id: nid("dr"), slot: { at: s.at, basis: "activity", reason: `From your week plan (${day}). The time is a suggestion; nothing posts automatically.` }, status: "ready", revisions: 0, rejections: [], history: ["Planned with you", "Drafted from your plan"] };
+    const r = runChecks(d, draft);
+    draft.status = r.status;
+    draft.holdReason = r.reason;
+    drafts.push(draft);
+  }
+  p.status = "prepared";
+  log(d, `Drafted ${drafts.length} posts from the week plan.`);
+}
+
+export const weekLabel = (iso: string) => {
+  const a = new Date(iso);
+  const b = new Date(a);
+  b.setDate(a.getDate() + 6);
+  const f = (x: Date, withMonth: boolean) => x.toLocaleDateString("en-US", withMonth ? { month: "short", day: "numeric" } : { day: "numeric" });
+  return `${f(a, true)}–${f(b, a.getMonth() !== b.getMonth())}`;
+};

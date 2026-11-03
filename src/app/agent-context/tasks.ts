@@ -43,6 +43,7 @@ export function metrics(d: AppData) {
     gamificationHash: hash(at(d, "prefsB.gamification")),
     outbound: d.prefsB.outboundEmail.status,
     outboundRecordsAdded: Boolean(at(d, "prefsB.outboundFlow.recordsAdded")),
+    outboundPhase: String(at(d, "prefsB.outboundFlow.phase") ?? "status"),
     refundsPending: d.money.refundRequests.filter((r) => r.status === "Pending" && !(r as { adminOutcome?: unknown }).adminOutcome).length,
     fulfillmentPending: pending(d.money.fulfillmentRequests),
     payoutConnected: d.money.payoutAccount.connected,
@@ -93,6 +94,8 @@ export interface TaskDef {
   summary: string;
   /** Phrases that start it (normalized, lowercase). */
   triggers: string[];
+  /** The "continue" suggestion, in the creator's terms (default: "Continue: <name>"). */
+  resumeLabel?: string;
   featureIds: string[];
   need?: Capability;
   /** Soft prerequisites: other tasks/conditions worth mentioning first. */
@@ -111,6 +114,7 @@ const changed = (k: keyof Metrics) => (c: StepCtx) => c.now[k] !== c.base[k];
 export const TASKS: TaskDef[] = [
   {
     id: "launch-subscription",
+    resumeLabel: "Continue setting up your subscription",
     name: "Launch a paid subscription",
     summary: "Fans pay monthly for your exclusive content.",
     triggers: ["start earning", "earn money", "make money", "exclusive content", "paid subscription", "launch a subscription", "subscription", "membership", "paid membership", "monthly plan", "get paid by fans", "monetize my content"],
@@ -126,6 +130,7 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "create-post",
+    resumeLabel: "Continue your post",
     name: "Create a post",
     summary: "Share something with your fans.",
     triggers: ["create a post", "new post", "make a post", "write a post", "post something", "what should i post", "upload a video", "share a photo", "publish a post"],
@@ -140,6 +145,7 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "sell-course",
+    resumeLabel: "Continue setting up your course",
     name: "Sell a course",
     summary: "Package what you know into lessons fans can buy.",
     triggers: ["sell a course", "create a course", "make a course", "teach", "online course", "course"],
@@ -154,6 +160,7 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "sell-downloadable",
+    resumeLabel: "Continue setting up your downloadable",
     name: "Sell a downloadable",
     summary: "Sell a file fans can download, like a guide or preset.",
     triggers: ["sell a downloadable", "downloadable", "sell a pdf", "ebook", "digital product", "digital download", "sell a file", "sell presets"],
@@ -166,6 +173,7 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "sell-merch",
+    resumeLabel: "Continue adding your merchandise",
     name: "Sell merchandise",
     summary: "Add merch through Shopify or an external store link.",
     triggers: ["sell merch", "sell merchandise", "merch", "merchandise", "hoodies", "t shirts", "sell products", "shopify"],
@@ -179,6 +187,7 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "event-tickets",
+    resumeLabel: "Continue setting up your event",
     name: "Create an event and sell tickets",
     summary: "Set up an event with tickets and share its page.",
     triggers: ["sell tickets", "create an event", "event", "tickets", "ticket sales", "concert", "meetup", "competition", "host an event"],
@@ -194,6 +203,7 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "schedule-livestream",
+    resumeLabel: "Continue scheduling your livestream",
     name: "Schedule a livestream",
     summary: "Livestreams are scheduled as events; you can also go live right away.",
     triggers: ["schedule a livestream", "schedule a live", "plan a livestream", "go live later", "livestream next"],
@@ -206,6 +216,7 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "vip-group",
+    resumeLabel: "Continue setting up your VIP group",
     name: "Create a VIP group",
     summary: "A group for your closest fans, with content only they can see.",
     triggers: ["vip group", "vip club", "create a group", "private group", "inner circle", "exclusive group", "vip community", "paid community", "close friends"],
@@ -221,6 +232,7 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "fix-outbound-email",
+    resumeLabel: "Continue fixing your email",
     name: "Fix Outbound Email verification",
     summary: "So newsletters and emails send from your own domain.",
     triggers: ["fix email", "fix my email", "email not working", "email failing", "why is my email", "outbound email", "outbound emails", "email verification", "connect my email", "verify my email", "sender domain"],
@@ -228,13 +240,18 @@ export const TASKS: TaskDef[] = [
     need: "account.admin",
     steps: [
       { id: "open", title: "Open Outbound Emails", routeId: "pref-outbound-emails", cta: "Open Outbound Emails", done: visit("pref-outbound-emails") },
-      { id: "records", title: "Add the records at your domain provider", routeId: "pref-outbound-emails", cta: "Show the records", hint: "Copy each Host and Value into your provider's DNS settings. I can't change DNS for you.", target: "outbound-records", done: (c) => c.now.outboundRecordsAdded || c.now.outbound === "verified" || c.now.outbound === "pending", approval: "protected" },
-      { id: "verify", title: "Run verification again", routeId: "pref-outbound-emails", cta: "Go to Verify", target: "outbound-verify", done: (c) => c.now.outbound === "verified" },
+      // Matches the page's own flow from "Verification Failed": Setup Again → domain → records → Verify → Recheck Status.
+      { id: "restart", title: "Click Setup Again and confirm the reset", routeId: "pref-outbound-emails", cta: "Show me Setup Again", hint: "Your domain stays the same; this just restarts the check.", target: "pref-outbound-setup-again", done: (c) => c.now.outbound !== "failed" || c.now.outboundPhase !== "status", approval: "confirm" },
+      { id: "domain", title: "Choose your sending domain and click Continue", routeId: "pref-outbound-emails", cta: "Show me the domain choice", target: "pref-outbound-setup-continue", done: (c) => c.now.outboundPhase === "records" || c.now.outbound === "pending" || c.now.outbound === "verified" },
+      { id: "records", title: "Add the records at your domain provider, then tick that you've added them", routeId: "pref-outbound-emails", cta: "Show the records", hint: "Copy each Host and Value into your provider's DNS settings. I can't change DNS for you.", target: "pref-outbound-records-added", done: (c) => c.now.outboundRecordsAdded || c.now.outbound === "pending" || c.now.outbound === "verified", approval: "protected" },
+      { id: "verify", title: "Click Verify Outbound Email Settings", routeId: "pref-outbound-emails", cta: "Go to Verify", target: "pref-outbound-verify", done: (c) => c.now.outbound === "pending" || c.now.outbound === "verified" },
+      { id: "recheck", title: "Click Recheck Status", routeId: "pref-outbound-emails", cta: "Show Recheck Status", hint: "In this demo the check passes when you've ticked that the records were added.", target: "pref-outbound-recheck", done: (c) => c.now.outbound === "verified" },
     ],
     next: { label: "Send a newsletter", taskId: "send-newsletter" },
   },
   {
     id: "send-newsletter",
+    resumeLabel: "Continue your newsletter",
     name: "Send a newsletter",
     summary: "Email your fans an update.",
     triggers: ["send a newsletter", "newsletter", "email my fans", "email blast", "write a newsletter"],
@@ -249,19 +266,21 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "white-label",
+    resumeLabel: "Continue customizing your website",
     name: "Brand your White Label Site",
     summary: "Your logo, colors and domain.",
-    triggers: ["white label", "my website", "change my logo", "change my website design", "brand my site", "custom domain", "set up my website", "website colors", "my domain"],
+    triggers: ["white label", "my website", "change my logo", "change my website design", "brand my site", "custom domain", "set up my website", "website colors", "my domain", "website logo", "site logo", "my logo", "change the logo", "update my branding", "website branding", "change my branding"],
     featureIds: ["white-label", "cover-page"],
     need: "account.admin",
     steps: [
       { id: "open", title: "Open White Label Site", routeId: "pref-whitelabel", cta: "Open White Label Site", done: visit("pref-whitelabel") },
-      { id: "brand", title: "Update your logo and colors, then click Update & Publish", routeId: "pref-whitelabel", cta: "Customize appearance", target: "colors", done: changed("brandingHash"), approval: "confirm" },
+      { id: "brand", title: "Update your logo and colors, then click Update & Publish", routeId: "pref-whitelabel", cta: "Customize appearance", target: "logo", done: changed("brandingHash"), approval: "confirm" },
       { id: "cover", title: "Edit the cover page (optional)", routeId: "pref-whitelabel-cover", cta: "Open cover page", done: visit("pref-whitelabel-cover"), optional: true },
     ],
   },
   {
     id: "link-in-bio",
+    resumeLabel: "Continue editing your Link in Bio",
     name: "Edit your Link in Bio",
     summary: "One link for all your places.",
     triggers: ["link in bio", "linktree", "bio link", "edit my links"],
@@ -274,6 +293,7 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "topic-tags",
+    resumeLabel: "Continue setting up Topic Tags",
     name: "Set up Topic Tags",
     summary: "Fans can filter your feed by topic once at least 2 tags are active.",
     triggers: ["topic tags", "set up tags", "add tags", "filter my feed", "tags"],
@@ -286,6 +306,7 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "gamification",
+    resumeLabel: "Continue setting up gamification",
     name: "Set up gamification",
     summary: "Points, badges and a leaderboard for your fans.",
     triggers: ["gamification", "points", "badges", "leaderboard", "reward fans", "fan rewards"],
@@ -298,6 +319,7 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "add-delegate",
+    resumeLabel: "Continue adding your team member",
     name: "Add a team member",
     summary: "Give someone Content, or Financial and Content, access.",
     triggers: ["add a team member", "add a delegate", "delegate", "give access", "add my manager", "add an editor", "team member", "add someone to my team"],

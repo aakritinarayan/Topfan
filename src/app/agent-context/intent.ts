@@ -34,7 +34,9 @@ export function matchFeatures(raw: string): FeatureMatch[] {
   for (const f of FEATURES) {
     let best = 0;
     let via = "";
+    let hits = 0;
     for (const syn of [f.name.toLowerCase(), ...f.synonyms]) {
+      if (variants(syn).some((v) => has(text, v))) hits++;
       for (const v of variants(syn)) {
         if (!has(text, v)) continue;
         const words = v.split(" ").length;
@@ -45,7 +47,8 @@ export function matchFeatures(raw: string): FeatureMatch[] {
         }
       }
     }
-    if (best) out.push({ feature: f, score: best, via });
+    // Several of a feature's phrases matching ("website branding", "branding") beats one.
+    if (best) out.push({ feature: f, score: best + (hits - 1) * 3, via });
   }
   return out.sort((a, b) => b.score - a.score);
 }
@@ -91,6 +94,7 @@ export type Intent =
   | { kind: "explain"; feature: Feature }
   | { kind: "control"; control: "pause" | "resume" | "cancel" | "back" | "status" }
   | { kind: "page-help" }
+  | { kind: "goal"; goal: GoalId }
   | { kind: "smalltalk"; reply: "greeting" | "thanks" }
   | { kind: "unknown" };
 
@@ -102,6 +106,104 @@ const NEXT = ["what should i do next", "what's next", "what is next", "what now"
 const NAV = ["where", "open", "go to", "take me", "show me", "show", "find", "navigate", "bring me", "jump to", "get to", "settings for", "change", "edit", "manage", "see my", "view"];
 const EXPLAIN = ["what is", "what's", "what are", "explain", "what does", "tell me about", "difference between", "how does"];
 const PAGE_HELP = ["can you help with this", "help with this", "help me with this", "i don't understand", "i dont understand", "what is this page", "what can i do here", "what do i do here", "explain this page", "how do i fix it", "how do i fix this", "why is it failing", "what does this mean", "help me here", "what's this"];
+
+/* ---------------- broad goals: offer choices instead of guessing a screen ---------------- */
+
+export type GoalId = "earn" | "engage";
+
+export interface GoalOption {
+  id: string;
+  label: string;
+  /** One or two sentences, from the feature registry's own descriptions. */
+  explain: string;
+  /** Primary: a guided task (preferred) or a feature to open. */
+  primary: { taskId?: string; featureId?: string; label: string };
+  secondary?: { taskId?: string; featureId?: string; label: string };
+}
+
+export const GOALS: Record<GoalId, { intro: string; question: string; options: GoalOption[] }> = {
+  earn: {
+    intro: "There are a few ways to earn from your fans on TopFan.",
+    question: "What would you like to offer?",
+    options: [
+      {
+        id: "membership",
+        label: "Exclusive content or membership",
+        explain: "Subscriptions are monthly plans fans pay for to get your exclusive content. Your Gold, Silver and Bronze plans are already there to edit.",
+        primary: { taskId: "launch-subscription", label: "Open Subscriptions" },
+      },
+      {
+        id: "experiences",
+        label: "Personal sessions or experiences",
+        explain: "Experiences let you sell personal experiences such as shoutouts, video calls and 1:1 sessions.",
+        primary: { featureId: "experiences", label: "Open Experiences" },
+      },
+      {
+        id: "products",
+        label: "Digital or physical products",
+        explain: "Downloadables sell digital files fans can download. Merchandise sells physical items through Shopify or an external link.",
+        primary: { taskId: "sell-downloadable", label: "Open Downloadables" },
+        secondary: { taskId: "sell-merch", label: "Open Merchandise" },
+      },
+    ],
+  },
+  engage: {
+    intro: "Here are three ways to get closer to your fans.",
+    question: "Where would you like to start?",
+    options: [
+      {
+        id: "reward",
+        label: "Reward my most active fans",
+        explain: "Gamification sets the points fans earn, badges, and the leaderboard on your public profile.",
+        primary: { taskId: "gamification", label: "Open Gamification" },
+      },
+      {
+        id: "vip",
+        label: "Create a VIP group",
+        explain: "Groups are micro-communities: you assign fans, then limit posts, products, offers or chat to the group.",
+        primary: { taskId: "vip-group", label: "Open Groups" },
+      },
+      {
+        id: "insights",
+        label: "See how fans engage",
+        explain: "Engagement Metrics in Insights & Fans shows how fans engage with your posts.",
+        primary: { featureId: "engagement", label: "Open Engagement Metrics" },
+      },
+    ],
+  },
+};
+
+const EARN_BROAD = ["start earning", "earn money", "make money", "earning from", "earn from", "earn more", "monetize my", "monetise my", "get paid", "income", "revenue", "make a living", "get money", "earn on topfan", "sell to my fans"];
+const EARN_SPECIFIC = ["subscription", "membership", "course", "merch", "merchandise", "ticket", "event", "downloadable", "ebook", "e book", "pdf", "preset", "experience", "session", "coaching", "nft", "tip", "tips", "paid dm", "dm price", "newsletter", "ad", "ads", "advert", "sponsor", "brand deal", "discount", "vip offer", "portfolio", "withdraw", "balance", "metrics", "stats"];
+const ENGAGE_BROAD = ["fan engagement", "engage my fans", "engage with my fans", "engage with fans", "engage fans", "keep fans engaged", "keep my fans engaged", "engagement ideas", "explore fan engagement", "grow my community", "build my community", "connect with my fans", "connect with fans", "interact with my fans", "interact with fans", "closer to my fans", "fans more involved"];
+const ENGAGE_SPECIFIC = ["metrics", "stats", "numbers", "report", "group", "points", "badges", "leaderboard", "gamification", "message", "newsletter"];
+
+export function matchGoal(raw: string): GoalId | null {
+  const text = normalizeText(raw);
+  const any = (l: string[]) => l.some((p) => has(text, p) || variants(p).some((v) => has(text, v)));
+  if (any(EARN_BROAD) && !any(EARN_SPECIFIC)) return "earn";
+  if (any(ENGAGE_BROAD) && !any(ENGAGE_SPECIFIC)) return "engage";
+  return null;
+}
+
+/* ---------------- "settings": too broad to pick one screen ---------------- */
+
+export const SETTINGS_CLARIFY: Clarify = {
+  group: "settings",
+  question: "Which settings would you like to change?",
+  options: [
+    { featureId: "profile", label: "My profile" },
+    { featureId: "white-label", label: "My website" },
+    { featureId: "notifications", label: "Notifications" },
+    { featureId: "privacy", label: "Privacy & password" },
+  ],
+};
+const SETTINGS_WORDS = ["settings", "setting", "preferences", "preference", "account settings", "my account"];
+
+/** "Take me to…", "open…": the creator asked to go somewhere, so go without an extra click. */
+export function isImperativeNav(raw: string) {
+  return /^ (please )?((can|could|would) you (please )?)?(take me|go to|go back to|open|navigate|bring me|jump to|show me|get me to|switch to)\b/.test(normalizeText(raw));
+}
 
 /** Does the phrase start or advance one of the goal workflows? */
 export function matchTask(raw: string): TaskDef | null {
@@ -136,7 +238,12 @@ export function classify(raw: string, ctx: { hasActiveTask: boolean }): Intent {
   if (any(NEXT)) return { kind: "next" };
   if (any(PAGE_HELP) || /^ (help|help me|\?) $/.test(text)) return { kind: "page-help" };
 
+  const goal = matchGoal(raw);
+  if (goal) return { kind: "goal", goal };
+
   const matches = matchFeatures(raw);
+  // "change my settings": only the generic word matched, so ask which settings.
+  if (any(SETTINGS_WORDS) && (!matches.length || matches.every((m) => SETTINGS_WORDS.includes(m.via)))) return { kind: "clarify", clarify: SETTINGS_CLARIFY };
   const navWord = any(NAV);
   const explainWord = any(EXPLAIN);
   const task = matchTask(raw);

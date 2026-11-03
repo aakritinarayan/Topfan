@@ -9,8 +9,8 @@
  * here publishes at all (publishing happens in New Post with its own confirmation). Every write goes
  * through act() with content.write, so delegate permissions apply.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, BarChart3, Check, Clock, FileText, Image as ImageIcon, Pencil, Video, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, Clock, Image as ImageIcon, Pencil, X } from "lucide-react";
 import { ImageSlot } from "../../platform/ui/surfaces";
 import { VideoPlayer } from "../../platform/ui/media";
 import { act, getData, onStoreEvent, useData } from "../../store/store";
@@ -40,6 +40,8 @@ import {
   saveApproved,
   setFrequency,
   setPaused,
+  updateBrief,
+  weekLabel,
   setSlot,
   setTimingRule,
   shortenDraft,
@@ -59,16 +61,11 @@ import { useRouter } from "../../app/router";
 import { normalizeText } from "../../app/agent-context/intent";
 import { streamChat } from "../../services/chatService";
 import { getAPView, onAPOpen, openAutopilot, setAPView, useAPView, type APView } from "./autopilotView";
+import { PlanWeek } from "./PlanWeek";
+import { btnOutline, btnPrimary, btnText, Card, fmtSlot, Header, run, TYPE_LABEL, TypeIcon } from "./apKit";
 
 /* ------------------------------------------------------------------ small UI kit (panel styles) */
 
-const btnPrimary = "h-9 rounded-pill bg-accent px-4 text-[13px] font-black uppercase tracking-caps hover:brightness-110 disabled:opacity-50";
-const btnOutline = "h-9 rounded-full border border-accent px-4 text-[13px] font-black uppercase tracking-caps text-accent hover:bg-accent-tint disabled:opacity-50";
-const btnText = "h-9 px-2 text-[13px] font-bold text-soft underline-offset-2 hover:text-white hover:underline";
-
-const fmtSlot = (iso: string) => new Date(iso).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
-const TYPE_LABEL: Record<APDraft["type"], string> = { text: "Text", poll: "Poll", images: "Image", video: "Video" };
-const TypeIcon = ({ t }: { t: APDraft["type"] }) => (t === "poll" ? <BarChart3 size={14} /> : t === "images" ? <ImageIcon size={14} /> : t === "video" ? <Video size={14} /> : <FileText size={14} />);
 
 /** What the creator is told about a draft's media. */
 const MEDIA_NOTE: Record<MediaState, string> = {
@@ -116,28 +113,7 @@ function StatusChip({ s }: { s: DraftStatus }) {
   );
 }
 
-function Card({ children, testid }: { children: ReactNode; testid?: string }) {
-  return (
-    <section data-testid={testid} className="rounded-[20px] bg-surface p-4 text-sm leading-5">
-      {children}
-    </section>
-  );
-}
 
-function Header({ title, onBack }: { title: string; onBack?: () => void }) {
-  return (
-    <div className="mb-3 flex items-center gap-2">
-      {onBack && (
-        <button onClick={onBack} aria-label="Back" data-testid="ap-back" className="flex h-7 w-7 items-center justify-center rounded-full text-soft hover:bg-bg hover:text-white">
-          <ArrowLeft size={16} />
-        </button>
-      )}
-      <h3 className="flex-1 text-[15px] font-bold">{title}</h3>
-    </div>
-  );
-}
-
-const run = (label: string, fn: Parameters<typeof act>[1]) => act(`autopilot.${label}`, fn, { need: "content.write" });
 
 /* ------------------------------------------------------------------ view root */
 
@@ -161,7 +137,7 @@ export function AutopilotView() {
           Your access doesn't include posting, so you can look but not approve or save.
         </p>
       )}
-      {!batch ? <NoBatch /> : <Screen v={v} />}
+      {v.screen === "plan" ? <PlanWeek step={v.step} /> : !batch ? <NoBatch /> : <Screen v={v} />}
     </div>
   );
 }
@@ -177,9 +153,14 @@ function NoBatch() {
             Resume preparation
           </button>
         ) : (
-          <button className={btnOutline} onClick={() => run("prepare", prepareBatch)}>
-            Prepare this week
-          </button>
+          <>
+            <button className={btnPrimary} data-testid="ap-empty-plan" onClick={() => setAPView({ screen: "plan", step: "intro" })}>
+              Plan my week
+            </button>
+            <button className={btnText} onClick={() => run("prepare", prepareBatch)}>
+              Use my usual topics
+            </button>
+          </>
         )}
       </div>
     </Card>
@@ -202,6 +183,8 @@ function Screen({ v }: { v: APView }) {
       return <Complete approved={v.approved} />;
     case "prefs":
       return <Prefs />;
+    case "plan":
+      return <PlanWeek step={v.step} />;
   }
 }
 
@@ -219,8 +202,12 @@ function Summary() {
   return (
     <>
       <Card testid="ap-summary">
-        <h3 className="text-[15px] font-bold">Your weekly content is prepared.</h3>
-        <p className="mt-1 text-[13px] text-soft">I've prepared your posts and checked them for repetition, relevance, and consistency. Here's what needs your review.</p>
+        <h3 className="text-[15px] font-bold">{batch.planWeekOf ? `Your posts for ${weekLabel(batch.planWeekOf)} are drafted.` : "Your weekly content is prepared."}</h3>
+        <p className="mt-1 text-[13px] text-soft">
+          {batch.planWeekOf
+            ? "Drafted from the plan you approved and checked for repetition and facts. Here's what needs your review."
+            : "I've prepared your posts and checked them for repetition, relevance, and consistency. Here's what needs your review."}
+        </p>
         <div className="mt-3 flex gap-2 text-[12px]" data-testid="ap-counts">
           <span className="rounded-full bg-bg px-2.5 py-1">
             <b data-testid="ap-count-ready">{ready.length}</b> ready
@@ -275,6 +262,9 @@ function Summary() {
         </div>
       </Card>
       <div className="flex flex-wrap gap-x-3 gap-y-1 px-1 text-[12px] text-soft">
+        <button className="hover:text-white" data-testid="ap-plan-link" onClick={() => setAPView({ screen: "plan", step: "intro" })}>
+          Plan next week
+        </button>
         <button className="hover:text-white" data-testid="ap-prefs" onClick={() => setAPView({ screen: "prefs" })}>
           Preferences{prefs ? ` (${prefs})` : ""}
         </button>
@@ -642,11 +632,20 @@ function Confirm({ exclude }: { exclude: string[] }) {
 function Complete({ approved }: { approved: string[] }) {
   const drafts = useData((d) => d.autopilot.batch?.drafts ?? []);
   const held = useData(heldDrafts);
-  const { navigate } = useRouter();
+  const { navigate, path, query } = useRouter();
   const mine = drafts.filter((x) => approved.includes(x.id));
+  // Which saved draft is open in New Post (from the URL, so it stays right after navigating).
+  const openId = path.startsWith("/dashboard/newpost") ? query.get("autopilot") : null;
+  const [opened, setOpened] = useState<string[]>([]);
+  const open = (id: string) => {
+    setOpened((o) => (o.includes(id) ? o : [...o, id]));
+    navigate(`/dashboard/newpost?autopilot=${id}`);
+  };
+  const current = mine.find((x) => x.id === openId);
   const toSave = mine.filter((x) => x.status === "approved" || x.status === "failed");
   const saved = mine.filter((x) => x.status === "saved");
   const published = mine.filter((x) => x.status === "published");
+  const nextUp = saved.find((x) => x.id !== openId && !opened.includes(x.id));
   const save = () => {
     const ids = toSave.map((x) => x.id);
     if (failSaves()) {
@@ -677,11 +676,14 @@ function Complete({ approved }: { approved: string[] }) {
           <li key={x.id} className="flex items-center gap-2 rounded-tile bg-bg px-3 py-2 text-[13px]">
             <span className="min-w-0 flex-1 truncate">{x.title}</span>
             <StatusChip s={x.status} />
-            {x.status === "saved" && (
-              <button className="text-[12px] font-bold text-accent" data-testid={`ap-open-${x.idea}`} onClick={() => navigate(`/dashboard/newpost?autopilot=${x.id}`)}>
-                Open
-              </button>
-            )}
+            {x.status === "saved" &&
+              (x.id === openId ? (
+                <span className="text-[12px] font-bold text-white" data-testid={`ap-opened-${x.idea}`}>Open now</span>
+              ) : (
+                <button className="text-[12px] font-bold text-accent" data-testid={`ap-open-${x.idea}`} onClick={() => open(x.id)}>
+                  {opened.includes(x.id) ? "Reopen" : "Open"}
+                </button>
+              ))}
           </li>
         ))}
       </ul>
@@ -694,7 +696,25 @@ function Complete({ approved }: { approved: string[] }) {
           </button>
         </>
       ) : (
-        saved.length > 0 && <p className="mt-3 text-[12px] text-soft">Next: open a draft in New Post when you want to publish it. I won't publish anything for you.</p>
+        saved.length > 0 && (
+          <>
+            <p className="mt-3 text-[12px] text-soft" data-testid="ap-complete-next">
+              {current
+                ? `"${current.title}" is open in New Post. Check it and add any changes; click Publish Now on the page when you're happy. I won't publish anything for you.`
+                : "Next: open a draft in New Post when you want to publish it. I won't publish anything for you."}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {nextUp && (
+                <button className={btnPrimary} data-testid="ap-open-next" onClick={() => open(nextUp.id)}>
+                  {current ? "Open next draft" : `Open "${nextUp.title}"`}
+                </button>
+              )}
+              <button className={nextUp ? btnText : btnPrimary} data-testid="ap-done" onClick={() => setAPView(null)}>
+                Back to chat
+              </button>
+            </div>
+          </>
+        )
       )}
     </Card>
   );
@@ -839,6 +859,24 @@ export function useAutopilotCommands() {
     const current = v && "draftId" in v ? draftById(d, v.draftId) : (readyDrafts(d)[0] ?? null);
     const say = (text: string) => a.say({ text, plain: text });
 
+    // Plan my week: typed or spoken lines on the "What's coming up" step go into the brief.
+    const bare = raw.trim().toLowerCase().replace(/[.!]+$/, "");
+    const proceed = ["next", "continue", "done", "that's it", "thats it", "nothing else"].includes(bare);
+    if (v?.screen === "plan" && v.step === "happening" && d.autopilot.plan?.status === "draft" && raw.trim().length > 3 && !proceed && !has("plan my week", "stop for now")) {
+      const line = raw.trim().replace(/\s+/g, " ").replace(/[.!]+$/, "");
+      const items = d.autopilot.plan.brief.happening;
+      if (!items.includes(line)) act("autopilot.planBrief", (x) => updateBrief(x, { happening: [...items, line].slice(0, 6) }), { need: "content.write" });
+      say(`Added: "${line}". Anything else coming up? Or click Continue.`);
+      return true;
+    }
+    if (has("plan my week", "plan next week", "plan my posts", "plan my content", "weekly plan", "plan the week", "plan this week", "plan my weekly posts", "plan posts for the week")) {
+      openAutopilot({ screen: "plan", step: "intro" });
+      return true;
+    }
+    if (v?.screen === "plan" && v.step === "happening" && proceed) {
+      openAutopilot({ screen: "plan", step: "rhythm" });
+      return true;
+    }
     if (has("review my posts", "review posts", "what's ready", "what is ready", "content plan", "my drafts", "weekly content", "show my posts plan")) {
       if (d.autopilot.batch?.dismissed) act("autopilot.reopen", reopenBatch);
       openAutopilot({ screen: "summary" });
@@ -862,7 +900,7 @@ export function useAutopilotCommands() {
       return true;
     }
     if (!d.autopilot.batch) return false;
-    if (has("approve the good ones", "approve the remaining", "approve the rest", "approve all", "approve them")) {
+    if (has("approve the good ones", "approve the remaining", "approve the rest", "approve all posts", "approve all drafts", "approve all the posts", "approve all the drafts", "approve them")) {
       openAutopilot({ screen: "confirm" });
       say("Here's exactly what would be approved. Nothing's approved until you tap the button.");
       return true;

@@ -20,13 +20,22 @@ export interface ActiveTask {
   seenStep: number;
   /** Draft text prepared for this task, kept if the creator cancels or pauses. */
   draft?: string;
+  /** The creator's goal in their own words (or the option they picked), kept as task context. */
+  goal?: string;
+  /** Last start, step change, pause or resume. Old tasks expire (TASK_TTL_MS). */
+  updatedAt?: number;
 }
 
 export interface WorkflowState {
   active: ActiveTask | null;
   paused: ActiveTask[];
-  finished: { taskId: string; status: "done" | "cancelled"; at: number }[];
+  finished: { taskId: string; status: "done" | "cancelled" | "expired"; at: number }[];
+  /** Tasks that expired since the creator last saw them (announced once, then cleared). */
+  expired?: string[];
 }
+
+/** A task untouched for this long is cleared instead of resumed (its screens may have changed). */
+export const TASK_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 const KEY = "topfan-tasks-v1";
 const empty: WorkflowState = { active: null, paused: [], finished: [] };
@@ -38,7 +47,20 @@ function load(): WorkflowState {
       return empty;
     }
     const s = JSON.parse(localStorage.getItem(KEY) ?? "null") as WorkflowState | null;
-    return s && typeof s === "object" ? { ...empty, ...s } : empty;
+    if (!s || typeof s !== "object") return empty;
+    // Drop anything unreadable (an old shape or a task that no longer exists), and expire old tasks.
+    const now = Date.now();
+    const valid = (t: ActiveTask | null | undefined): t is ActiveTask => !!t && typeof t === "object" && !!taskById(t.taskId) && Array.isArray(t.visited) && !!t.base;
+    const fresh = (t: ActiveTask) => now - (t.updatedAt ?? t.startedAt ?? 0) < TASK_TTL_MS;
+    const all = [s.active, ...(Array.isArray(s.paused) ? s.paused : [])].filter(valid);
+    const expired = all.filter((t) => !fresh(t)).map((t) => t.taskId);
+    const keep = (t: ActiveTask | null | undefined) => (valid(t) && fresh(t) ? t : null);
+    return {
+      active: keep(s.active),
+      paused: (Array.isArray(s.paused) ? s.paused : []).filter((t): t is ActiveTask => !!keep(t)),
+      finished: [...(Array.isArray(s.finished) ? s.finished : []), ...expired.map((taskId) => ({ taskId, status: "expired" as const, at: now }))].slice(-20),
+      expired: [...(s.expired ?? []), ...expired],
+    };
   } catch {
     return empty;
   }
@@ -89,15 +111,16 @@ export function optionalLeft(t: ActiveTask) {
   return def.steps.filter((s) => s.optional && !s.done(c));
 }
 
-export function startTask(taskId: string): TaskDef | null {
+export function startTask(taskId: string, goal?: string): TaskDef | null {
   const def = taskById(taskId);
   if (!def) return null;
   const here = resolve(window.location.pathname).route.id;
   const prev = state.active && state.active.taskId !== taskId ? { ...state.active, status: "paused" as const } : null;
   const resumed = state.paused.find((p) => p.taskId === taskId);
+  const now = Date.now();
   const active: ActiveTask = resumed
-    ? { ...resumed, status: "active", visited: [...new Set([...resumed.visited, here])] }
-    : { taskId, startedAt: Date.now(), status: "active", visited: [here], base: metrics(getData()), seenStep: 0 };
+    ? { ...resumed, status: "active", visited: [...new Set([...resumed.visited, here])], updatedAt: now, goal: goal ?? resumed.goal }
+    : { taskId, startedAt: now, updatedAt: now, status: "active", visited: [here], base: metrics(getData()), seenStep: 0, goal };
   set({
     ...state,
     active,
@@ -111,7 +134,7 @@ export function startTask(taskId: string): TaskDef | null {
 export function pauseTask() {
   const a = state.active;
   if (!a) return;
-  set({ ...state, active: null, paused: [...state.paused.filter((p) => p.taskId !== a.taskId), { ...a, status: "paused" }] });
+  set({ ...state, active: null, paused: [...state.paused.filter((p) => p.taskId !== a.taskId), { ...a, status: "paused", updatedAt: Date.now() }] });
   emit({ type: "paused", task: taskById(a.taskId)! });
 }
 
@@ -153,9 +176,36 @@ function check(manual: boolean) {
     return;
   }
   if (p.index > a.seenStep) {
-    set({ ...state, active: { ...a, seenStep: p.index } });
+    set({ ...state, active: { ...a, seenStep: p.index, updatedAt: Date.now() } });
     emit({ type: "step", task: p.def, index: p.index, manual });
   }
+}
+
+/** Expired tasks to mention once; reading them clears the list. */
+export function takeExpired(): string[] {
+  const e = state.expired ?? [];
+  if (e.length) set({ ...state, expired: [] });
+  return e;
+}
+
+/**
+ * The task model in plain terms (for the model's context and the docs): goal, feature, route, steps
+ * with verified done/pending, current step, status, last update. Done = checked against app data.
+ */
+export function taskSnapshot(t: ActiveTask) {
+  const p = progressOf(t);
+  return {
+    taskId: t.taskId,
+    goal: t.goal ?? p.def.name,
+    feature: p.def.name,
+    route: p.step?.routeId ?? p.def.steps[0].routeId,
+    steps: p.def.steps.map((s) => s.title),
+    currentStep: p.step?.title ?? null,
+    completedSteps: p.def.steps.filter((s) => s.done(p.ctx)).map((s) => s.title),
+    pendingSteps: p.def.steps.filter((s) => !s.done(p.ctx) && !s.optional).map((s) => s.title),
+    status: p.complete ? "complete" : t.status,
+    lastUpdated: new Date(t.updatedAt ?? t.startedAt).toISOString(),
+  };
 }
 
 /** The assistant is about to open a screen itself: the visit that follows isn't the creator's doing. */

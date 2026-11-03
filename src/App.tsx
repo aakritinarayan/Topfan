@@ -21,6 +21,14 @@ import { resetWorkflow } from "./app/agent-context/workflow-state";
 
 export default function App() {
   const assistant = <AssistantPanel />;
+  // ?resetMock=1 is read once at startup; drop it from the address bar so an accidental reload
+  // mid-demo keeps the presenter's progress instead of resetting it.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("resetMock") !== "1") return;
+    url.searchParams.delete("resetMock");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }, []);
   return (
     <>
       <AppRoutes assistant={assistant} />
@@ -129,8 +137,17 @@ function ReviewNav() {
           assistant.reset();
           finder.reset();
           quest.reset();
-          go("step1");
+          // Full demo reset: reload on setup Step 1 with ?resetMock=1, which clears the local mock data,
+          // tasks and Autopilot review state (this browser only; nothing real is touched).
+          try {
+            localStorage.removeItem("tf-fail-save");
+          } catch {
+            /* storage blocked: the reload still resets */
+          }
+          window.location.assign("/edit-preference/whitelabel/setup/domain?resetMock=1");
         }}
+        title="Reset the whole demo (local mock data only)"
+        data-testid="review-reset"
         className="rounded-full px-3 py-1.5 text-muted hover:text-white"
       >
         Reset

@@ -2,14 +2,14 @@
  * Panel pieces for the platform (outside account setup):
  * - ActiveTaskCard: the compact summary of the goal in progress (brief §14 "Active task card").
  * - PausedTasks: one line per paused task with Resume.
- * - PlatformWelcome: empty-conversation state with up to 3 starting points.
+ * - PlatformWelcome: empty-conversation state with ≈4 suggestions from the account and task state.
  */
 import { Pause, Play, X } from "lucide-react";
 import { useData } from "../../store/store";
-import { recommend } from "../../app/agent-context/recommendations";
 import { taskById } from "../../app/agent-context/tasks";
 import { cancelTask, pauseTask, progressOf, useWorkflow } from "../../app/agent-context/workflow-state";
 import { usePlatformAgent } from "./PlatformAgent";
+import { usePlatform } from "../../state/platformStore";
 
 export function ActiveTaskCard() {
   const wf = useWorkflow();
@@ -69,25 +69,21 @@ export function ActiveTaskCard() {
   );
 }
 
-const STARTERS = ["What needs my attention?", "I want to start earning", "Where do I change my logo?"];
-
-export function PlatformWelcome({ onAsk }: { onAsk: (text: string) => void }) {
+/** Empty conversation: a short welcome and ≈4 suggestions from the real account and task state. */
+export function PlatformWelcome() {
   const first = useData((d) => d.account.firstName);
-  const items = useData((d) => recommend(d, { limit: 3 }));
+  useData((d) => d); // suggestions follow the data
+  useWorkflow();
+  const setupDone = usePlatform().state.provisionDone;
+  const agent = usePlatformAgent();
+  const items = agent.suggestions();
   return (
     <div data-testid="ai-welcome" className="flex flex-col gap-3">
-      <p className="text-[14px]">
-        Hi {first}! Tell me what you want to do, and I'll find it and help you through it.
-      </p>
-      {items[0] && (
-        <p className="text-[13px] text-soft">
-          Heads up: <span className="text-white">{items[0].title}.</span>
-        </p>
-      )}
+      <p className="text-[14px]">{setupDone ? "Your site is ready. What would you like to do next?" : `Hi ${first}! What would you like to do next?`}</p>
       <div className="flex flex-wrap gap-2">
-        {STARTERS.map((s) => (
-          <button key={s} onClick={() => onAsk(s)} className="rounded-full border border-line px-3 py-1.5 text-left text-[12px] hover:border-accent">
-            {s}
+        {items.map((s) => (
+          <button key={s.id} data-testid={`ai-suggestion-${s.id}`} onClick={() => agent.pickSuggestion(s)} className="rounded-full border border-line px-3 py-1.5 text-left text-[12px] hover:border-accent">
+            {s.label}
           </button>
         ))}
       </div>
