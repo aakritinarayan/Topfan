@@ -2,7 +2,7 @@
  * "I don't have a Domain Name": the assistant does the research and preparation, the creator decides.
  *
  * Offer → ask the name fans should remember → suggest names → check availability (domain service,
- * simulated here) → recommend one → GoDaddy price → hand off to GoDaddy's own site →
+ * simulated here) → recommend one → hand off to GoDaddy's own site →
  * "Welcome back" → confirm what was bought → fill the TopFan form → continue to connection.
  *
  * Cards read the finder store, so they stay current and survive collapsing the panel.
@@ -18,7 +18,6 @@ import {
   MAX_ROUNDS,
   checkAvailability,
   hasExistingSite,
-  money,
   recommend,
   registrarById,
   slugOf,
@@ -212,7 +211,7 @@ export function DomainFinderDirector() {
           </>
         ),
         details:
-          "Based on length, spelling, extension and renewal price. I haven't checked trademarks: if a name looks like another brand, check before you buy.",
+          "Based on length, spelling and extension. I haven't checked trademarks: if a name looks like another brand, check before you buy.",
       });
     }
   }
@@ -602,9 +601,10 @@ function IdeaCard({
             <p className="text-[12px] leading-[18px] text-soft">
               {check.best ? (
                 <>
-                  <b className="text-[13px] text-white">{money(check.best.first)}</b> first year · renews {money(check.best.renewal)}/yr
+                  {/* Prices are never shown here: they come from the registrar at checkout. */}
+                  <span className="text-white">Buy at {registrarById(check.best.registrarId).name}</span>
                   <br />
-                  <span className="text-muted">at {registrarById(check.best.registrarId).name}</span>
+                  <span className="text-muted">Price shown at checkout</span>
                 </>
               ) : (
                 <span className="text-muted">Price not available. Check at the registrar.</span>
@@ -662,9 +662,7 @@ function IdeaCard({
 function PurchaseSummary({ domain, flow }: { domain: string; flow: Flow }) {
   const { finder } = useDomainFinder();
   const check = finder.checks[domain];
-  const prices = isDone(check) ? check.prices : [];
   const reg = registrarById(finder.registrarId);
-  const price = prices.find((p) => p.registrarId === reg.id);
   const handedOff = finder.handoff?.domain === domain;
   const busy = check?.status === "checking";
   // Taken (or unconfirmed) on the last check: never present it as purchasable.
@@ -693,19 +691,13 @@ function PurchaseSummary({ domain, flow }: { domain: string; flow: Flow }) {
       <div className="rounded-lg bg-surface px-3 py-2" data-testid="df-registrar">
         <span className="flex items-center justify-between gap-2">
           <b className="text-white">{reg.name}</b>
-          <span className="text-soft">{price?.first != null ? `${money(price.first)} · ${money(price.renewal)}/yr` : "Price not available"}</span>
+          <span className="text-soft">Price shown at checkout</span>
         </span>
         <span className="block text-[11px] text-muted">{reg.note}</span>
       </div>
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-soft">
-        <dt className="text-muted">First year</dt>
-        <dd>{money(price?.first ?? null)}</dd>
-        <dt className="text-muted">Renews at</dt>
-        <dd>{price?.renewal != null ? `${money(price.renewal)} per year` : "Not available"}</dd>
-        <dt className="text-muted">Period</dt>
-        <dd>1 year</dd>
-        <dt className="text-muted">Extra costs</dt>
-        <dd>None known. Taxes or optional add-ons may apply at checkout.</dd>
+        <dt className="text-muted">Price</dt>
+        <dd>{reg.name} shows the price, renewal and any taxes before you pay.</dd>
       </dl>
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         <button

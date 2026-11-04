@@ -236,13 +236,15 @@ export function classify(raw: string, ctx: { hasActiveTask: boolean }): Intent {
   }
   if (any(["resume", "continue where", "pick up where", "carry on", "continue my task"])) return { kind: "control", control: "resume" };
 
-  if (any(HEALTH)) return { kind: "health" };
+  // "…brand collaborations. What should I focus on?" is about that topic, not account health.
+  const topic = matchEarning(raw);
+  if (any(HEALTH) && !(topic?.kind === "recommend")) return { kind: "health" };
   if (any(NEXT)) return { kind: "next" };
   if (any(PAGE_HELP) || /^ (help|help me|\?) $/.test(text)) return { kind: "page-help" };
 
   // Earning: broad question, all options, help deciding, or a recommendation for a specific goal.
   // "Take me to Merchandise" stays direct navigation.
-  const earn = matchEarning(raw);
+  const earn = topic;
   if (earn && !(earn.kind === "recommend" && isImperativeNav(raw))) return { kind: "earn", earn };
 
   const goal = matchGoal(raw);

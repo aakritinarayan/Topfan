@@ -60,14 +60,14 @@ t = await ask("What should I focus on?");
 check("focus → Outbound Email first", /Outbound Email/i.test(t), t);
 
 t = await ask("Create a group called Inner Circle");
-check("named group → approval card", !!(await p.$('[data-testid="ai-approval"]')) && /Inner Circle/.test(t), t);
-await p.evaluate(() => [...document.querySelectorAll('[data-testid="ai-panel"] button')].reverse().find((x) => x.innerText.trim().toLowerCase() === "approve")?.click());
+check("named group → Add Group form, prefilled, nothing created yet", path() === "/edit-preference/groups/add" && /Inner Circle/.test(t) && (await p.$eval('[data-testid="pref-groups-title"]', (x) => x.value)) === "Inner Circle", t);
+await p.click('[data-testid="pref-groups-submit"]');
 await sleep(1200);
 const groups = await p.evaluate(() => JSON.parse(localStorage.getItem("topfan-mock-v1")).prefsB.groups.map((g) => g.name));
-check("Approve creates exactly one group and opens Groups", groups.filter((g) => g === "Inner Circle").length === 1 && /groups/.test(path()), `${path()} ${groups}`);
+check("Save creates exactly one group", groups.filter((g) => g === "Inner Circle").length === 1, `${path()} ${groups}`);
 
 t = await ask("Create a group called Inner Circle");
-check("asking again doesn't duplicate it", /already have/i.test(t) && !(await p.$$eval('[data-testid="ai-approval"]', (x) => x.length > 1)), t);
+check("asking again doesn't duplicate it", /already have/i.test(t), t);
 
 await ask("Review my posts");
 t = await panel(); // Autopilot replaces the chat view

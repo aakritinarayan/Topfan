@@ -12,7 +12,7 @@ import { demoId, inScope } from "../../app/demo";
 import { pageActions, pageIntro } from "./pageGuide";
 import { ChevronDown, Pause, Play, X } from "lucide-react";
 import { getData, useData } from "../../store/store";
-import { hasUnsavedWork, pauseTask, progressOf, useWorkflow, type ActiveTask } from "../../app/agent-context/workflow-state";
+import { hasUnsavedWork, pauseTask, progressOf, taskName, useWorkflow, type ActiveTask } from "../../app/agent-context/workflow-state";
 import { usePlatformAgent } from "./PlatformAgent";
 import { usePlatform } from "../../state/platformStore";
 import { resolve } from "../../app/routeCatalog";
@@ -45,10 +45,10 @@ export function ActiveTaskCard() {
         <button
           onClick={() => setFolded(false)}
           data-testid="ai-task-show"
-          aria-label={`Show task: ${p.def.name}`}
+          aria-label={`Show task: ${taskName(wf.active!)}`}
           className="flex items-center gap-2 rounded-inner bg-surface px-4 py-2 text-left text-[12px] hover:bg-surface/80"
         >
-          <span className="min-w-0 flex-1 truncate font-bold">{p.def.name}</span>
+          <span className="min-w-0 flex-1 truncate font-bold">{taskName(wf.active!)}</span>
           <span className="shrink-0 text-soft">{stepLabel}</span>
           <ChevronDown size={14} className="shrink-0 text-soft" />
         </button>
@@ -56,7 +56,7 @@ export function ActiveTaskCard() {
       {p && !folded && (
         <section data-testid="ai-task-card" aria-label="Current task" className="rounded-inner bg-surface px-4 py-3">
           <div className="flex items-center gap-2">
-            <span className="flex-1 text-[13px] font-bold">{p.def.name}</span>
+            <span className="flex-1 text-[13px] font-bold">{taskName(wf.active!)}</span>
             <button onClick={pauseTask} aria-label="Pause task" title="Pause" data-testid="ai-task-pause" className="flex h-7 w-7 items-center justify-center rounded-full text-soft hover:bg-bg hover:text-white">
               <Pause size={14} />
             </button>
@@ -125,7 +125,7 @@ export function ActiveTaskCard() {
 
 function PausedRow({ t, confirming, onResume, onCancel, onConfirm }: { t: ActiveTask; confirming: boolean; onResume: () => void; onCancel: () => void; onConfirm: (yes: boolean) => void }) {
   const p = progressOf(t);
-  const name = p.def.name;
+  const name = taskName(t);
   if (confirming) return <li className="py-1.5"><ConfirmCancel name={name} onYes={() => onConfirm(true)} onNo={() => onConfirm(false)} /></li>;
   return (
     <li data-testid="ai-task-paused" data-task-id={t.id} data-task-type={t.taskId} className="flex items-center gap-2 border-t border-line py-1.5 text-[12px] first:border-t-0">

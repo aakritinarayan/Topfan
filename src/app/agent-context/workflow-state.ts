@@ -176,6 +176,13 @@ export function cancelTask(id?: string) {
 }
 
 /** Does this task hold anything the creator typed (so cancelling would lose it)? */
+/** A task named after what the creator asked for ("Create the Inner Circle group"), else its default name. */
+const groupName = (t: ActiveTask) => (t.taskId === "vip-group" ? t.input?.title?.trim() || null : null);
+export const taskName = (t: ActiveTask) => (groupName(t) ? `Create the ${groupName(t)} group` : taskById(t.taskId)?.name ?? "");
+export const taskResumeLabel = (t: ActiveTask) => {
+  const def = taskById(t.taskId);
+  return groupName(t) ? `Continue setting up your ${groupName(t)} group` : def?.resumeLabel ?? `Continue: ${def?.name ?? ""}`;
+};
 export const hasUnsavedWork = (t: ActiveTask) => !!t.draft || Object.values(t.input ?? {}).some((v) => v.trim());
 
 /** The active or paused task of this workflow, if any. */

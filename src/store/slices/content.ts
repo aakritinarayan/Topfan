@@ -325,7 +325,7 @@ export function createPost(d: AppData, goal: string, opts: { topic?: PostTopic; 
 export function shorten(d: AppData, id: ID): boolean {
   const x = itemById(d, id);
   if (!x) return false;
-  const cut = (s: string, n: number) => (s.match(/[^.!?]+[.!?]+(\s|$)/g) ?? [s]).slice(0, n).join("").trim();
+  const cut = (s: string, n: number) => (s.match(/[^.!?]+[.!?]+\]?(\s+|$)/g) ?? [s]).slice(0, n).join("").trim();
   if (x.post) x.post.text = cut(x.post.text, 2);
   else if (x.newsletter) {
     if (x.newsletter.sections?.length && x.newsletter.intro) {

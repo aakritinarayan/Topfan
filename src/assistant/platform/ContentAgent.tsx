@@ -287,7 +287,7 @@ export function ContentAgent() {
     if (!run("content.media", (y) => attachMedia(y, x.id, m))) return;
     say({
       status: "done",
-      text: `Attached to your ${x.label.toLowerCase()}.`,
+      text: `Attached to your ${x.kind === "newsletter" ? "newsletter" : x.kind === "experience" ? "experience" : "post"}.`,
       actions: [
         { label: x.kind === "post" ? "Open in New Post" : `Open in ${x.kind === "newsletter" ? "New Newsletter" : "Add Experience"}`, variant: "primary", onClick: () => open(itemById(d(), x.id)!) },
         { label: "Remove it", variant: "text", onClick: () => (run("content.media", (y) => rejectMedia(y, x.id)), say({ text: "Removed. I won't suggest that image for this again." })) },
@@ -1010,6 +1010,16 @@ export function ContentAgent() {
       actions: left.some(({ s }) => s.label === "Planned") ? [{ label: "Prepare the remaining drafts", variant: "primary", onClick: () => approvePlanWeek(id) }] : undefined,
     });
   };
+  /** "What was I working on?": the unfinished drafts and plans, newest first; each opens where it left off. */
+  const unfinishedList = () => {
+    const open = ["draft", "needs-input", "review", "blocked", "paused", "approved", "error"];
+    const items = [...d().content.items].reverse().filter((x) => !x.parentId && open.includes(x.status)).slice(0, 5);
+    if (!items.length) return say({ text: "Nothing is unfinished. Want some ideas?", actions: [{ label: "Post ideas", variant: "outline", onClick: () => ideas("post") }] });
+    say({
+      text: `You have ${items.length} unfinished ${items.length === 1 ? "item" : "items"}. Nothing here is published; pick one to continue.`,
+      actions: items.map((x, i) => ({ label: x.kind === "week" ? "Your weekly plan" : x.label, variant: i ? "outline" : "primary", onClick: () => showItem(x.id) })),
+    });
+  };
   /** Plan follow-ups. Returns true when handled; prepared items fall through to the usual edits with focus set. */
   const planRoute = (t: string, raw: string): boolean => {
     const w = currentPlan();
@@ -1021,8 +1031,11 @@ export function ContentAgent() {
       if (w.status === "paused") run("content.resume", (y) => setPaused(y, w.id, false));
       return showPlan(w.id, proposed ? "Here's your plan. Nothing is created until you approve it." : undefined), true;
     }
-    if (/\bwhat'?s left\b|\bwhat (do i|else do i) (still )?(need|have) to\b|\bwhat needs (me|my review)\b|\bleft (for me )?to review\b/.test(t)) return whatsLeft(w.id), true;
-    if (/\bsave (it |this )?for later\b/.test(t)) return say({ text: "Saved. Say \"Show my weekly plan\" whenever you're ready." }), true;
+    if (/\bwhat'?s left\b|\bwhat (do i|else do i) (still )?(need|have) to\b|\bwhat needs (me|my review)\b|\bleft (for me )?to review\b|\b(still )?needs? my approval\b|\bbefore i publish\b/.test(t)) return whatsLeft(w.id), true;
+    if (/\bsave (it |this |them |everything |the (remaining |rest of the )?drafts )?(for later|and (let me )?continue later)\b|\b(let me |i'll )continue later\b/.test(t)) {
+      if (!run("content.pause", (y) => setPaused(y, w.id, true))) return true;
+      return say({ status: "done", text: "Saved. Your drafts stay as drafts in TopFan; nothing is published or sent. Say \"Continue my weekly plan\" whenever you're ready." }), true;
+    }
     if (/\b(prepare|create|draft|make) (the |my )?(remaining|rest|missing|other)\b/.test(t)) return approvePlanWeek(w.id), true;
     if (proposed && /\b(approve|looks good|go ahead|sounds good|prepare (the |my |all )?(drafts|everything|it all|them))\b/.test(t)) return approvePlanWeek(w.id), true;
     const nWord = t.match(/\b(?:make it|i want|just|only|change (?:it )?to) (one|two|three|four|five|\d) posts?\b|\b(one|two|three|four|five|\d) posts? instead\b/);
@@ -1039,6 +1052,14 @@ export function ContentAgent() {
       const was = activityName(a);
       if (!run("content.planMove", (y) => moveActivity(y, w.id, a.key, day))) return true;
       const flagged = a.childId ? childrenOf(d(), w.id).filter((y) => y.deps.includes(a.childId!) && y.flags.length) : [];
+      // "…and make one post exclusive": one post locked for members (already true when the plan has one).
+      if (/\b(make|set|turn) (one|a) post (exclusive|members[- ]only|locked)\b/.test(t)) {
+        const posts = sortedActivities(planOf(d(), w.id)!).filter((x) => x.kind === "post");
+        const locked = posts.find((x) => x.locked);
+        const pick = locked ?? posts.find((x) => !x.childId);
+        if (pick && !locked && !run("content.planLock", (y) => setActivityLocked(y, w.id, pick.key, true))) return true;
+        return refresh(`Moved ${was} to ${DAY_NAMES[day]}. ${pick ? `${DAY_NAMES[pick.day]}'s post ${locked ? "is already" : "is now"} exclusive for members; I'll suggest unlock settings for you to approve.` : ""} Everything else stays as it is.`), true;
+      }
       return refresh(`Moved ${was} to ${DAY_NAMES[day]}. Everything else stays as it is.${flagged.length ? ` I flagged ${flagged.map((y) => y.label).join(" and ")} because ${flagged.length === 1 ? "it mentions" : "they mention"} it.` : ""}`), true;
     }
     if (/\b(remove|drop|delete|cancel|skip)\b/.test(t) && !/\b(lock|points|price|image|photo|background)\b/.test(t)) {
@@ -1202,7 +1223,7 @@ export function ContentAgent() {
     if (/\b(entire|whole|full) week\b|\bbusy this week\b|plan my whole week|around these activities/.test(t) || promoteWeek || countedPlan || weekAsk || promoteExclusive || (/\bplan|prepare|organi[sz]e\b/.test(t) && kinds >= 3)) return week(raw), true;
     // Ideas first when the request is open-ended; follow-ups work on the list or the focused draft.
     const ideasNow = d().content.ideas;
-    if (/^(please )?(help me|can you help me|i want to|let's) (create|make|write|plan|do) (a|an|my) (post|newsletter|experience)\b\.?$|\b(post|newsletter|experience) (ideas|topics|concepts)\b|\bideas for (a |an |my )?(post|newsletter|experience)\b|\bwhat should i post\b/.test(t))
+    if (/^(please )?(help me|can you help me|i want to|let's) (create|make|write|plan|do) (a|an|my) (post|newsletter|experience)\b\.?$|\b(post|newsletter|experience) (ideas|topics|concepts)\b|\bideas for (a |an |my )?(post|newsletter|experience)\b|\bwhat should i post\b/.test(t) || (/\b(post|newsletter|experience)\b/.test(t) && /\b(show|give)( me)? (a few |some |a couple of )?(topic |experience |post )?(ideas|topics|options)\b/.test(t)))
       return ideas(/newsletter/.test(t) ? "newsletter" : /experience/.test(t) ? "experience" : "post"), true;
     if (/\b(more|other|different|new|some|any) (ideas|options|topics|concepts)\b|^give me more\b|^(more|other) ideas\b/.test(t)) {
       // With a list on screen, the next round; otherwise ideas for whatever the creator is working on (default: posts).
@@ -1220,7 +1241,7 @@ export function ContentAgent() {
     }
     if (/\b(make it|more) premium\b|\bmore exclusive\b/.test(t) && focused()) return refined(focused()!.id, "premium"), true;
     if (/\b(stronger|clearer|better) (cta|call to action)\b|\badd a (cta|call to action)\b/.test(t) && focused()) return refined(focused()!.id, "cta"), true;
-    if (/\b(another|different|new|other) (image|picture|photo|cover|visual)\b|\bregenerate (the )?(image|cover|picture)\b/.test(t) && focused()) return moreImages(focused()!.id), true;
+    if (/\b(another|different|new|other) (image|picture|photo|cover|visual)\b|\bregenerate (the )?(image|cover|picture)\b|^(change|swap|replace) (the |this )?(image|picture|photo|cover)\.?$/.test(t) && focused()) return moreImages(focused()!.id), true;
     const retypeTo = /\b(change|make|switch|turn)\b.*\b(to|into) (a |an )?(one[- ]to[- ]one|1:1|video|in[- ]person|personali[sz]ed video|custom)\b/.exec(t);
     if (retypeTo && focused()?.kind === "experience") {
       const v = retypeTo[4];
@@ -1235,8 +1256,12 @@ export function ContentAgent() {
       const x = focused()!;
       return x.kind === "experience" ? promoteBoth(x.id) : newsletter("Turn this post into a newsletter", { fromId: x.kind === "post" ? x.id : undefined }), true;
     }
-    if (/\bcontinue (editing )?(my )?(previous|last|earlier) draft\b/.test(t)) {
-      const last = [...d().content.items].reverse().find((x) => x.kind !== "week" && !["published", "sent", "cancelled"].includes(x.status));
+    if (/\bwhat (was|am) i working on\b|\b(show|list|what are)( me)? (my |the )?(unfinished|open|pending) (tasks|work|drafts)\b|\bmy unfinished\b/.test(t)) return unfinishedList(), true;
+    if (/\b(continue (editing )?|go back to |back to |open )(my |the )?(previous|last|earlier) draft\b/.test(t)) {
+      const fid = focused()?.id;
+      const open = [...d().content.items].reverse().filter((x) => x.kind !== "week" && !["published", "sent", "cancelled"].includes(x.status));
+      // "Go back to…" means the one before the draft in focus; with only one draft, that one.
+      const last = open.find((x) => x.id !== fid) ?? open[0];
       return last ? showItem(last.id) : say({ text: "There's no unfinished draft. Want some ideas?", actions: [{ label: "Post ideas", variant: "outline", onClick: () => ideas("post") }] }), true;
     }
     if (/\bteaser\b/.test(t)) {
@@ -1265,7 +1290,7 @@ export function ContentAgent() {
     if (target && /\bcan (my )?(subscribers|members) (access|see|unlock|get)\b/.test(t)) return advise(target.id, "members"), true;
     if (target?.post?.locked && /\b(change|set|make|lower|raise)\b.*(\$\s*\d|\d+\s*(dollars|points))|\b(remove|drop|turn off)\b.*\b(loyalty points|points|price|individual purchase|nft|subscription)\b/.test(t) && editLock(target.id, t)) return true;
     if (target && /\bunlock (it |this )?(with|for|using) \d[\d,.]* (loyalty )?points\b/.test(t)) return lockFromWords(target.id, t), true;
-    if (target && /\b(pay|price|\$\s*\d)\b.*\bor\b.*\b(points|members?|subscribers|nft)\b|\b(points|members?)\b.*\bor\b.*\b(pay|\$\s*\d)/.test(t) && /\b(let|allow|fans|unlock)\b/.test(t)) return lockFromWords(target.id, t), true;
+    if (target && /(\b(pay|price)\b|\$\s*\d).*\bor\b.*\b(points|members?|subscribers|nft)\b|\b(points|members?)\b.*\bor\b.*(\bpay\b|\$\s*\d)/.test(t) && /\b(let|allow|fans|unlock)\b/.test(t)) return lockFromWords(target.id, t), true;
     const ask = audienceAsk(t);
     if (ask && focused() && /\b(make|only|exclusive|share|lock|unlock|audience|visible|reward|public|available|holders?|let)\b/.test(t) && !/\b(create|write|prepare|draft) (a|an|my)\b/.test(t)) return audience(ask), true;
     if (/\b(shorter|trim it|cut it down)\b/.test(t) && focused()) {

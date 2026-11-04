@@ -11,7 +11,7 @@ import { openAutopilot } from "./autopilotView";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useAssistant } from "../../state/assistantStore";
 import { useRouter } from "../../app/router";
-import { resolve } from "../../app/routeCatalog";
+import { pathFor, resolve } from "../../app/routeCatalog";
 import { openOverlay } from "../../app/ui";
 import { act, getData } from "../../store/store";
 import { addGroup, addTopicTag } from "../../store/slices/prefsB";
@@ -35,8 +35,11 @@ import {
   progressOf,
   resumeTask,
   setTaskDraft,
+  setTaskInput,
   startTask,
   takeExpired,
+  taskResumeLabel,
+  taskName,
 } from "../../app/agent-context/workflow-state";
 import { isOnboarding, usePlatform } from "../../state/platformStore";
 import type { HealthItem } from "../../app/agent-context/account-state";
@@ -330,6 +333,31 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
   }, []);
   const proposeActionRef = useRef(proposeAction);
   proposeActionRef.current = proposeAction;
+  /**
+   * "Create a group called Inner Circle": the Create a VIP group task, named after the request, opens the
+   * original Add Group form with the name filled in. Saving there is what creates it (nothing is claimed before).
+   */
+  const startNamedGroup = useCallback((name: string) => {
+    const { a } = live.current;
+    const exists = EXECUTORS["group.add"].exists!(getData(), { name });
+    if (exists) {
+      a.say({ text: exists, actions: [{ label: "Open Groups", variant: "primary", onClick: () => (markAssistantNavigation(), live.current.navigate(pathFor("pref-groups"))) }] });
+      return;
+    }
+    if (blocked("content.write")) return void noAccess("Create a group");
+    startTask("vip-group", `Create a group called ${name}`);
+    setTaskInput("vip-group", { title: name });
+    markAssistantNavigation();
+    live.current.navigate(pathFor("pref-groups-add"));
+    a.say({
+      text: (
+        <>
+          I've opened <b>Add Group</b> with <b>{name}</b> filled in. Add a short description if you like, then click <b>Save</b>. The group is created only when you save.
+        </>
+      ),
+      plain: `Opened Add Group with ${name} filled in. Click Save to create it.`,
+    });
+  }, []);
   const beginTaskRef = useRef(beginTask);
   beginTaskRef.current = beginTask;
 
@@ -358,12 +386,13 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     }
     if (!w.active) return void a.say({ text: "You don't have a task in progress." });
     const def = taskById(w.active.taskId)!;
+    const name = taskName(w.active);
     if (c === "pause") {
       pauseTask();
-      a.say({ text: <>Paused <b>{def.name}</b>. Your progress is saved; say "resume" any time.</>, plain: `Paused ${def.name}.` });
+      a.say({ text: <>Paused <b>{name}</b>. Your progress is saved; say "resume" any time.</>, plain: `Paused ${name}.` });
     } else if (c === "cancel") {
       cancelTask();
-      a.say({ text: <>Stopped <b>{def.name}</b>. Anything you already saved on the page stays as it is.</>, plain: `Cancelled ${def.name}.` });
+      a.say({ text: <>Stopped <b>{name}</b>. Anything you already saved on the page stays as it is.</>, plain: `Cancelled ${name}.` });
     } else if (c === "back") {
       backStep();
       const p = progressOf(getWorkflow().active!);
@@ -371,7 +400,8 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
       goToStep();
     } else {
       const p = progressOf(w.active);
-      a.say({ text: <><b>{def.name}</b>: {p.doneCount} of {p.required} steps done. {p.step ? `Next: ${p.step.title}.` : ""}</>, plain: `${def.name}: ${p.doneCount}/${p.required} done.` });
+      a.say({ text: <><b>{name}</b>: {p.doneCount} of {p.required} steps done. {p.step ? `Next: ${p.step.title}.` : ""}</>, plain: `${name}: ${p.doneCount}/${p.required} done.`, actions: p.step?.cta ? [{ label: p.step.cta, variant: "primary", onClick: () => goToStep() }] : undefined });
+      goToStep();
     }
   }, []);
 
@@ -649,12 +679,12 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     const doneTasks = new Set(w.finished.filter((f) => f.status === "done").map((f) => f.taskId));
     if (w.active) {
       const def = taskById(w.active.taskId)!;
-      out.push({ id: `continue-${def.id}`, label: def.resumeLabel ?? `Continue: ${def.name}`, run: () => (taskControl("status"), goToStep()) });
+      out.push({ id: `continue-${def.id}`, label: taskResumeLabel(w.active), run: () => (taskControl("status"), goToStep()) });
     }
     const paused = w.paused[w.paused.length - 1];
     if (paused) {
       const def = taskById(paused.taskId)!;
-      out.push({ id: `resume-${def.id}`, label: def.resumeLabel ?? `Continue: ${def.name}`, run: () => taskControl("resume", paused.id) });
+      out.push({ id: `resume-${def.id}`, label: taskResumeLabel(paused), run: () => taskControl("resume", paused.id) });
     }
     // Account setup really started in this session (Step 2 or later reached) but not finished.
     if (inScope("setup") && setupReached.current && !ps.provisionDone && !isOnboarding(ps.screen)) {
@@ -689,7 +719,7 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     const t = w.active ?? w.paused[w.paused.length - 1];
     if (t) {
       const def = taskById(t.taskId)!;
-      out.push({ id: `${w.active ? "continue" : "resume"}-${def.id}`, label: def.resumeLabel ?? `Continue: ${def.name}`, run: () => (w.active ? (taskControl("status"), goToStep()) : taskControl("resume", t.id)) });
+      out.push({ id: `${w.active ? "continue" : "resume"}-${def.id}`, label: taskResumeLabel(t), run: () => (w.active ? (taskControl("status"), goToStep()) : taskControl("resume", t.id)) });
     }
     if (!roleCan(d.account.session.role, "content.write")) return out;
     const ready = d.autopilot.batch && !d.autopilot.batch.dismissed ? d.autopilot.batch.drafts.filter((x) => x.status === "ready").length : 0;
@@ -734,6 +764,7 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
 
   const handle = useCallback((text: string) => {
     const named = namedCreate(text);
+    if (named?.actionId === "group.add") return startNamedGroup(named.name), true;
     if (named) return proposeActionRef.current(named.actionId, { name: named.name }) || true;
     const w = getWorkflow();
     const intent = classify(text, { hasActiveTask: !!w.active });
@@ -801,8 +832,7 @@ export function PlatformAgentProvider({ children }: { children: ReactNode }) {
     if (!t) return;
     const p = progressOf(t);
     if (!p.step || resolve(live.current.path).route.id === p.step.routeId) return;
-    const def = p.def;
-    const label = def.resumeLabel ?? `Continue: ${def.name}`;
+    const label = taskResumeLabel(t);
     const last = live.current.a.messages[live.current.a.messages.length - 1];
     if (last && (last.plain ?? "").startsWith(label)) return; // already offered
     live.current.a.say({

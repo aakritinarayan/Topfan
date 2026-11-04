@@ -237,8 +237,8 @@ export const TASKS: TaskDef[] = [
     need: "content.write",
     draft: "group-welcome",
     steps: [
-      { id: "open", title: "Open Groups", routeId: "pref-groups", cta: "Open Groups", done: visit("pref-groups") },
-      { id: "create", title: "Create the group", routeId: "pref-groups-add", cta: "Add a group", target: "pref-groups-add", done: grew("groups") },
+      { id: "open", title: "Open Groups", routeId: "pref-groups", cta: "Open Groups", done: (c) => visit("pref-groups")(c) || visit("pref-groups-add")(c) },
+      { id: "create", title: "Fill in the group and click Save", routeId: "pref-groups-add", cta: "Open Add Group", target: "pref-groups-add", done: grew("groups") },
       { id: "assign", title: "Add fans to it in Insights & Fans", routeId: "insights", params: { tab: "fan-relationship-management" }, cta: "Open my fans", hint: "In the fan list, use the Groups column to add fans.", target: "insights-fans-table", done: grew("fansInGroups") },
       { id: "restrict", title: "Share something only the group can see (optional)", routeId: "newpost", cta: "Write a group post", done: grew("groupPosts"), optional: true, approval: "confirm" },
     ],
