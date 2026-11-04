@@ -39,13 +39,13 @@ async function grade(src, w, h, { position = "centre", modulate, linear, tint, v
 }
 
 const items = [
-  ["generated/training-cinematic", POWDER, 1600, 900, "Simulated AI image (sample photo): fresh powder slope with long shadows, warm cinematic grade",
+  ["generated/training-cinematic", POWDER, 1600, 900, "AI-generated image: fresh powder slope with long shadows, warm cinematic grade",
     { modulate: { brightness: 0.82, saturation: 0.8 }, linear: [1.18, -18], vignette: 0.7, tint: [[0, "#1a0508", 0.55], [0.55, "#bc1111", 0.05], [1, "#120306", 0.6]] }],
-  ["generated/training-minimal", PEAKS, 1600, 900, "Simulated AI image (sample photo): snowy peaks over a calm lake, soft and minimal",
+  ["generated/training-minimal", PEAKS, 1600, 900, "AI-generated image: snowy peaks over a calm lake, soft and minimal",
     { position: "top", modulate: { brightness: 1.08, saturation: 0.25 }, linear: [0.92, 14], vignette: 0, tint: [[0, "#ffffff", 0.08], [1, "#ffffff", 0.04]] }],
-  ["generated/training-dark", POWDER, 1600, 900, "Simulated AI image (sample photo): powder slope at dusk, darker grade",
+  ["generated/training-dark", POWDER, 1600, 900, "AI-generated image: powder slope at dusk, darker grade",
     { modulate: { brightness: 0.55, saturation: 0.7 }, linear: [1.25, -22], vignette: 0.85, tint: [[0, "#05060a", 0.7], [0.6, "#bc1111", 0.04], [1, "#05060a", 0.75]] }],
-  ["generated/training-wide", PEAKS, 1600, 700, "Simulated AI image (sample photo): wide mountain view with darker open space on the left for text",
+  ["generated/training-wide", PEAKS, 1600, 700, "AI-generated image: wide mountain view with darker open space on the left for text",
     { position: "top", modulate: { brightness: 0.9, saturation: 0.75 }, linear: [1.1, -8], vignette: 0.35, dir: { x2: 1, y2: 0 }, tint: [[0, "#0b0c10", 0.85], [0.42, "#0b0c10", 0.35], [0.7, "#0b0c10", 0]] }],
 ];
 

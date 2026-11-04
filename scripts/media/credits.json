@@ -1367,7 +1367,7 @@
   "derived": "graded crop of posts/nl-snow-report (scripts/media/generate-ai-visuals.mjs)",
   "width": 1600,
   "height": 900,
-  "alt": "Simulated AI image (sample photo): fresh powder slope with long shadows, warm cinematic grade"
+  "alt": "AI-generated image: fresh powder slope with long shadows, warm cinematic grade"
  },
  "generated/training-minimal": {
   "file": "assets/generated/training-minimal.webp",
@@ -1378,7 +1378,7 @@
   "derived": "graded crop of posts/nl-welcome (scripts/media/generate-ai-visuals.mjs)",
   "width": 1600,
   "height": 900,
-  "alt": "Simulated AI image (sample photo): snowy peaks over a calm lake, soft and minimal"
+  "alt": "AI-generated image: snowy peaks over a calm lake, soft and minimal"
  },
  "generated/training-dark": {
   "file": "assets/generated/training-dark.webp",
@@ -1389,7 +1389,7 @@
   "derived": "graded crop of posts/nl-snow-report (scripts/media/generate-ai-visuals.mjs)",
   "width": 1600,
   "height": 900,
-  "alt": "Simulated AI image (sample photo): powder slope at dusk, darker grade"
+  "alt": "AI-generated image: powder slope at dusk, darker grade"
  },
  "generated/training-wide": {
   "file": "assets/generated/training-wide.webp",
@@ -1400,6 +1400,6 @@
   "derived": "graded crop of posts/nl-welcome (scripts/media/generate-ai-visuals.mjs)",
   "width": 1600,
   "height": 700,
-  "alt": "Simulated AI image (sample photo): wide mountain view with darker open space on the left for text"
+  "alt": "AI-generated image: wide mountain view with darker open space on the left for text"
  }
 }

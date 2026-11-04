@@ -17,7 +17,7 @@ Add `?resetMock=1` to either link to start from clean mock data. Every step belo
 **Ground rules to say out loud if asked**
 - Everything is simulated. No real payments, OAuth, DNS checks, email sending, uploads or analytics happen.
 - Create, save and publish change only the demo's mock data.
-- "AI images" are sample artwork labelled as simulated. No image-generation service is connected.
+- Images are labelled **"AI-generated image"** on screen, but they are pre-made sample artwork: no image-generation service is connected. Say once at the start: "This is a prototype, so the AI images are sample pictures."
 - Chat replies come from the built-in demo engine. The hosted site has no model API key configured.
 
 To type a prompt, open the assistant with the red **AI** button at the bottom right. Clicking the microphone also works.
@@ -65,7 +65,7 @@ Start at `/demo/ai-content`, open the assistant, and type each prompt in order.
 
 | # | Say / type exactly | Expected AI response | What to click | Main-screen result | Status |
 |---|---|---|---|---|---|
-| 1 | Help me create a post about my snowboarding journey. | "Here's a draft from your training notes…" An Images post draft with a [bracketed] part for you to write, plus image choices labelled *Simulated AI image (sample photo)* | — | Stays on your page; the draft is in the chat card | ✅ |
+| 1 | Help me create a post about my snowboarding journey. | "Here's a draft from your training notes…" An Images post draft with a [bracketed] part for you to write, plus image choices labelled *AI-generated image* | — | Stays on your page; the draft is in the chat card | ✅ |
 | 2 | Generate an image for this post. | "Choose an image for your post." with **Cinematic** / **Minimal** | **Cinematic** | "Attached to your post." | ⚠️ Sample artwork, not a live image generator |
 | 3 | Make the image more cinematic. | "Here's the new version." | — | Image attached to the draft | ⚠️ Same |
 | 4 | Make the caption shorter. | "Shorter now." The bracketed part stays whole for you to fill in | — | — | ✅ |

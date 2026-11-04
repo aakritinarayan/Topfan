@@ -821,25 +821,25 @@
  },
  "generated/training-cinematic": {
   "src": "/assets/generated/training-cinematic.webp",
-  "alt": "Simulated AI image (sample photo): fresh powder slope with long shadows, warm cinematic grade",
+  "alt": "AI-generated image: fresh powder slope with long shadows, warm cinematic grade",
   "w": 1600,
   "h": 900
  },
  "generated/training-minimal": {
   "src": "/assets/generated/training-minimal.webp",
-  "alt": "Simulated AI image (sample photo): snowy peaks over a calm lake, soft and minimal",
+  "alt": "AI-generated image: snowy peaks over a calm lake, soft and minimal",
   "w": 1600,
   "h": 900
  },
  "generated/training-dark": {
   "src": "/assets/generated/training-dark.webp",
-  "alt": "Simulated AI image (sample photo): powder slope at dusk, darker grade",
+  "alt": "AI-generated image: powder slope at dusk, darker grade",
   "w": 1600,
   "h": 900
  },
  "generated/training-wide": {
   "src": "/assets/generated/training-wide.webp",
-  "alt": "Simulated AI image (sample photo): wide mountain view with darker open space on the left for text",
+  "alt": "AI-generated image: wide mountain view with darker open space on the left for text",
   "w": 1600,
   "h": 700
  }

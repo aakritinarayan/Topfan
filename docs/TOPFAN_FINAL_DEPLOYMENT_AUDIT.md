@@ -87,7 +87,7 @@ This doesn't mean "100% functional". Real model replies, image generation, payme
 
 **External blockers**
 - **No model API key on Vercel.** `/api/chat` reports `configured: false`, so chat replies come from the built-in deterministic demo engine, not a live model. To enable it, add `ANTHROPIC_API_KEY` in the Vercel project settings. Never put it in client code or chat.
-- **No image-generation provider.** "Generated" images are sample artwork, labelled *Simulated AI image (sample photo)*.
+- **No image-generation provider.** Images are labelled "AI-generated image" on screen (your choice, 2026-11-04) but are pre-made sample artwork; the presenter says so once at the start.
 
 **Simulated by design**
 - Payments, OAuth, DNS checks, email sending, uploads and analytics are all simulated.

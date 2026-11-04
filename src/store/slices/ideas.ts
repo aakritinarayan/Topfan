@@ -5,7 +5,7 @@
  * which the original New Post / Create Experiences / New Newsletter screens open prefilled.
  *
  * Nothing here invents news, dates, prices, bookings or achievements: unknowns stay in [brackets] or
- * are listed as "needs". Images are pre-made sample photos labelled simulated (no image service).
+ * are listed as "needs". Images are pre-made sample photos labelled "AI-generated image" (no image service is connected).
  */
 import type { AppData } from "../store";
 import { Refused } from "../refused";

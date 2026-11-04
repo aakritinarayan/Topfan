@@ -43,7 +43,7 @@ const btn = (x, re) => x.buttons.some((b) => re.test(b));
 const store = () => j.store(DB);
 const focusItem = async () => { const d = await store(); return d.content.items.find((x) => x.id === d.content.focusId); };
 const C = {
-  1: (x) => j.check("P1: post draft from your own training notes, image choices offered", has(x, /draft from your training notes/) && has(x, /Simulated AI image/), x.reply),
+  1: (x) => j.check("P1: post draft from your own training notes, image choices offered", has(x, /draft from your training notes/) && has(x, /AI-generated image: /), x.reply),
   2: (x) => j.check("P2: image style choices", btn(x, /^Cinematic$/)),
   3: async (x) => j.check("P3: cinematic version attached", has(x, /new version/) && !!(await focusItem())?.media, x.reply),
   4: async (x) => { const f = await focusItem(); j.check("P4: caption shorter, placeholder kept whole", has(x, /Shorter now/) && !/^\]/.test(f.post.text) && f.post.text.split(/[.!?]\]?\s/).length <= 3, f.post.text); },
