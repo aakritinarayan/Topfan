@@ -232,11 +232,12 @@ const mutate = async (p, fn) => {
 {
   const p = await fresh();
   await ask(p, "Plan my week and help promote my upcoming experience", 1200);
+  await tap(p, /^approve plan & prepare drafts$/, 1200);
   let items = (await db(p)).content.items;
   const w = items.find((x) => x.kind === "week");
   const kids = items.filter((x) => x.parentId === w?.id);
   const has = (k, re) => kids.some((x) => x.kind === k && (!re || re.test(x.label)));
-  check("week: announcement, members-only post, newsletter, experience and Link in Bio as connected tasks", has("post", /announcement/i) && has("post", /members/i) && has("newsletter") && has("experience") && has("bio") && kids.length === 5, kids.map((x) => x.label).join(" | "));
+  check("week: announcement, members-only post, newsletter, experience and Link in Bio as connected tasks", has("post", /announcement/i) && has("post", /members|technique/i) && has("newsletter") && has("experience") && has("bio") && kids.length === 5, kids.map((x) => x.label).join(" | "));
   const exp = kids.find((x) => x.kind === "experience");
   const bio = kids.find((x) => x.kind === "bio");
   check("week: Link in Bio update depends on the experience, no invented URL", bio.deps.includes(exp.id) && bio.bio.links[0].url === null && bio.status === "needs-input");

@@ -35,6 +35,7 @@ import {
   ChipChoice, ConfirmModal, MoneyInput, MonetizeFrame, Pill, RefFormHeader, RoundCheck, TableCard, TextInput, UploadTile, td, th, useRun,
 } from "../ui";
 import { Missing } from "./PlanForm";
+import { WeekStrip } from "../../../assistant/platform/WeekStrip";
 
 const AUDIENCES: { id: Newsletter["audience"]; label: string }[] = [
   { id: "all", label: "All Recipients" },
@@ -174,12 +175,28 @@ function NewsletterForm({ routeId, n, workId }: { routeId: string; n: Newsletter
   const valid = !Object.values(errors).some(Boolean);
   const audienceErr = audience === "plans" && !planIds.length ? "Select at least one plan" : audience === "groups" && !groupIds.length ? "Select at least one group" : "";
 
+  // What the assistant changes while this screen is open ("Make the newsletter shorter", another cover)
+  // lands here at once; this screen's own write-back is never applied over newer typing.
+  const wrote = useRef<{ title: string; body: string } | null>(null);
+  const storeNl = useData((d) => {
+    const x = workId && wn ? itemById(d, workId) : null;
+    return x?.newsletter ? JSON.stringify([x.newsletter.title, x.newsletter.body, x.newsletter.html ?? "", x.media?.key ?? "", x.media?.label ?? ""]) : "";
+  });
+  const knownNl = useRef(storeNl);
+  useEffect(() => {
+    if (!storeNl || storeNl === knownNl.current) return;
+    knownNl.current = storeNl;
+    const [t, body, h, key, label] = JSON.parse(storeNl) as string[];
+    if (t !== wrote.current?.title && t !== title) setTitle(t);
+    if (body !== wrote.current?.body && body !== plain) (setPlain(body), setHtml(h ? safeHtml(h) : textToHtml(body)));
+    if (key && key !== image) (setImage(key), setImageName(label));
+  }, [storeNl]);
   // Keep the assistant's copy in step with what the creator types here.
   useEffect(() => {
     if (!wn || !workId) return;
     const t = setTimeout(() => {
       const cur = itemById(getData(), workId)?.newsletter;
-      if (cur && (cur.title !== title || cur.body !== plain)) act("content.syncNewsletter", (d) => syncFromScreen(d, workId, { title, body: plain }), { need: "content.write" });
+      if (cur && (cur.title !== title || cur.body !== plain)) (wrote.current = { title, body: plain }), act("content.syncNewsletter", (d) => syncFromScreen(d, workId, { title, body: plain }), { need: "content.write" });
     }, 600);
     return () => clearTimeout(t);
   }, [title, plain]);
@@ -250,6 +267,7 @@ function NewsletterForm({ routeId, n, workId }: { routeId: string; n: Newsletter
 
   return (
     <MonetizeFrame routeId={routeId} active="monetize-newsletters">
+      {!n && <WeekStrip workId={workId} />}
       <RefFormHeader title={n ? "Edit Newsletter" : "Add Newsletter"} backTo={back} enabled={enabled} onEnabled={setEnabled} what="newsletter" testid="monetize-newsletter-enable" />
       {!enabled && <p className="mt-[10px] text-right text-[13px] text-muted">Disabled: hidden from your public Newsletters page.</p>}
       {sent && <p className="mt-[16px] rounded-inner bg-surface px-[20px] py-[14px] text-[14px] text-soft">This newsletter was already sent to {n?.sent} recipients. Changes only affect how it appears on your profile.</p>}

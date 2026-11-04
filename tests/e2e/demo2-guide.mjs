@@ -133,14 +133,17 @@ check("5.4: announcement flags the booking link until live", /booking link|live/
 
 /* 6. The whole week */
 r = await ask(p, "I'm busy this week. Plan a training post, an exclusive post for members, a newsletter and a paid fan session.", 1300);
-check("6.1: 'Your week is prepared.' with Mon/Wed/Fri/Sat", /Your week is prepared\./.test(r) && /MON/.test(r) && /WED/.test(r) && /FRI/.test(r) && /SAT/.test(r), r.slice(0, 300));
+check("6.1: plan first (Mon/Wed/Fri/Sat), nothing created yet", /Here's a plan for your week/.test(r) && /MON/.test(r) && /WED/.test(r) && /FRI/.test(r) && /SAT/.test(r) && /approve plan & prepare drafts/i.test(r), r.slice(0, 300));
+({ r } = await tap(p, /^approve plan & prepare drafts$/, 1300));
+check("6.1: approved once → 'Your week is ready for review'", /Your week is ready for review/.test(r), r.slice(0, 300));
 r = await ask(p, "Move the newsletter to Thursday", 1000);
-check("6.2: only the newsletter moves", /Moved the .*newsletter to Thursday/i.test(r), r.slice(0, 200));
+check("6.2: only the newsletter moves", /Moved Friday's newsletter to Thursday/i.test(r), r.slice(0, 200));
 r = await ask(p, "Remove the experience", 1000);
-check("6.3: newsletter flagged for review", /review/i.test(r), r.slice(0, 200));
+check("6.3: newsletter flagged for review", /marked for review/i.test(r), r.slice(0, 200));
 r = await ask(p, "Approve the ready drafts", 1000);
 check("6.4: approved, nothing posted", /Approved/i.test(r) && /Nothing has been posted/i.test(r), r.slice(0, 200));
 r = await ask(p, "Plan my week and help promote my upcoming experience", 1300);
+await tap(p, /^approve plan & prepare drafts$/, 1300);
 const wk = (await items(p)).filter((x) => x.kind === "week").at(-1);
 const kids = (await items(p)).filter((x) => x.parentId === wk.id);
 check("6 variant: five connected tasks incl. Link in Bio", kids.length === 5 && kids.some((x) => x.kind === "bio"), kids.map((x) => x.label).join(" | "));

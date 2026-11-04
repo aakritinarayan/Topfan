@@ -75,7 +75,8 @@ function AppRoutes({ assistant }: { assistant: ReactNode }) {
   const allowed = route.access.includes(role) || route.access.includes("public");
   const page = (
     <div data-route={route.id} className="contents">
-      {allowed ? <Page route={route} params={params} query={query} /> : <NoAccess title={route.title} />}
+      {/* A different assistant draft (?work=) is a different form: remount instead of keeping the last one's fields. */}
+      {allowed ? <Page key={query.get("work") ?? undefined} route={route} params={params} query={query} /> : <NoAccess title={route.title} />}
     </div>
   );
   switch (route.layout) {

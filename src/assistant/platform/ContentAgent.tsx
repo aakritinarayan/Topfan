@@ -18,10 +18,28 @@ import { act, delaysOff, getData, onStoreEvent, useData, type AppData } from "..
 import { mediaSrc } from "../../media";
 import { openAutopilot } from "./autopilotView";
 import { bioFlows } from "./BioFlows";
-import { proposePromote } from "../../store/slices/bio";
 import { inScope } from "../../app/demo";
 import { changeExperienceType, draftFromIdea, imageOptions, premium, shortenDraft, showIdeas, strongerCta, type Idea, type IdeaKind } from "../../store/slices/ideas";
 import { EXPERIENCE_TYPE_OPTIONS } from "../../pages/monetize/forms/ExperienceForm";
+import { CalendarDays, FileText, Link2, Mail, Sparkles } from "lucide-react";
+import {
+  activityName,
+  activityStatus,
+  addActivity,
+  audienceOf,
+  findActivity,
+  focusMemberships,
+  KIND_LABEL,
+  moveActivity,
+  nextExperienceIdea,
+  planOf,
+  preparePlan,
+  proposeWeek,
+  removeActivity,
+  setActivityLocked,
+  setPostCount,
+  sortedActivities,
+} from "../../store/slices/weekPlan";
 import {
   approveReady,
   attachMedia,
@@ -34,7 +52,6 @@ import {
   createNewsletter,
   createPost,
   createTeaser,
-  createWeek,
   DAY_NAMES,
   focus,
   GENERATED,
@@ -66,6 +83,8 @@ import {
   TYPE_LABEL,
   wantsEvent,
   weekSummary,
+  slotFor,
+  type PlanActivity,
   type AudienceAsk,
   type WorkItem,
   type WorkMedia,
@@ -793,21 +812,8 @@ export function ContentAgent() {
     say({ text: "To create an experience, TopFan needs: Type of Experience, Title, Description and a Price (or call options with prices for a 1:1 Video Call). A cover image is optional, and you can make it Subscribers only." });
 
   /* ---- G: the week ---- */
-  const week = (goal = "Plan my entire week") => {
-    let id = "";
-    if (!run("content.week", (y) => void (id = createWeek(y, goal)))) return;
-    // "…and promote it in my Link in Bio": a linked update that waits for the same experience to go live.
-    if (/\b(promote|link ?in ?bio)\b/i.test(goal))
-      run("content.weekBio", (y) => {
-        const exp = childrenOf(y, id).find((x) => x.kind === "experience");
-        if (!exp) return;
-        if (/\bpromote\b/i.test(goal)) createAnnouncement(y, exp.id);
-        const b = itemById(y, proposePromote(y, goal, { workId: exp.id }))!;
-        b.parentId = id;
-        y.content.focusId = id;
-      });
-    showWeek(id, "Your week is prepared.");
-  };
+  // A week starts as a plan the creator reviews; drafts are prepared only once they approve it (weekPlan.ts).
+  const week = (goal = "Plan my entire week") => planWeek(goal);
   const showWeek = (id: string, text: string) => {
     const s = weekSummary(d(), id);
     say({
@@ -826,7 +832,7 @@ export function ContentAgent() {
     const x = itemById(d(), id);
     if (!x) return;
     run("content.focus", (y) => focus(y, id));
-    if (x.kind === "week") return showWeek(id, "Here's your week.");
+    if (x.kind === "week") return x.plan ? showPlan(id) : showWeek(id, "Here's your week.");
     if (x.kind === "bio") return bio.show(id, x.status === "needs-input" ? "Your Link in Bio update is waiting for the experience to be saved and enabled." : x.bio?.step === "saved" ? "Your Link in Bio update (saved):" : "Your Link in Bio update:");
     const needsPrice = x.needs.some((n) => /price/i.test(n));
     if (needsPrice) pending.current = { id, field: x.kind === "experience" ? "experience-price" : "lock-price" };
@@ -909,14 +915,217 @@ export function ContentAgent() {
       return true;
     }
     if (/\b(another|different) (image|photo)\b/.test(t)) {
-      const x = childBy(w, t) ?? childrenOf(d(), w.id).find((y) => y.media);
+      // The item named, else the one in focus, else the first with an image; the current image stays until one is picked.
+      const f = focused();
+      const x = childBy(w, t) ?? (f?.parentId === w.id ? f : null) ?? childrenOf(d(), w.id).find((y) => y.media);
       if (!x) return false;
-      run("content.focus", (y) => focus(y, x.id));
-      run("content.media", (y) => rejectMedia(y, x.id));
-      showLibrary();
+      moreImages(x.id);
       return true;
     }
     if (/\bapprove\b/.test(t)) return approve(w.id), true;
+    return false;
+  };
+
+
+  /* ---- G2: plan my week (plan → approve once → real drafts → review on the original screens) ---- */
+  const planWeek = (goal: string) => {
+    let id = "";
+    if (!run("content.planWeek", (y) => void (id = proposeWeek(y, goal)))) return;
+    showPlan(id);
+  };
+  const userAsk = (text: string) => (live.current.a.userSays(text), route(text));
+  const showPlan = (id: string, text?: ReactNode, plain?: string) => {
+    const p = planOf(d(), id);
+    if (!p) return;
+    if (p.stage === "prepared") return reviewWeek(id, text, plain);
+    const acts = sortedActivities(p);
+    const line = text ?? "Here's a plan for your week. Nothing is created until you approve it.";
+    say({
+      text: line,
+      plain: `${typeof line === "string" ? line : plain ?? ""} ${acts.map((a) => `${activityName(a)}: ${a.title}`).join("; ")}.`,
+      body: <PlanCard id={id} onRow={onPlanRow} />,
+      details: "Built from your training notes, recent posts, membership plans and existing experiences. Suggested times are suggestions, not a schedule.",
+      actions: [
+        { label: "Approve plan & prepare drafts", variant: "primary", onClick: () => approvePlanWeek(id) },
+        { label: "Modify plan", variant: "outline", onClick: modifyPlan },
+        { label: "Save for later", variant: "text", onClick: () => say({ text: "Saved. Say \"Show my weekly plan\" whenever you're ready." }) },
+      ],
+    });
+  };
+  const modifyPlan = () =>
+    say({
+      text: "What would you like to change? Say it in your own words, or pick one:",
+      actions: ["Make it two posts", "Change Wednesday's post to members-only", "Give me another Experience idea", "Focus more on growing memberships", "Remove the newsletter"].map((label) => ({ label, variant: "outline" as const, onClick: () => userAsk(label) })),
+    });
+  const approvePlanWeek = (id: string, only?: string) => {
+    let r = { made: [] as string[], failed: [] as string[] };
+    if (!run("content.preparePlan", (y) => void (r = preparePlan(y, id, only)))) return;
+    reviewWeek(id, undefined, undefined, r.failed);
+  };
+  /** "Your week is ready for review": every row reads its real draft. */
+  const reviewWeek = (id: string, text?: ReactNode, plain?: string, failed: string[] = []) => {
+    const p = planOf(d(), id)!;
+    const acts = sortedActivities(p).filter((a) => itemById(d(), a.childId)?.status !== "cancelled");
+    const kinds = [...new Set(acts.filter((a) => a.childId).map((a) => a.kind))];
+    const names = kinds.map((k) => (k === "post" ? (acts.filter((a) => a.kind === "post" && a.childId).length > 1 ? "posts" : "post") : k === "bio" ? "Link in Bio update" : KIND_LABEL[k].toLowerCase()));
+    const list = names.length > 1 ? `${names.slice(0, -1).join(", ")}${names.length > 2 ? "," : ""} and ${names.at(-1)}` : names[0] ?? "drafts";
+    const needs = acts.some((a) => activityStatus(d(), a).tone === "warn");
+    const fail = p.activities.filter((a) => failed.includes(a.key) || a.error);
+    const head = text ?? (
+      <>
+        <strong className="block text-[15px]">Your week is ready for review</strong>
+        I've prepared your {list}.{needs ? " A few details need your approval." : ""}
+        {fail.length ? ` I couldn't prepare ${fail.map(activityName).join(" and ")}; everything else is kept.` : ""}
+      </>
+    );
+    say({
+      text: head,
+      plain: plain ?? `Your week is ready for review. I've prepared your ${list}.${needs ? " A few details need your approval." : ""}${fail.length ? ` I couldn't prepare ${fail.map(activityName).join(" and ")}; everything else is kept.` : ""}`,
+      body: <PlanCard id={id} onRow={onPlanRow} />,
+      details: "Approving the plan only prepared drafts. Nothing is published, sent, scheduled or activated: you do that on each screen.",
+      actions: fail.length ? fail.map((a) => ({ label: `Retry ${activityName(a)}`, variant: "outline" as const, onClick: () => approvePlanWeek(id, a.key) })) : undefined,
+    });
+  };
+  /** A row's action: open the draft on its original screen (the Lock dialog for access), or retry it. */
+  const onPlanRow = (weekId: string, a: PlanActivity, cta: string) => {
+    if (cta === "Retry") return approvePlanWeek(weekId, a.key);
+    const x = itemById(d(), a.childId);
+    if (!x) return;
+    run("content.focus", (y) => focus(y, x.id));
+    if (x.kind === "bio") return bio.show(x.id, "Your Link in Bio update:");
+    open(x, undefined, { lock: cta === "Review access" });
+  };
+  const currentPlan = () => {
+    const w = currentWeek();
+    return w?.plan && w.status !== "cancelled" ? w : null;
+  };
+  const whatsLeft = (id: string) => {
+    const acts = sortedActivities(planOf(d(), id)!);
+    const left = acts.map((a) => ({ a, s: activityStatus(d(), a) })).filter(({ s }) => s.cta && s.tone !== "ok" || s.label === "Planned" || s.cta === "Retry");
+    const ready = acts.map((a) => ({ a, s: activityStatus(d(), a) })).filter(({ s }) => s.tone === "ok" && s.cta);
+    if (!left.length && !ready.length) return say({ text: "Nothing is waiting for you: everything in this week is published, saved or removed." });
+    say({
+      text: left.length ? `${left.length} need${left.length === 1 ? "s" : ""} you: ${left.map(({ a, s }) => `${activityName(a)} (${s.label.toLowerCase()})`).join(", ")}.${ready.length ? ` ${ready.length} ${ready.length === 1 ? "is" : "are"} ready to publish when you are.` : ""}` : `Everything is prepared. ${ready.length} ${ready.length === 1 ? "draft is" : "drafts are"} ready to review and publish on ${ready.length === 1 ? "its" : "their"} own screen.`,
+      body: <PlanCard id={id} onRow={onPlanRow} />,
+      actions: left.some(({ s }) => s.label === "Planned") ? [{ label: "Prepare the remaining drafts", variant: "primary", onClick: () => approvePlanWeek(id) }] : undefined,
+    });
+  };
+  /** Plan follow-ups. Returns true when handled; prepared items fall through to the usual edits with focus set. */
+  const planRoute = (t: string, raw: string): boolean => {
+    const w = currentPlan();
+    if (!w) return false;
+    const p = w.plan!;
+    const proposed = p.stage === "proposed";
+    const refresh = (text: string) => showPlan(w.id, text);
+    if (/\b(show|open|see|view)( me)? (my |the )?(weekly |week'?s? )?plan\b|\bshow( me)? my week\b|\bcontinue where i left off\b|\b(continue|resume|back to) (my |the )?(week|plan|weekly plan)\b/.test(t)) {
+      if (w.status === "paused") run("content.resume", (y) => setPaused(y, w.id, false));
+      return showPlan(w.id, proposed ? "Here's your plan. Nothing is created until you approve it." : undefined), true;
+    }
+    if (/\bwhat'?s left\b|\bwhat (do i|else do i) (still )?(need|have) to\b|\bwhat needs (me|my review)\b|\bleft (for me )?to review\b/.test(t)) return whatsLeft(w.id), true;
+    if (/\bsave (it |this )?for later\b/.test(t)) return say({ text: "Saved. Say \"Show my weekly plan\" whenever you're ready." }), true;
+    if (/\b(prepare|create|draft|make) (the |my )?(remaining|rest|missing|other)\b/.test(t)) return approvePlanWeek(w.id), true;
+    if (proposed && /\b(approve|looks good|go ahead|sounds good|prepare (the |my |all )?(drafts|everything|it all|them))\b/.test(t)) return approvePlanWeek(w.id), true;
+    const nWord = t.match(/\b(?:make it|i want|just|only|change (?:it )?to) (one|two|three|four|five|\d) posts?\b|\b(one|two|three|four|five|\d) posts? instead\b/);
+    if (nWord) {
+      const n = { one: 1, two: 2, three: 3, four: 4, five: 5 }[nWord[1] ?? nWord[2]] ?? Number(nWord[1] ?? nWord[2]);
+      if (!run("content.planPosts", (y) => setPostCount(y, w.id, n))) return true;
+      return refresh(`Done: ${n} post${n === 1 ? "" : "s"}. Everything else in the plan stays as it is.`), true;
+    }
+    const mv = t.match(/\bmove (.+?) to (sun|mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?)(day)?\b/);
+    if (mv) {
+      const a = findActivity(d(), w.id, mv[1]);
+      if (!a) return say({ text: "Which one should I move? Try \"Move the experience to Friday\"." }), true;
+      const day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"].findIndex((x) => mv[2].startsWith(x));
+      const was = activityName(a);
+      if (!run("content.planMove", (y) => moveActivity(y, w.id, a.key, day))) return true;
+      const flagged = a.childId ? childrenOf(d(), w.id).filter((y) => y.deps.includes(a.childId!) && y.flags.length) : [];
+      return refresh(`Moved ${was} to ${DAY_NAMES[day]}. Everything else stays as it is.${flagged.length ? ` I flagged ${flagged.map((y) => y.label).join(" and ")} because ${flagged.length === 1 ? "it mentions" : "they mention"} it.` : ""}`), true;
+    }
+    if (/\b(remove|drop|delete|cancel|skip)\b/.test(t) && !/\b(lock|points|price|image|photo|background)\b/.test(t)) {
+      const a = findActivity(d(), w.id, t);
+      if (!a) return false;
+      const was = activityName(a);
+      if (!run("content.planRemove", (y) => removeActivity(y, w.id, a.key))) return true;
+      const flagged = a.childId ? childrenOf(d(), w.id).filter((y) => y.deps.includes(a.childId!) && y.flags.length && y.status !== "cancelled") : [];
+      return refresh(`Removed ${was}. The rest of your week is unchanged.${flagged.length ? ` ${flagged.map((y) => y.label).join(" and ")} mentioned it, so ${flagged.length === 1 ? "it's" : "they're"} marked for review. I didn't change ${flagged.length === 1 ? "it" : "them"}.` : ""}`), true;
+    }
+    if (/\badd (a |an )?(newsletter|experience)\b/.test(t)) {
+      const kind = /newsletter/.test(t) ? "newsletter" : "experience";
+      if (!run("content.planAdd", (y) => addActivity(y, w.id, kind))) return true;
+      return refresh(`Added ${kind === "newsletter" ? "a newsletter" : "an experience"}.${proposed ? "" : " Say \"Prepare the remaining drafts\" and I'll prepare it."}`), true;
+    }
+    if (/\b(another|different|other|new) (experience|session)( idea)?\b|\bexperience idea\b/.test(t)) {
+      if (!run("content.planExpIdea", (y) => nextExperienceIdea(y, w.id))) return true;
+      const a = p.activities.find((x) => x.kind === "experience")!;
+      return refresh(`How about ${itemById(d(), w.id)!.plan!.activities.find((x) => x.key === a.key)!.title}? Only the experience changed.`), true;
+    }
+    if (/\b(focus|more) (more )?on (growing )?(my )?(memberships?|members|subscribers)\b|\bgrow(ing)? (my )?(memberships?|members)\b/.test(t)) {
+      if (!run("content.planMembers", (y) => focusMemberships(y, w.id))) return true;
+      return refresh(proposed ? "Updated for growing memberships: one post is members-only, and the others invite fans to join." : "Updated the parts that aren't prepared yet. Drafts already prepared keep their text, so you stay in control of them."), true;
+    }
+    // Named plans ("…for Silver members") go to the usual audience handling below.
+    const lockAsk = /\b(change|make|turn|switch|set)\b/.test(t) && /\b(members?[- ]only|exclusive|locked|for (my )?members|public)\b/.test(t) && /\bpost\b/.test(t) && !/\b(gold|silver|bronze|platinum)\b/.test(t);
+    if (lockAsk) {
+      const a = findActivity(d(), w.id, t);
+      if (!a || a.kind !== "post") return false;
+      const toPublic = /\bpublic\b/.test(t);
+      if (!a.childId) {
+        if (!run("content.planLock", (y) => setActivityLocked(y, w.id, a.key, !toPublic))) return true;
+        return refresh(toPublic ? `${DAY_NAMES[a.day]}'s post is public now.` : `${DAY_NAMES[a.day]}'s post is members-only now. When I prepare it, I'll suggest unlock settings for you to approve in Lock.`), true;
+      }
+      run("content.focus", (y) => focus(y, a.childId!));
+      if (toPublic) return audience({ kind: "public" }), true;
+      return advise(a.childId), true;
+    }
+    if (/\b(rename|retitle) (the |my )?(experience|session)( to| as)? (.+)$/.test(t)) {
+      const a = p.activities.find((x) => x.kind === "experience" && !x.childId);
+      const title = raw.match(/\b(?:rename|retitle) (?:the |my )?(?:experience|session)(?: to| as)? (.+)$/i)?.[1]?.trim().replace(/^["']|["'.]$/g, "");
+      if (a && title) {
+        run("content.planRename", (y) => void Object.assign(planOf(y, w.id)!.activities.find((x) => x.key === a.key)!, { title }));
+        return refresh(`Renamed the experience to "${title}". When I prepare the drafts, the posts and newsletter will use it.`), true;
+      }
+      return false;
+    }
+    const retypeTo = /\b(change|make|switch|turn)\b.*\b(to|into) (a |an )?(one[- ]to[- ]one|1:1|video|in[- ]person|personali[sz]ed video|custom)\b/.exec(t);
+    const expA = p.activities.find((x) => x.kind === "experience");
+    if (retypeTo && expA && /\b(experience|session|it)\b/.test(t) && !expA.childId) {
+      const v = retypeTo[4];
+      const type = /in[- ]person/.test(v) ? "In Person Session" : /personali/.test(v) ? "Personalized Video" : /custom/.test(v) ? "Other" : "1:1 Video Call";
+      run("content.planRetype", (y) => void Object.assign(planOf(y, w.id)!.activities.find((x) => x.key === expA.key)!, { expType: type, title: type === "1:1 Video Call" ? "Riding Technique Video Call" : expA.title }));
+      return refresh(`The experience is now ${EXPERIENCE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type}.`), true;
+    }
+    if (/\b(same|like) (style|plan|mix) (as|like) last week\b|\bsame as last week\b/.test(t)) {
+      const prev = [...d().content.items].reverse().find((x) => x.kind === "week" && x.id !== w.id && x.plan && x.status !== "cancelled");
+      if (!prev) return say({ text: "I don't have an earlier weekly plan to copy yet, so I kept this one. Tell me what to change." }), true;
+      return say({ text: "Your last plan had " + sortedActivities(prev.plan!).map((a) => activityName(a)).join(", ") + ". Want the same mix? Say \"Make it N posts\" or add or remove what you need." }), true;
+    }
+    // "Open Monday's post", "Create Monday's post", "Prepare Friday's newsletter".
+    const named = /\b(sun|mon|tues?|wed(nes)?|thu(rs)?|fri|sat(ur)?)(day)?'?s?\b|\b(the|my) (newsletter|experience|session|link in bio update|members-only post|exclusive post)\b/.test(t);
+    if (named && /\b(open|show|review|go to|take me to|create|prepare|draft)\b/.test(t)) {
+      const a = findActivity(d(), w.id, t);
+      if (!a) return false;
+      if (!a.childId) {
+        if (/\b(create|prepare|draft)\b/.test(t)) {
+          approvePlanWeek(w.id, a.key);
+          const x = itemById(d(), planOf(d(), w.id)!.activities.find((y) => y.key === a.key)?.childId);
+          if (x) (run("content.focus", (y) => focus(y, x.id)), x.kind === "bio" ? bio.show(x.id, "Your Link in Bio update:") : open(x));
+          return true;
+        }
+        return say({ text: `${activityName(a)} is still only planned. Approve the plan, or say "Prepare ${activityName(a)}", and I'll prepare it.`, actions: [{ label: "Approve plan & prepare drafts", variant: "primary", onClick: () => approvePlanWeek(w.id) }] }), true;
+      }
+      const x = itemById(d(), a.childId)!;
+      if (x.status === "cancelled") return say({ text: `${activityName(a)} was removed from the plan.` }), true;
+      run("content.focus", (y) => focus(y, x.id));
+      if (x.kind === "bio") return bio.show(x.id, "Your Link in Bio update:"), true;
+      say({ text: `Opening ${activityName(a)}. It's already filled in; change anything there or ask me here.`, body: <WorkCard id={x.id} />, actions: nextSteps(x.id) });
+      open(x, undefined, { lock: /\baccess\b/.test(t) });
+      return true;
+    }
+    // "Change Wednesday's image", "Make the newsletter shorter": point the usual edits at that draft.
+    if (named && !proposed) {
+      const a = findActivity(d(), w.id, t);
+      if (a?.childId) run("content.focus", (y) => focus(y, a.childId!));
+    }
     return false;
   };
 
@@ -975,6 +1184,7 @@ export function ContentAgent() {
       return true;
     }
     if (/^(continue|resume) (my|the) (newsletter|experience|session|post|week|gold post|locked post|link ?in ?bio|.*post)\b/.test(t) && !/\bweek\b/.test(t)) return continueTask(t);
+    if (planRoute(t, raw)) return true;
     if (weekEdit(t, raw)) return true;
     if (bio.route(t)) return true;
     if (/\b(don't|do not) want to plan (this|it) every week|plan (this|it) every week|every week automatically|on autopilot|keep (doing|preparing) this/.test(t)) {
@@ -986,7 +1196,10 @@ export function ContentAgent() {
     // checked before single-item edits: "…an exclusive post for members…" is part of a plan, not a Lock request.
     const kinds = [/\bposts?|content|update\b/, /\bnewsletter\b/, /\bexperience|session\b/, /\bexclusive|members\b/, /\blink ?in ?bio\b/].filter((r) => r.test(t)).length;
     const promoteWeek = /\bplan\b.*\bweek\b/.test(t) && /\b(promote|link ?in ?bio)\b/.test(t) && /\b(experience|session|offering|event)\b/.test(t);
-    if (/\b(entire|whole|full) week\b|\bbusy this week\b|plan my whole week|around these activities/.test(t) || promoteWeek || (/\bplan|prepare|organi[sz]e\b/.test(t) && kinds >= 3)) return week(raw), true;
+    const countedPlan = /\b(plan|prepare|organi[sz]e)\b/.test(t) && /\b(a|an|one|two|three|four|five|\d) (\w+ )?(posts?|newsletters?|experiences?)\b/.test(t) && kinds >= 2;
+    const weekAsk = /\b(plan|prepare|organi[sz]e|manage|help me with)\b.*\b(next|this|coming|my|the) week\b|\bbusy (next|this) week\b|\bweek ahead\b/.test(t) && !/^(plan|prepare) (my|the|this|next) week\.?$/.test(t);
+    const promoteExclusive = /\bpromote\b/.test(t) && /\bexclusive\b/.test(t);
+    if (/\b(entire|whole|full) week\b|\bbusy this week\b|plan my whole week|around these activities/.test(t) || promoteWeek || countedPlan || weekAsk || promoteExclusive || (/\bplan|prepare|organi[sz]e\b/.test(t) && kinds >= 3)) return week(raw), true;
     // Ideas first when the request is open-ended; follow-ups work on the list or the focused draft.
     const ideasNow = d().content.ideas;
     if (/^(please )?(help me|can you help me|i want to|let's) (create|make|write|plan|do) (a|an|my) (post|newsletter|experience)\b\.?$|\b(post|newsletter|experience) (ideas|topics|concepts)\b|\bideas for (a |an |my )?(post|newsletter|experience)\b|\bwhat should i post\b/.test(t))
@@ -1283,6 +1496,61 @@ function WeekCard({ id, onOpen, onShow, onApprove }: { id: string; onOpen: (x: W
           Approve {s.ready} ready
         </button>
       )}
+    </div>
+  );
+}
+
+const KIND_ICON = { post: FileText, newsletter: Mail, experience: CalendarDays, bio: Link2 } as const;
+const TONE = { ok: "bg-white/10 text-white", warn: "bg-accent/15 text-accent", muted: "bg-bg text-soft", bad: "bg-accent text-white" } as const;
+
+/**
+ * The weekly plan, compact: one row per activity (day, type, title, purpose, audience, suggested time, status).
+ * Statuses come from the real drafts, so a save or publish on the original screen shows here at once.
+ */
+export function PlanCard({ id, onRow }: { id: string; onRow: (weekId: string, a: PlanActivity, cta: string) => void }) {
+  const data = useData((d) => d);
+  const plan = planOf(data, id);
+  if (!plan) return null;
+  const acts = sortedActivities(plan);
+  const weekOf = new Date(`${plan.weekOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return (
+    <div data-testid="content-plan" data-stage={plan.stage} className="mt-1 rounded-inner bg-bg px-3 py-2.5 text-[13px]">
+      <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-caps text-soft">
+        <Sparkles size={12} className="text-accent" /> Week of {weekOf}
+        {plan.focus === "memberships" && <span className="font-normal normal-case tracking-normal">· focus: growing memberships</span>}
+      </p>
+      <ul className="mt-2 flex flex-col">
+        {acts.map((a) => {
+          const st = activityStatus(data, a);
+          const x = itemById(data, a.childId);
+          const Icon = KIND_ICON[a.kind];
+          const at = a.kind === "post" || a.kind === "newsletter" ? new Date(x?.suggestedAt ?? slotFor(data, a.day)).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : null;
+          return (
+            <li key={a.key} data-testid="content-plan-row" data-kind={a.kind} data-day={a.day} data-status={st.label} data-child={a.childId ?? ""} className={`flex gap-2 border-t border-line py-2 first:border-t-0 first:pt-0 ${st.label === "Removed" ? "opacity-50" : ""}`}>
+              <span className="w-8 shrink-0 pt-px text-[11px] font-bold uppercase text-soft">{DAY_NAMES[a.day].slice(0, 3)}</span>
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5">
+                  <Icon size={13} className="shrink-0 text-soft" aria-label={KIND_LABEL[a.kind]} />
+                  <span className="truncate font-bold">{x?.experience?.title ?? x?.newsletter?.title ?? a.title}</span>
+                </p>
+                <p className="mt-0.5 text-[11px] leading-snug text-soft">
+                  {a.kind === "post" && a.locked ? "Members-only post" : KIND_LABEL[a.kind]} · {audienceOf(a)}
+                  {at ? ` · Suggested ${at}` : ""}
+                </p>
+                <p className="text-[11px] leading-snug text-muted">{a.purpose}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span data-testid="content-plan-status" className={`rounded-pill px-2 py-0.5 text-[11px] ${TONE[st.tone]}`}>{st.label}</span>
+                  {st.cta && (
+                    <button data-testid="content-plan-cta" onClick={() => onRow(id, a, st.cta!)} className="text-[12px] font-bold text-accent hover:brightness-125">
+                      {st.cta}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

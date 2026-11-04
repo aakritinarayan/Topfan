@@ -209,9 +209,9 @@ const cards = (p) => p.$$eval('[data-testid^="pref-lib-action-"]', (x) => x.filt
 {
   const p = await fresh();
   let r = await ask(p, "Plan a training post, a newsletter and a paid fan session this week, and promote the session in my Link in Bio", 1000);
-  check("E: week prepared", /Your week is prepared\./.test(r), r);
-  const counts = await p.$eval('[data-testid="content-week-counts"]', (x) => x.innerText).catch(() => "");
-  check("E: Link in Bio update counted", /1 Link in Bio update/.test(counts), counts);
+  check("E: plan includes the Link in Bio update", /Here's a plan for your week/.test(r) && /Feature the booking link/.test(r), r);
+  ({ r } = await tap(p, /^approve plan & prepare drafts$/, 1200));
+  check("E: week prepared", /Your week is ready for review/.test(r) && /Link in Bio update/.test(r), r);
   const items = (await db(p)).content.items;
   const w = items.find((x) => x.kind === "week");
   const exp = items.find((x) => x.kind === "experience" && x.parentId === w.id);

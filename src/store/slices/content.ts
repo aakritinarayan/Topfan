@@ -73,6 +73,35 @@ export interface BioPlan {
   result?: { applied: number; missing: string[] };
 }
 
+/** One planned activity of a week. childId: the real draft once prepared (never before approval). */
+export interface PlanActivity {
+  key: ID;
+  kind: "post" | "newsletter" | "experience" | "bio";
+  day: number;
+  title: string;
+  purpose: string;
+  /** Posts: members-only (Lock) or public. */
+  locked?: boolean;
+  topic?: PostTopic;
+  /** Experiences: the TopFan Experience type. */
+  expType?: string;
+  /** Posts that point fans at a membership. */
+  membershipCta?: boolean;
+  childId?: ID;
+  /** Preparing this one failed (the others are kept); it can be retried on its own. */
+  error?: string;
+}
+export interface WeekPlan {
+  /** proposed: only a plan · prepared: drafts exist for every activity (the creator approved the plan once). */
+  stage: "proposed" | "prepared";
+  /** Monday of the planned week (ISO date). */
+  weekOf: string;
+  activities: PlanActivity[];
+  focus?: "memberships";
+  /** Which Experience idea is showing ("Give me another Experience idea"). */
+  expIdea: number;
+}
+
 export interface WorkItem {
   id: ID;
   kind: WorkKind;
@@ -96,6 +125,8 @@ export interface WorkItem {
   /** duration: the call/session length for calendar-scheduled types (an option on the form, not a booking). */
   experience?: { experienceType: string; title: string; description: string; price: number | null; duration?: string; similarTo?: string };
   bio?: BioPlan;
+  /** kind "week": the plan the creator reviews before any draft exists (see slices/weekPlan.ts). */
+  plan?: WeekPlan;
   media?: WorkMedia | null;
   /** What the media should show when none is chosen yet. */
   mediaNeed?: string;
@@ -173,7 +204,7 @@ export const recentPosts = (d: AppData, n = 2) =>
   d.social.posts.filter((p) => p.status === "published" && (p.extra as { variant?: string } | undefined)?.variant !== "welcome").sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, n);
 
 /** Suggested time for a weekday, from Smart Timing (activity-based or "a time to try"). */
-function slotFor(d: AppData, day: number): string {
+export function slotFor(d: AppData, day: number): string {
   const hour = (() => {
     const posts = d.social.posts.filter((p) => p.status === "published");
     if (posts.length < 5) return 18;
@@ -626,29 +657,6 @@ export function createAnnouncement(d: AppData, expId: ID): ID {
 }
 
 /* ------------------------------------------------------------------ the week (parent + children) */
-
-/** "Plan my week": a parent with linked children built from the creator's goal and sources. */
-export function createWeek(d: AppData, goal: string): ID {
-  const g = goal.toLowerCase();
-  const id = nid("w-week");
-  d.content.items.push({ id, kind: "week", goal, label: "Your week", status: "draft", needs: [], flags: [], sources: [], deps: [], updatedAt: now() });
-  const wants = {
-    exclusive: !/no (exclusive|members)/.test(g),
-    newsletter: !/no newsletter/.test(g),
-    experience: !/no (experience|session)/.test(g),
-  };
-  // A week built to promote the experience opens with its announcement instead (added with the experience).
-  if (!/\bpromote\b/.test(g) || /no (experience|session)/.test(g)) createPost(d, "Training update", { topic: "training", parentId: id, day: 1 });
-  const mon = d.content.items[d.content.items.length - 1];
-  // Library photo suggested for the public post (approved media only).
-  const lib = libraryMedia(d, "as-park");
-  if (lib) attachMedia(d, mon.id, lib);
-  if (wants.exclusive) createPost(d, "Members-only training breakdown", { topic: "exclusive", parentId: id, day: 3 });
-  const exp = wants.experience ? createExperience(d, "Small-group training session", { parentId: id, day: 6 }) : undefined;
-  if (wants.newsletter) createNewsletter(d, "Weekly fan update", { parentId: id, day: 5, mentionsId: exp });
-  d.content.focusId = id;
-  return id;
-}
 
 /** Counts for the week overview. */
 export function weekSummary(d: AppData, id: ID) {

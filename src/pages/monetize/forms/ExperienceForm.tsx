@@ -9,7 +9,7 @@
  *   ("1:1 Video Call", "In Person Session", …) because other areas (bio links, assistant) read them.
  * - Create = content.write. Changing an existing item's prices = Confirm + finance.write.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CalendarClock, Info, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "../../../app/router";
 import { pathFor } from "../../../app/routeCatalog";
@@ -18,6 +18,7 @@ import { itemById, linkSaved, syncFromScreen } from "../../../store/slices/conte
 import { addProduct, money, setProductPrice, updateProduct, type ExperienceSchedule, type Product } from "../../../store/slices/monetize";
 import { InfoIcon, Select } from "../../../platform/ui/controls";
 import { Modal } from "../../../platform/ui/surfaces";
+import { WeekStrip } from "../../../assistant/platform/WeekStrip";
 import {
   ChipChoice, ConfirmModal, MoneyInput, MonetizeFrame, NFT_TIP, NftContracts, Pill, RefFormHeader, RoundCheck, TagSelect, TextArea, TextInput, UploadTile, useRun,
 } from "../ui";
@@ -133,6 +134,23 @@ export function ExperienceForm({ routeId, p, workId }: { routeId: string; p: Pro
     restrict: subsOn || nftOn ? { planIds: subsOn ? planIds : [], nftContracts: nftOn ? nfts : [] } : undefined,
   };
 
+  // What the assistant changes while this screen is open (type, title, description, cover) lands here at
+  // once; fields the creator typed are only replaced by a newer assistant change, never by this screen's echo.
+  const wrote = useRef<{ title: string; description: string } | null>(null);
+  const storeExp = useData((d) => {
+    const x = workId && we ? itemById(d, workId) : null;
+    return x?.experience ? JSON.stringify([x.experience.experienceType, x.experience.title, x.experience.description, x.media?.key ?? "", x.media?.label ?? ""]) : "";
+  });
+  const knownExp = useRef(storeExp);
+  useEffect(() => {
+    if (!storeExp || storeExp === knownExp.current) return;
+    knownExp.current = storeExp;
+    const [t, ti, desc, key, label] = JSON.parse(storeExp) as string[];
+    if (t !== type && EXPERIENCE_TYPE_OPTIONS.some((o) => o.value === t)) setType(t);
+    if (ti !== wrote.current?.title && ti !== title) setTitle(ti.slice(0, 80));
+    if (desc !== wrote.current?.description && desc !== description) setDescription(desc);
+    if (key && key !== image) (setImage(key), setImageName(label));
+  }, [storeExp]);
   // Keep the assistant's copy in step with what the creator types here.
   useEffect(() => {
     if (!workId || !we) return;
@@ -140,6 +158,7 @@ export function ExperienceForm({ routeId, p, workId }: { routeId: string; p: Pro
       const cur = itemById(getData(), workId)?.experience;
       const price = Number(priceRows[0]?.price) > 0 ? Number(priceRows[0].price) : null;
       if (cur && (cur.title !== title || cur.description !== description || (price && cur.price !== price)))
+        (wrote.current = { title, description }),
         act("content.syncExperience", (d) => syncFromScreen(d, workId, { title, description, price }), { need: "content.write" });
     }, 600);
     return () => clearTimeout(t);
@@ -235,6 +254,7 @@ export function ExperienceForm({ routeId, p, workId }: { routeId: string; p: Pro
 
   return (
     <MonetizeFrame routeId={routeId} active="monetize-experience">
+      {!p && <WeekStrip workId={workId} />}
       <RefFormHeader title={p ? "Edit Experience" : "Create Experiences"} backTo={back} enabled={published} onEnabled={setPublished} what="experience" testid="monetize-product-enable" />
       {!published && <p className="mt-[10px] text-right text-[13px] text-muted" data-testid="monetize-exp-disabled-note">Disabled: saved, but not shown on your Store until you enable it.</p>}
       <div className="mt-[20px] flex flex-col gap-[22px] rounded-card bg-surface p-[30px]" data-testid="monetize-exp-card">

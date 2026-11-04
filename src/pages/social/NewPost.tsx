@@ -26,6 +26,7 @@ import { creatorMedia, mediaSrc } from "../../media";
 import { ConfirmDialog, RoundCheck, money, useGo } from "./shared";
 import type { AiResult } from "../../services/articleGen";
 import { AiDialog, CollabDialog, CustomGiftDialog, DatePopover, EmojiPanel, LockDialog, PickerDialog, Popover, TimeDialog, type LockDraft, type PickItem } from "./NewPostDialogs";
+import { WeekStrip } from "../../assistant/platform/WeekStrip";
 
 type Icon = typeof SquarePlay;
 const TYPES: { id: PostType; label: string; icon: Icon }[] = [
@@ -241,6 +242,41 @@ export function NewPostPage({ route, query }: PageProps) {
     const cur = itemById(getData(), workId)?.post;
     if (cur) setF((x) => ({ ...x, ...lockFromWork(cur) }));
   }, [storeLock]);
+  // Caption and image the assistant changes while this screen is open ("Make the caption shorter",
+  // "Generate another image") land here at once; unrelated fields and other attachments stay as they are.
+  const storeCopy = useData((d) => {
+    const x = workId ? itemById(d, workId) : null;
+    return x?.post ? JSON.stringify([x.post.text, x.post.title ?? "", x.media?.key ?? "", x.media?.label ?? ""]) : "";
+  });
+  const knownCopy = useRef(storeCopy);
+  // The text this screen last wrote back (its own echo is never applied over newer typing).
+  const wrote = useRef<string | null>(null);
+  useEffect(() => {
+    if (!workId || !wp || type !== wp.type || storeCopy === knownCopy.current) return;
+    const [, , prevKey] = knownCopy.current ? (JSON.parse(knownCopy.current) as string[]) : [];
+    knownCopy.current = storeCopy;
+    const x = itemById(getData(), workId);
+    if (!x?.post) return;
+    const post = x.post;
+    setF((f) => {
+      const next = { ...f };
+      if (post.text !== wrote.current) {
+        if (type === "poll") next.question = post.text;
+        else if (type === "article") (next.html = post.text), (next.title = post.title ?? f.title);
+        else next.text = post.text;
+      }
+      const key = x.media?.key ?? "";
+      if (key !== (prevKey ?? "")) {
+        const old = Object.entries(f.fileSrc).find(([, k]) => k === prevKey)?.[0];
+        const files = f.files.filter((n) => n !== old);
+        const fileSrc = Object.fromEntries(Object.entries(f.fileSrc).filter(([n]) => n !== old));
+        if (x.media) (files.push(x.media.label), (fileSrc[x.media.label] = x.media.key));
+        next.files = files;
+        next.fileSrc = fileSrc;
+      }
+      return next;
+    });
+  }, [storeCopy]);
   // Keep the assistant's copy of this post in step with what the creator types here.
   useEffect(() => {
     if (!workId || !wp || type !== wp.type) return;
@@ -253,6 +289,7 @@ export function NewPostPage({ route, query }: PageProps) {
       if (!cur) return;
       if (cur.text === text && (cur.title ?? "") === (type === "article" ? f.title : cur.title ?? "") && !lockChanged) return;
       known.current = sig;
+      wrote.current = text;
       act(
         "content.syncPost",
         (d) => syncFromScreen(d, workId, { text, title: type === "article" ? f.title : undefined, ...(lockChanged ? { locked: l.locked, price: l.price, lockBy: l.modes, points: l.points, contract: l.contract, planIds: l.planIds } : {}) }),
@@ -264,6 +301,7 @@ export function NewPostPage({ route, query }: PageProps) {
 
   return (
     <div data-testid={`page-${route.id}`} className="pb-[40px]">
+      <WeekStrip workId={workId} />
       <div className="flex h-[38px] items-center justify-between">
         <h4 className="text-[24px] font-bold">New Post</h4>
         {type && (

@@ -17,7 +17,6 @@ import {
   prepareFromPlan,
   removeSlot,
   spareIdeas,
-  startPlan,
   suggestedRhythm,
   swapSlot,
   updateBrief,
@@ -25,6 +24,7 @@ import {
   type Pillar,
 } from "../../store/slices/autopilot";
 import { setAPView, type PlanStep } from "./autopilotView";
+import { contentActions } from "./ContentAgent";
 import { btnPrimary, btnText, Card, Header, run, TypeIcon } from "./apKit";
 
 const STEPS: PlanStep[] = ["happening", "rhythm", "topics", "media", "review"];
@@ -53,42 +53,47 @@ export function PlanWeek({ step }: { step: PlanStep }) {
   );
 }
 
+/**
+ * The entry screen: one plan across posts, newsletters and experiences. "Plan my week" hands over to the
+ * content assistant (ContentAgent › planWeek), which proposes the plan in chat; nothing is created until
+ * the creator approves it there.
+ */
 function Intro() {
-  const weekOf = useData((d) => d.autopilot.plan?.weekOf);
-  const waiting = useData((d) => d.autopilot.batch?.drafts.filter((x) => x.status === "ready" || x.status === "approved").length ?? 0);
-  const resuming = useData((d) => d.autopilot.plan?.status === "draft" && (d.autopilot.plan.brief.happening.length > 0 || d.autopilot.plan.slots.length > 0));
-  const start = () => (run("planStart", startPlan), go("happening"));
+  const open = useData((d) => [...d.content.items].reverse().find((x) => x.kind === "week" && x.plan && x.status !== "cancelled") ?? null);
+  const plan = () => {
+    setAPView(null);
+    contentActions()?.week("Plan my week");
+  };
+  const resume = () => {
+    setAPView(null);
+    contentActions()?.show(open!.id);
+  };
   return (
     <Card testid="ap-plan-intro">
-      <h3 className="text-[15px] font-bold">Plan next week's posts</h3>
-      <p className="mt-1 text-[13px] text-soft">
-        Tell me what's coming up and how often you'd like to post. I'll plan the week, then draft each post for you to review. Nothing is published without you.
-      </p>
+      <h3 className="text-[15px] font-bold">Plan your week with AI</h3>
+      <p className="mt-1 text-[13px] text-soft">Plan your posts, newsletters, and experiences together. I'll prepare everything for your review.</p>
       <ul className="mt-3 flex flex-col gap-1.5 text-[13px]">
-        {["What's happening next week", "Which days to post", "What to post about", "Which photos and clips I can use"].map((t, i) => (
+        {["Tell AI your weekly goal.", "Review the suggested plan.", "Let AI prepare everything.", "Review and publish."].map((t, i) => (
           <li key={t} className="flex items-center gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line text-[11px] text-soft">{i + 1}</span>
             {t}
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-[12px] text-muted">About 2 minutes{weekOf ? ` · Week of ${weekLabel(weekOf)}` : ""}</p>
-      {waiting > 0 && (
-        <p className="mt-2 rounded-inner border border-line px-3 py-2 text-[12px] text-soft" data-testid="ap-plan-waiting">
-          You have {waiting} {waiting === 1 ? "draft" : "drafts"} from this week waiting. You can plan now; review them before preparing next week's drafts, or they'll be replaced.
+      {open && (
+        <p className="mt-3 text-[12px] text-soft" data-testid="ap-plan-open">
+          You have a weekly plan in progress.{" "}
+          <button className="font-bold text-accent hover:brightness-125" data-testid="ap-plan-resume" onClick={resume}>
+            Continue it
+          </button>
         </p>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button className={btnPrimary} data-testid="ap-plan-start" onClick={start}>
-          {resuming ? "Continue planning" : "Start planning"}
+        <button className={btnPrimary} data-testid="ap-plan-start" onClick={plan}>
+          Plan my week
         </button>
-        {waiting > 0 && (
-          <button className={btnText} data-testid="ap-plan-review-first" onClick={() => setAPView({ screen: "summary" })}>
-            Review this week first
-          </button>
-        )}
         <button className={btnText} data-testid="ap-plan-cancel" onClick={() => setAPView(null)}>
-          Not now
+          Back to chat
         </button>
       </div>
     </Card>
