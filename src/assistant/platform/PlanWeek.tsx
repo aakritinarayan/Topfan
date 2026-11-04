@@ -4,8 +4,8 @@
  * posts; every draft is still reviewed, and nothing is published by the assistant.
  */
 import { useRef, useState } from "react";
-import { Check, Play, Plus, RefreshCw, X } from "lucide-react";
-import { useData } from "../../store/store";
+import { Check, Play, Plus, RefreshCw, Sparkles, X } from "lucide-react";
+import { delaysOff, getData, useData } from "../../store/store";
 import { ImageSlot } from "../../platform/ui/surfaces";
 import { posterOf } from "../../media";
 import {
@@ -262,7 +262,7 @@ function Media() {
   return (
     <>
       <h4 className="text-[15px] font-bold">Which photos and clips can I use?</h4>
-      <p className="mt-1 text-[13px] text-soft">Pick from your media library or add a new photo or video. I'll only use what you pick; the other posts are text or polls.</p>
+      <p className="mt-1 text-[13px] text-soft">Pick from your media library, add a new photo or video, or let me generate an image. I'll only use what you pick; the other posts are text or polls.</p>
       <ul className="mt-3 grid grid-cols-2 gap-2">
         {assets.map((a) => {
           const on = a.approved && picked.includes(a.id);
@@ -288,6 +288,9 @@ function Media() {
             </li>
           );
         })}
+        <li>
+          <GenerateMedia />
+        </li>
         <li>
           <AddMedia />
         </li>
@@ -425,6 +428,37 @@ function readLocal(file: File): Promise<{ kind: "image" | "video"; src: string; 
       v.src = url;
     }
   });
+}
+
+/** AI-generated visuals for the week's posts (sample set), offered in turn so each tap gives a new one. */
+const GENERATED = ["generated/training-cinematic", "generated/training-minimal", "generated/training-dark", "generated/training-wide"];
+
+/** Generate an image for this week. It's picked as soon as it's ready. */
+function GenerateMedia() {
+  const [busy, setBusy] = useState(false);
+  const make = () => {
+    setBusy(true);
+    setTimeout(() => {
+      const used = getData().autopilot.assets.map((a) => a.src);
+      const src = GENERATED.find((k) => !used.includes(k)) ?? GENERATED[used.filter((k) => GENERATED.includes(k)).length % GENERATED.length];
+      run("planGenerateMedia", (d) => addPlanAsset(d, { label: "AI-generated image", kind: "image", src }));
+      setBusy(false);
+    }, delaysOff() ? 0 : 1400);
+  };
+  return (
+    <button
+      data-testid="ap-plan-generate-media"
+      disabled={busy}
+      onClick={make}
+      className="flex h-full min-h-[150px] w-full flex-col items-center justify-center gap-1.5 rounded-tile border-2 border-dashed border-line px-3 text-center hover:border-accent"
+    >
+      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent">
+        <Sparkles size={16} className={busy ? "animate-pulse" : ""} />
+      </span>
+      <span className="text-[12px] font-bold">{busy ? "Creating your image…" : "Generate an image"}</span>
+      <span className="text-[11px] text-soft">An original visual for this week's posts.</span>
+    </button>
+  );
 }
 
 /** Add a photo or video from the creator's device. It's picked for this week as soon as it's added. */

@@ -359,7 +359,7 @@ function Culture() {
             </li>
           ))}
         </ul>
-        <ImageSlot src={HOME_MEDIA.culture} label="Riders on a snowy slope" className="h-[872px] w-[593px] shrink-0" rounded="rounded-tile" />
+        <ImageSlot src={HOME_MEDIA.culture} label="Riders on a snowy slope" className="h-[872px] w-[593px] min-w-0 shrink" rounded="rounded-tile" />
       </div>
     </section>
   );

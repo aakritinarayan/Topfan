@@ -134,10 +134,10 @@ export const LIB_THEMES = [
 
 /** Demo 2 fixture: a generic label, a duplicate, and a link to an offering that no longer exists. */
 const LIB_D2_LINKS: BioAction[] = [
-  { id: "ba-d2-click", kind: "general", title: "Click Here", url: "https://fans.ajwhite.com/ajwhite/store/course-learn" },
+  { id: "ba-d2-click", kind: "general", title: "Click Here", text: "Learn How to Snowboard: a step-by-step course.", url: "https://fans.ajwhite.com/ajwhite/store/course-learn", image: "courses/learn-to-snowboard" },
   { id: "ba-d2-ig", kind: "external", title: "Instagram", url: "https://instagram.com/ajwhite" },
   { id: "ba-d2-ig2", kind: "external", title: "IG", url: "https://www.instagram.com/ajwhite/" },
-  { id: "ba-d2-camp", kind: "general", title: "Summer Park Camp 2026", url: "https://fans.ajwhite.com/ajwhite/store/exp-summer-camp" },
+  { id: "ba-d2-camp", kind: "general", title: "Summer Park Camp 2026", text: "A week of park sessions with AJ.", url: "https://fans.ajwhite.com/ajwhite/store/exp-summer-camp" },
 ];
 
 /** NEW ACTION dropdown items (52e) → the kind of card they add. */

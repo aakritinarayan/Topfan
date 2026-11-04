@@ -166,11 +166,13 @@ async function typeInto(p, id, text) {
   await sleep(1200);
   check("11: Edit Cover Page button opens the editor", path(p) === EDITOR, path(p));
   check("11: applied values kept across navigation", /^Official site of AJ White/.test(await val(p, "cover-description")));
-  c = await chips(p, "ai-context-");
+  // Opened from the page: the chat starts fresh with the page's intro and chips (older chats one click away).
+  check("11: older chats folded behind 'See older chats'", /See older chats/.test(await p.$eval('[data-testid="ai-older-toggle"]', (x) => x.innerText).catch(() => "")));
+  c = await chips(p, "ai-suggestion-");
   check("11: editor guidance (max 3)", c.length === 3 && c[0] === "Prepare my cover page" && c.includes("Help improve my introduction") && c.includes("Suggest brand colors"), c);
 
   // 12: help improve my introduction → explicit "Use in SEO Description".
-  await click(p, "ai-context-cover-improveIntro", 600);
+  await click(p, "ai-suggestion-cover-improveIntro", 600);
   t = await panelText(p);
   check("12: introduction draft from the profile", /Draft · written by AI from your TopFan profile/.test(t), t.slice(-400));
   await tap(p, /^use in seo description$/);

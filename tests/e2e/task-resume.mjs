@@ -49,6 +49,11 @@ check("9: new account shows no paused tasks", !(await p.$('[data-testid="ai-paus
 await click("ai-suggestion-customize");
 await sleep(1000);
 check("setup: branding task on White Label Site", path() === "/edit-preference/whitelabel" && /Step 2 of 3/.test(await stepText()), `${path()} ${await stepText()}`);
+// Closing the card folds it to one slim row (task kept); one click brings it back.
+await click("ai-task-hide");
+check("card: X closes the card, task stays active", !(await p.$('[data-testid="ai-task-card"]')) && /Step 2 of 3/.test(await p.$eval('[data-testid="ai-task-show"]', (e) => e.innerText)) && !!(await tasks())?.active);
+await click("ai-task-show");
+check("card: the slim row reopens it", !!(await p.$('[data-testid="ai-task-card"]')));
 await pause();
 
 // Outbound Email: restart the check on the page, pause at the domain step.

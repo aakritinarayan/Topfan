@@ -71,7 +71,12 @@ export interface CoverState {
 export const initialCover = (): CoverState => ({
   meta: { title: seo.title, keywords: seo.keywords, description: seo.description },
   sections: structuredClone(coverSections),
-  subPages: [],
+  // Fictional sample sub-pages so the list isn't empty in the demo.
+  subPages: [
+    { name: "About AJ", slug: "about-aj" },
+    { name: "Training Camps", slug: "training-camps" },
+    { name: "Gear Guide", slug: "gear-guide" },
+  ],
   edited: [],
   draft: null,
   applied: null,

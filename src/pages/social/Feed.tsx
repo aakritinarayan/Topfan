@@ -54,9 +54,9 @@ export function FeedPage({ route, params }: PageProps) {
   }
 
   return (
-    <div data-testid={`page-${route.id}`} className="flex items-start gap-[25px]">
-      <div className="w-[524px] shrink-0">
-        <div className="-mx-[12px] w-[548px]">
+    <div data-testid={`page-${route.id}`} className="flex flex-wrap items-start gap-[25px]">
+      <div className="w-full min-w-0 max-w-[524px]">
+        <div className="-mx-[12px] w-[calc(100%+24px)]">
           <ProfileCard canManage={canManage} />
           {pinned && (
             <div className="mt-[16px]">

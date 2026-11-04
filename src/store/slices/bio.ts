@@ -374,11 +374,15 @@ export function nativeAction(d: AppData, l: Pick<BioLink, "key" | "refId" | "tit
   const v = checkUrl(d, l.url);
   const p = d.monetize.products.find((x) => x.id === (v.productId ?? l.refId) && /\/store\//.test(l.url ?? ""));
   if (p) return { ...base, kind: "store-item", text: p.description, price: p.price ?? undefined, image: p.image ?? null };
-  if (/\/post\/[^/]+$/.test(l.url ?? "")) return { ...base, kind: "feed" };
+  const post = /\/post\/([^/]+)$/.exec(l.url ?? "");
+  if (post) {
+    const x = d.social.posts.find((y) => y.id === post[1]);
+    return { ...base, kind: "feed", text: x?.title ? x.text.slice(0, 140) : undefined, image: x?.media?.find((m) => m.kind === "image")?.src ?? null };
+  }
   const ev = /\/ticket-purchase\/([^/]+)$/.exec(l.url ?? "");
   if (ev) {
     const e = d.monetize.events.find((x) => x.id.toLowerCase() === ev[1].toLowerCase());
-    return { ...base, kind: "event", text: e?.location, price: e?.tickets.length ? Math.min(...e.tickets.map((t) => t.price)) : undefined };
+    return { ...base, kind: "event", text: e?.location, price: e?.tickets.length ? Math.min(...e.tickets.map((t) => t.price)) : undefined, image: e?.image ?? null };
   }
   return { ...base, kind: "external" };
 }

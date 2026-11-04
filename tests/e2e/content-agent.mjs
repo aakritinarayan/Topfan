@@ -130,15 +130,16 @@ const nothingLive = async (p) => {
   const p = await fresh();
   let r = await ask(p, "Create an exclusive post for my Gold members");
   let x = await last(p, "post");
-  check("S2: locked draft, price left to the creator", x.post.locked && x.post.price == null && x.status === "needs-input", JSON.stringify(x));
-  check("S2: Gold plan found, tier limit explained (not faked)", /Gold Plan/.test(r) && /pay to unlock/i.test(r) && /can't limit a post to one membership/i.test(r), r);
-  check("S2: options offered", /Lock it with an unlock price/i.test(r) && /Gold-only newsletter/i.test(r), r);
+  // TopFan's Lock has a Subscription option (plans): a Gold request locks the post to the Gold Plan.
+  check("S2: locked to the Gold Plan (Lock › Subscription)", x.post.locked && x.post.lockBy.join() === "subscription" && x.post.planIds.join() === "gold", JSON.stringify(x.post));
+  check("S2: says what it set, nothing published", /only Gold Plan members/i.test(r) && /Lock › Subscription/.test(r) && /Nothing is published/i.test(r), r);
+  check("S2: options offered", /Also allow a one-time price/i.test(r) && /Prepare a public teaser/i.test(r), r);
   r = await ask(p, "Make it only for Platinum members");
   check("S2: missing plan → exact message", /I couldn't find a Platinum membership in your current plans\./.test(r), r);
   check("S2: alternatives incl. set up that membership", /Use Gold Plan/i.test(r) && /Set up that membership/i.test(r), r);
   ({ r } = await tap(p, /^Use Gold Plan$/));
-  ({ r } = await tap(p, /^lock it with an unlock price$/));
-  check("S2: asks the unlock price", /What unlock price/i.test(r), r);
+  r = await ask(p, "Suggest a price");
+  check("S2: recommends a starting price (not just asks)", /\$5 one-time unlock/.test(r) && /example starting price/.test(r), r);
   r = await ask(p, "0");
   check("S2: zero price refused at the service", /price|more than/i.test(r) && (await last(p, "post")).post.price == null, r);
   r = await ask(p, "12");
@@ -234,7 +235,7 @@ const nothingLive = async (p) => {
   r = await ask(p, "Make the newsletter shorter");
   check("S5: newsletter shortened", /Only the/i.test(r), r);
   r = await ask(p, "Make the exclusive post for Silver members");
-  check("S5: tier on a post explained honestly", /Silver Plan/.test(r) && /pay to unlock/i.test(r), r);
+  check("S5: tier on a post → Silver Plan via Subscription", /Silver Plan/.test(r) && /Lock › Subscription/.test(r), r);
   r = await ask(p, "Remove the experience");
   kids = (await items(p)).filter((x) => x.parentId === w.id);
   check("S5: experience removed, dependent newsletter flagged", kids.find((x) => x.kind === "experience").status === "cancelled" && kids.find((x) => x.kind === "newsletter").flags.length > 0, r);

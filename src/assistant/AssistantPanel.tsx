@@ -14,6 +14,8 @@ import { AutopilotNotice, AutopilotView } from "./platform/Autopilot";
 import { useAPView } from "./platform/autopilotView";
 import { useVoice, type VoiceState } from "./chat/useVoice";
 import { Answer, ListenButton } from "./chat/Answer";
+import { useRouter } from "../app/router";
+import { resolve } from "../app/routeCatalog";
 
 /** Mascot avatar: the live red jelly (blinks, glances) with mood expressions; a small bob while working. */
 export function Mascot({ size = 32 }: { size?: number }) {
@@ -40,6 +42,14 @@ export function Mascot({ size = 32 }: { size?: number }) {
 
 const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
+/**
+ * Opening a page starts the chat fresh for it: older chats fold behind "See older chats" and the page's
+ * intro and actions come first. Pages opened from the panel or by the assistant mid-task (a message just arrived)
+ * don't fold.
+ * Kept outside the component: the panel remounts when the page layout changes.
+ */
+const pageStart = { route: "", cut: 0, showOlder: false, msgs: 0, lastMsgAt: 0 };
+
 export function AssistantPanel() {
   const { state } = usePlatform();
   const onboarding = isOnboarding(state.screen);
@@ -57,6 +67,24 @@ export function AssistantPanel() {
   });
   const scroller = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
+
+  const routeId = resolve(useRouter().path).route.id;
+  const [, rerender] = useState(0);
+  // Declared before the route effect so a message sent just before the assistant navigates counts as recent.
+  useEffect(() => {
+    if (messages.length !== pageStart.msgs) (pageStart.msgs = messages.length), (pageStart.lastMsgAt = Date.now());
+  }, [messages.length]);
+  useEffect(() => {
+    const prev = pageStart.route;
+    if (prev === routeId) return;
+    pageStart.route = routeId;
+    if (!prev || onboarding || Date.now() - pageStart.lastMsgAt < 800 || messages.every((m) => m.dismissible)) return;
+    pageStart.cut = messages.length;
+    pageStart.showOlder = false;
+    rerender((n) => n + 1);
+  }, [routeId]);
+  const cut = pageStart.cut <= messages.length ? pageStart.cut : 0;
+  const recent = cut ? messages.slice(cut) : messages;
 
   useEffect(() => {
     const el = scroller.current;
@@ -108,12 +136,21 @@ export function AssistantPanel() {
   };
 
   return (
-    // Floating card: a page-colored rail (covers any page overflow) holding the card 16px from the top, right and bottom.
-    <div className="sticky top-0 z-30 flex h-screen shrink-0 bg-bg py-4 pr-4" data-testid="ai-panel-rail">
+    // Floating card. From 1120px: a page-colored rail beside the page, holding the card 16px from the top, right and
+    // bottom. Narrower screens can't fit both, so the card opens as a sheet over a dimmed page (tap outside to close).
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-black/60 p-3 min-[1120px]:sticky min-[1120px]:inset-auto min-[1120px]:top-0 min-[1120px]:z-30 min-[1120px]:h-screen min-[1120px]:shrink-0 min-[1120px]:bg-bg min-[1120px]:p-0 min-[1120px]:py-4 min-[1120px]:pr-4"
+      data-testid="ai-panel-rail"
+      // A page opened from inside the panel (an action, chip or link) is part of the conversation: don't fold it.
+      onClickCapture={() => (pageStart.lastMsgAt = Date.now())}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !window.matchMedia("(min-width: 1120px)").matches) setOpen(false);
+      }}
+    >
     <motion.aside
       aria-label="TopFan AI"
       data-testid="ai-panel"
-      className="relative flex h-full w-[clamp(340px,27vw,420px)] flex-col rounded-[28px] border border-line bg-bg shadow-[0_18px_50px_rgba(0,0,0,.55),0_2px_8px_rgba(0,0,0,.35)]"
+      className="relative flex h-full w-full max-w-[420px] flex-col min-[1120px]:w-[clamp(320px,27vw,420px)] rounded-[28px] border border-line bg-bg shadow-[0_18px_50px_rgba(0,0,0,.55),0_2px_8px_rgba(0,0,0,.35)]"
       initial={slideIn ? { opacity: 0, x: 24 } : false}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
@@ -175,7 +212,27 @@ export function AssistantPanel() {
         ) : (
           <>
             {!onboarding && messages.every((m) => m.dismissible) && <PlatformWelcome />}
-            {messages.map((m) => (
+            {cut > 0 && (
+              <>
+                <button
+                  type="button"
+                  data-testid="ai-older-toggle"
+                  aria-expanded={pageStart.showOlder}
+                  onClick={() => ((pageStart.showOlder = !pageStart.showOlder), rerender((n) => n + 1))}
+                  className="flex items-center gap-1.5 self-center rounded-full border border-line px-3 py-1 text-[12px] text-soft hover:border-accent hover:text-white"
+                >
+                  <ChevronDown size={14} className={pageStart.showOlder ? "rotate-180" : ""} />
+                  {pageStart.showOlder ? "Hide older chats" : "See older chats"}
+                </button>
+                <div className={pageStart.showOlder ? "flex flex-col gap-3" : "hidden"} data-testid="ai-older">
+                  {messages.slice(0, cut).map((m) => (
+                    <MessageView key={m.id} m={m} />
+                  ))}
+                </div>
+                {!onboarding && <PlatformWelcome />}
+              </>
+            )}
+            {recent.map((m) => (
               <MessageView key={m.id} m={m} />
             ))}
           </>
@@ -226,7 +283,7 @@ export function AssistantPanel() {
         )}
       </AnimatePresence>
 
-      {!onboarding && !apView && !working && !answering && !messages.every((m) => m.dismissible) && <PageContextBar />}
+      {!onboarding && !apView && !working && !answering && !recent.every((m) => m.dismissible) && <PageContextBar />}
 
       <VoiceStatus state={voice.state} error={voice.error} onCancel={voice.cancel} onRetry={voice.start} onStop={voice.stop} />
 

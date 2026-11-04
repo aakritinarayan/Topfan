@@ -253,23 +253,24 @@ for (const id of ["setup-navigation", "ai-content"]) {
     const said = (await replies(p)).slice(n).join("\n");
     check(`${tag} ${url}: "${label}" responds`, (said.trim().length > 10 || path(p) !== url) && !/That workflow is available/.test(said), said);
   }
-  // Once the conversation has started, navigating (in-app: the page's own tab) updates the context
-  // row without new messages. A full reload would start a new conversation, so it's not used here.
+  // Once the conversation has started, navigating from the page itself (its own tab) starts the chat fresh
+  // for that page: older chats fold behind "See older chats" and the page's intro and chips come first.
   await go(p, "/monetize/subscription");
   await openPanel(p);
   await ask(p, "What can I do on this page?");
   const n0 = (await replies(p)).length;
   await p.evaluate(() => [...document.querySelectorAll("main button, main a, button")].find((x) => x.innerText.trim() === "COURSES" && !x.closest('[data-testid="ai-panel"]'))?.click());
   await sleep(900);
-  const page = await p.$eval('[data-testid="ai-context-page"]', (x) => x.innerText).catch(() => "");
-  const cb = await chips(p, "ai-context-");
-  check(`${tag}: context row follows navigation (Courses), max 3`, /courses/i.test(page) && cb.length >= 1 && cb.length <= 3 && !other.test(cb.join("|")), `${page} | ${cb.join("|")}`);
+  const page = await p.$eval('[data-testid="ai-panel"] [data-testid="ai-welcome"]', (x) => x.innerText).catch(() => "");
+  const cb = await chips(p, "ai-suggestion-");
+  check(`${tag}: older chats folded, one click away`, /See older chats/.test(await p.$eval('[data-testid="ai-older-toggle"]', (x) => x.innerText).catch(() => "")));
+  check(`${tag}: page intro follows navigation (Courses), max 3`, /courses/i.test(page) && cb.length >= 1 && cb.length <= 3 && !other.test(cb.join("|")), `${page} | ${cb.join("|")}`);
   check(`${tag}: navigating adds no messages`, (await replies(p)).length === n0, `${n0} → ${(await replies(p)).length}`);
-  const more = await p.$('[data-testid="ai-context-more"]');
+  const more = await p.$('[data-testid="ai-panel"] [data-testid="ai-more-suggestions"]');
   if (more) {
     await more.click();
     await sleep(200);
-    check(`${tag}: more suggestions only on request`, (await chips(p, "ai-context-")).length > cb.length);
+    check(`${tag}: more suggestions only on request`, (await chips(p, "ai-suggestion-")).length > cb.length);
   }
   check(`${tag} guidance: no page errors`, !p.errors.length, p.errors.join("\n"));
   await p.browserContext().close();

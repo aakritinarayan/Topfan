@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "../../app/router";
 import { demoId, inScope } from "../../app/demo";
 import { pageActions, pageIntro } from "./pageGuide";
-import { Pause, Play, X } from "lucide-react";
+import { ChevronDown, Pause, Play, X } from "lucide-react";
 import { getData, useData } from "../../store/store";
 import { hasUnsavedWork, pauseTask, progressOf, useWorkflow, type ActiveTask } from "../../app/agent-context/workflow-state";
 import { usePlatformAgent } from "./PlatformAgent";
@@ -21,30 +21,51 @@ import { contentActions, CREATE_ACTIONS, CREATE_HEADING, CREATE_LINE, unfinished
 
 const PAUSED_SHOWN = 3;
 
+/** Tasks whose card the creator closed: it folds to one slim row they can reopen (per task instance). */
+const hidden = new Set<string>();
+
+
 export function ActiveTaskCard() {
   const wf = useWorkflow();
   useData((d) => d); // re-check progress when data changes
   const agent = usePlatformAgent();
   const [confirm, setConfirm] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [, rerender] = useState(0);
   if (!wf.active && !wf.paused.length) return null;
   const p = wf.active ? progressOf(wf.active) : null;
+  const id = wf.active?.id ?? "";
+  const folded = hidden.has(id);
+  const setFolded = (v: boolean) => (v ? hidden.add(id) : hidden.delete(id), rerender((n) => n + 1));
+  const stepLabel = p ? `Step ${Math.min(p.index + 1, p.def.steps.length)} of ${p.def.steps.length}` : "";
   return (
     <div className="flex flex-col gap-2">
       {confirm && confirm === wf.active?.id && <ConfirmCancel onYes={() => (setConfirm(null), agent.taskControl("cancel"))} onNo={() => setConfirm(null)} />}
-      {p && (
+      {p && folded && (
+        <button
+          onClick={() => setFolded(false)}
+          data-testid="ai-task-show"
+          aria-label={`Show task: ${p.def.name}`}
+          className="flex items-center gap-2 rounded-inner bg-surface px-4 py-2 text-left text-[12px] hover:bg-surface/80"
+        >
+          <span className="min-w-0 flex-1 truncate font-bold">{p.def.name}</span>
+          <span className="shrink-0 text-soft">{stepLabel}</span>
+          <ChevronDown size={14} className="shrink-0 text-soft" />
+        </button>
+      )}
+      {p && !folded && (
         <section data-testid="ai-task-card" aria-label="Current task" className="rounded-inner bg-surface px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="flex-1 text-[13px] font-bold">{p.def.name}</span>
             <button onClick={pauseTask} aria-label="Pause task" title="Pause" data-testid="ai-task-pause" className="flex h-7 w-7 items-center justify-center rounded-full text-soft hover:bg-bg hover:text-white">
               <Pause size={14} />
             </button>
-            <button onClick={() => (hasUnsavedWork(wf.active!) ? setConfirm(wf.active!.id) : agent.taskControl("cancel"))} aria-label="Cancel task" title="Cancel" data-testid="ai-task-cancel" className="flex h-7 w-7 items-center justify-center rounded-full text-soft hover:bg-bg hover:text-white">
+            <button onClick={() => setFolded(true)} aria-label="Close task card" title="Close (you can reopen it)" data-testid="ai-task-hide" className="flex h-7 w-7 items-center justify-center rounded-full text-soft hover:bg-bg hover:text-white">
               <X size={15} />
             </button>
           </div>
           <div className="mt-1 text-[12px] text-soft" data-testid="ai-task-step">
-            Step {Math.min(p.index + 1, p.def.steps.length)} of {p.def.steps.length}
+            {stepLabel}
           </div>
           <div className="mt-2 flex gap-1" aria-hidden>
             {p.def.steps.map((s, i) => (
@@ -66,6 +87,13 @@ export function ActiveTaskCard() {
               </button>
             </>
           )}
+          <button
+            onClick={() => (hasUnsavedWork(wf.active!) ? setConfirm(wf.active!.id) : agent.taskControl("cancel"))}
+            data-testid="ai-task-cancel"
+            className="ml-3 mt-2.5 text-[12px] text-soft underline-offset-2 hover:text-white hover:underline"
+          >
+            Cancel task
+          </button>
         </section>
       )}
       {wf.paused.length > 0 && (
@@ -182,6 +210,11 @@ export function PlatformWelcome() {
         {intro.line && (
           <p className="text-[13px] text-soft" data-testid="ai-page-intro">
             {intro.line}
+          </p>
+        )}
+        {intro.helps && (
+          <p className="text-[13px] text-soft" data-testid="ai-page-helps">
+            {intro.helps}
           </p>
         )}
         <Chips items={more ? items : items.slice(0, MAIN_SHOWN)} agent={agent} prefix="ai-suggestion-" />

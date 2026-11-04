@@ -331,14 +331,15 @@ const pickType = (p, t) => click(p, `newpost-type-${t}`, 300);
   await ask("Create a training update post", 1000);
   let r = await ask("Lock this post");
   let x = await lastPost();
-  check("D2 'Lock this post' → Individual Purchase, asks the price", /Individual Purchase/.test(r) && /What unlock price/i.test(r) && x.post.locked && x.post.lockBy.join() === "purchase" && x.post.price == null, r);
-  check("D2 card shows the restriction", /Individual Purchase, pay to unlock \(price not set\)/.test(await card()), await card());
+  // A Lock request gets a recommendation first (nothing changes until the creator picks or types a price).
+  check("D2 'Lock this post' → recommends Individual Purchase with a starting price", /\$5 one-time unlock/.test(r) && /example starting price/.test(r) && !x.post.locked, r);
   r = await ask("Make this paid content");
   x = await lastPost();
-  check("D2 'Make this paid content' → Individual Purchase", /Individual Purchase/.test(r) && /What unlock price/i.test(r) && x.post.lockBy.join() === "purchase", r);
+  check("D2 'Make this paid content' → recommendation, not applied yet", /one-time unlock/.test(r) && !x.post.locked, r);
   r = await ask("9");
   x = await lastPost();
-  check("D2 price 9 set on the draft only", x.post.price === 9 && /nothing is published/i.test(r) && /\$9/.test(await card()), r);
+  check("D2 price 9 set on the draft only", x.post.locked && x.post.lockBy.join() === "purchase" && x.post.price === 9 && /nothing is published/i.test(r) && /\$9/.test(await card()), r);
+  check("D2 card shows the restriction", /Individual Purchase/.test(await card()), await card());
 
   r = await ask("Let fans unlock this using loyalty points");
   x = await lastPost();
@@ -371,8 +372,7 @@ const pickType = (p, t) => click(p, `newpost-type-${t}`, 300);
 
   r = await ask("Make this exclusive to Gold subscribers");
   x = await lastPost();
-  check("D2 Gold: honest, Lock can't target a plan", /Gold Plan/.test(r) && /can't limit a post to one membership/i.test(r) && /Lock it with an unlock price/i.test(r) && /Gold-only newsletter/i.test(r), r);
-  check("D2 Gold request changes nothing on the post", x.post.lockBy.join() === "nft" && x.post.contract === addr);
+  check("D2 Gold: Lock › Subscription with the Gold Plan", /only Gold Plan members/i.test(r) && x.post.lockBy.join() === "subscription" && x.post.planIds.join() === "gold", r);
   check("D2 nothing published by the assistant", (await db()).social.posts.filter((y) => y.status === "published").length === published0 && x.status !== "published");
   check("no page errors (Demo 2)", !p.errors.length, p.errors.join("\n"));
   await p.browserContext().close();

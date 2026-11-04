@@ -40,7 +40,7 @@ export function WalletRefunds({ route }: PageProps) {
 
   return (
     <WalletLayout routeId={route.id} active="wallet-refunds">
-      <div className="mt-[22px] flex items-center gap-[16px]">
+      <div className="mt-[22px] flex flex-wrap items-center gap-[16px]">
         <span className="text-[14px]">FILTER BY:</span>
         <DatePill value={from} onChange={setFrom} placeholder="From Date" testid="wallet-refunds-from" />
         <DatePill value={to} onChange={setTo} placeholder="To Date" testid="wallet-refunds-to" />

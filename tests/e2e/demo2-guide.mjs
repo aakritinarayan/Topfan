@@ -79,13 +79,13 @@ await back(p);
 
 /* 3. Members-only + Lock */
 r = await ask(p, "Create an exclusive post for my Gold members", 1000);
-check("3.1: honest about Lock vs one plan", /can't|cannot|isn't|doesn't/i.test(r) && /Gold/.test(r), r.slice(0, 300));
+check("3.1: locked to the Gold Plan via Subscription", /only Gold Plan members/i.test(r), r.slice(0, 300));
 r = await ask(p, "Make it only for Platinum members", 900);
 check("3.2: 'I couldn't find a Platinum membership in your current plans.'", /I couldn't find a Platinum membership in your current plans\./.test(r), r);
 const gold = await tap(p, /^use gold/, 900);
-await tap(p, /^lock it with an unlock price$/, 900);
+await ask(p, "Suggest a price", 900);
 r = await ask(p, "12", 900);
-check("3.3: Gold Plan → Lock with an unlock price → 12", !!gold.hit && /12/.test(r), `${gold.hit} | ${r.slice(0, 200)}`);
+check("3.3: Gold Plan → price suggested → 12", !!gold.hit && /\$12/.test(r), `${gold.hit} | ${r.slice(0, 200)}`);
 r = await ask(p, "Prepare a public teaser", 1000);
 const teaser = (await items(p)).find((x) => x.link?.rel === "teaser-of");
 check("3.4: separate public teaser that doesn't leak locked content", !!teaser && !teaser.post.locked, r.slice(0, 200));

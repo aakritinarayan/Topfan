@@ -200,6 +200,17 @@ function SocialLinksModal({ open, value, onClose, onSave }: { open: boolean; val
   );
 }
 
+/** "instagram.com/ajwhite" from a full URL, for cards without a description. */
+function linkLabel(url?: string) {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    return `${u.hostname.replace(/^www\./, "")}${u.pathname.replace(/\/$/, "")}`;
+  } catch {
+    return url;
+  }
+}
+
 function ActionCard({ a, c, name }: { a: BioAction; c: PV; name: string }) {
   const [qty, setQty] = useState(1);
   const avatar = useData((d) => d.account.avatar);
@@ -264,15 +275,20 @@ function ActionCard({ a, c, name }: { a: BioAction; c: PV; name: string }) {
       </div>
     );
   }
-  // general / feed / portfolio / event / external (inferred card)
+  // general / feed / portfolio / event / external (inferred card). Never an empty card: without a description it
+  // says where the link goes, and it shows the linked item's image when there is one.
+  const where = a.text || linkLabel(a.url);
   return (
-    <div className="rounded-[10px] border-2 p-[20px]" style={box}>
-      <p className="text-[16px] font-bold">{a.title}</p>
-      {a.text && <p className="mt-[8px] text-[14px] leading-[21px]">{a.text}</p>}
-      {a.price != null && <p className="mt-[12px] text-[18px] font-semibold">${a.price.toFixed(2)}</p>}
-      <span className={`${pill} mt-[16px]`} style={{ background: c.btn, color: c.btnText }}>
-        {a.kind === "event" ? "Get Tickets" : a.kind === "external" ? "Visit" : "View"}
-      </span>
+    <div className="flex gap-[16px] rounded-[10px] border-2 p-[20px]" style={box}>
+      {a.image && <ImageSlot src={a.image} kind="product" label={a.title} className="h-[88px] w-[88px] shrink-0" rounded="rounded-[10px]" />}
+      <div className="min-w-0 flex-1">
+        <p className="text-[16px] font-bold">{a.title}</p>
+        {where && <p className="mt-[6px] break-words text-[14px] leading-[21px] opacity-80">{where}</p>}
+        {a.price != null && <p className="mt-[12px] text-[18px] font-semibold">${a.price.toFixed(2)}</p>}
+        <span className={`${pill} mt-[16px]`} style={{ background: c.btn, color: c.btnText }}>
+          {a.kind === "event" ? "Get Tickets" : a.kind === "external" ? "Visit" : "View"}
+        </span>
+      </div>
     </div>
   );
 }
@@ -616,18 +632,18 @@ function usePickRows(kind: PickKind | null): PickRow[] {
         .map((p) => {
           const title = p.title?.trim() || (p.text.length > 60 ? `${p.text.slice(0, 57)}…` : p.text) || "Post";
           const url = at(`${h}/post/${p.id}`);
-          return { id: p.id, title, sub: `${p.type[0].toUpperCase()}${p.type.slice(1)} post · ${p.createdAt.slice(0, 10)}`, group: p.type, url, action: () => makeBioAction("feed", title, { text: p.title ? p.text.slice(0, 140) : undefined, url }) };
+          return { id: p.id, title, sub: `${p.type[0].toUpperCase()}${p.type.slice(1)} post · ${p.createdAt.slice(0, 10)}`, group: p.type, url, action: () => makeBioAction("feed", title, { text: p.title ? p.text.slice(0, 140) : undefined, url, image: p.media?.find((m) => m.kind === "image")?.src ?? null }) };
         });
     if (kind === "portfolio")
       return d.monetize.portfolios.map((p) => {
         const url = at(`dashboard/portfolio/${h}/banner-view/${p.id}`);
         const n = p.series.length + p.singles.length;
-        return { id: p.id, title: p.title, sub: `${p.type} portfolio · ${n} item${n === 1 ? "" : "s"}`, url, action: () => makeBioAction("portfolio", p.title, { url }) };
+        return { id: p.id, title: p.title, sub: `${p.type} portfolio · ${n} item${n === 1 ? "" : "s"}`, url, action: () => makeBioAction("portfolio", p.title, { text: `${p.type} portfolio · ${n} item${n === 1 ? "" : "s"}`, url, image: p.banner ?? null }) };
       });
     return d.monetize.events.filter((e) => !e.past).map((e) => {
       const url = at(`dashboard/event-listing/${h}/ticket-purchase/${e.id}`);
       const from = e.tickets.length ? Math.min(...e.tickets.map((t) => t.price)) : undefined;
-      return { id: e.id, title: e.title, sub: `${e.date.slice(0, 10)} · ${e.location}`, url, action: () => makeBioAction("event", e.title, { text: e.location, price: from, url }) };
+      return { id: e.id, title: e.title, sub: `${e.date.slice(0, 10)} · ${e.location}`, url, action: () => makeBioAction("event", e.title, { text: e.location, price: from, url, image: e.image ?? null }) };
     });
   });
 }
@@ -838,7 +854,16 @@ export function LinkInBioPage({ route }: PageProps) {
   }, [workId]);
   const [pending, setPending] = useState<{ kind: BioAction["kind"]; label: string } | null>(null);
   const [confirmSave, setConfirmSave] = useState(false);
-  const shown = edit ? draft : saved;
+  // A TopFan AI proposal under review: the preview follows the links ticked there. Nothing is saved until the creator saves.
+  const reviewKey = useData((d) => {
+    const x = d.content.items.find((y) => y.kind === "bio" && y.bio?.step === "review" && !["paused", "cancelled", "saved", "needs-input"].includes(y.status));
+    return x ? `${x.id}|${x.updatedAt}|${x.bio!.links.map((l) => `${l.key}:${l.include ? 1 : 0}`).join(",")}` : "";
+  });
+  const live = useMemo(() => {
+    const x = reviewKey ? itemById(getData(), reviewKey.split("|")[0]) : undefined;
+    return x ? { ...saved, actions: applyBio(getData(), saved.actions, x), socials: applySocials(saved.socials, x) } : null;
+  }, [reviewKey, saved]);
+  const shown = edit ? draft : live ?? saved;
   const url = `https://www.${domain}/bio/${handle}`;
 
   return (
@@ -878,7 +903,7 @@ export function LinkInBioPage({ route }: PageProps) {
       ) : (
       <>
 
-      <div className="mt-[27px] flex items-center justify-between">
+      <div className="mt-[27px] flex flex-wrap items-center justify-between gap-[12px]">
         <div className="flex items-center gap-[12px]">
           <input readOnly value={url} aria-label="Link In Bio URL" data-testid="pref-lib-url" className="h-[40px] w-[312px] rounded-[50px] bg-surface px-[24px] text-[16px] text-muted outline-none" />
           <Pill
@@ -959,6 +984,11 @@ export function LinkInBioPage({ route }: PageProps) {
           </div>
         )}
 
+        {!edit && live && (
+          <p className="mt-[16px] rounded-[8px] bg-bg px-[16px] py-[10px] text-[14px] text-soft" data-testid="pref-lib-live-note">
+            Showing the links you've selected in TopFan AI. Nothing is saved until you add them and save.
+          </p>
+        )}
         <Preview device={device} draft={shown} palettes={palettes} edit={edit} onDraft={setDraft} loading={loading} referral={lib.includeReferral} />
       </div>
       </>

@@ -53,6 +53,11 @@ import {
   setExperiencePrice,
   setLocked,
   setLockNft,
+  setLockCombo,
+  lockCombo,
+  lockSummary,
+  monetizeAdvice,
+  type LockCombo,
   setLockPoints,
   setNewsletterAudience,
   setPaused,
@@ -164,7 +169,7 @@ export function ContentAgent() {
   const live = useRef({ a, path, navigate });
   live.current = { a, path, navigate };
   /** Waiting for a number from the creator (a price). */
-  const pending = useRef<{ id: string; field: "experience-price" | "lock-price" | "lock-points" | "lock-nft" } | null>(null);
+  const pending = useRef<{ id: string; field: "experience-price" | "lock-price" | "lock-points" | "lock-nft" | "advise-price" } | null>(null);
 
   const d = () => getData();
   const say = (m: Parameters<typeof a.say>[0]) => live.current.a.say(m);
@@ -174,7 +179,7 @@ export function ContentAgent() {
     return r.ok;
   };
   const focused = () => itemById(d(), d().content.focusId);
-  const open = (x: WorkItem, target?: string) => {
+  const open = (x: WorkItem, target?: string, opts: { lock?: boolean } = {}) => {
     if (x.kind === "bio") return bio.toEditor(x.id);
     const route = x.kind === "post" ? "newpost" : x.kind === "newsletter" ? "monetize-newsletter-new" : "monetize-experience-add";
     // Already saved in TopFan: open the saved record instead of creating another.
@@ -183,7 +188,7 @@ export function ContentAgent() {
         ? pathFor("monetize-newsletter-edit", { newsletterId: x.ref.newsletterId })
         : x.kind === "experience" && x.ref?.productId
           ? pathFor("monetize-experience-edit", { productId: x.ref.productId })
-          : `${pathFor(route)}?work=${x.id}`;
+          : `${pathFor(route)}?work=${x.id}${opts.lock ? "&lock=1" : ""}`;
     markAssistantNavigation();
     live.current.navigate(url);
     if (target) setTimeout(() => live.current.a.highlight(target), 600);
@@ -357,24 +362,34 @@ export function ContentAgent() {
     if (ask.kind === "plan") {
       const plan = planByName(d(), ask.plan);
       if (!plan) return missingPlan(ask.plan);
-      // The post Lock can't target a plan: say so, never fake it.
+      // Lock › Subscription: subscribers of the chosen plan unlock it.
+      if (!run("content.lockCombo", (y) => setLockCombo(y, x.id, { subscription: [plan.id] }))) return;
+      advised.current.add(x.id);
       return say({
+        status: "done",
         text: (
           <>
-            You have a <b>{plan.name}</b> ({plan.subscribers} subscribers), but a post's Lock in TopFan is pay to unlock (Individual Purchase), loyalty points or NFT ownership: it can't limit a post to one membership. Here's what works:
+            Done: only <b>{plan.name}</b> members ({plan.subscribers} subscribers) can unlock this post, using Lock › Subscription. Nothing is published until you do it in New Post.
           </>
         ),
-        plain: `${plan.name} exists, but post Lock is pay-to-unlock, loyalty points or NFT; tier-only posts aren't supported.`,
+        plain: `Post Lock set to Subscription: ${plan.name}.`,
+        body: <WorkCard id={x.id} />,
         actions: [
-          { label: "Lock it with an unlock price", variant: "primary", onClick: () => lockIt(x.id) },
-          { label: `Send it as a ${plan.name.split(" ")[0]}-only newsletter`, variant: "outline", onClick: () => newsletter(`Newsletter for ${plan.name}`, { fromId: x.id, ask }) },
-          { label: "Keep it as a draft", variant: "text", onClick: () => say({ text: "Okay. It stays a draft, public until you choose otherwise." }) },
+          { label: "Review it in the Lock dialog", variant: "primary", onClick: () => open(itemById(d(), x.id)!, undefined, { lock: true }) },
+          { label: `Also allow a one-time price`, variant: "outline", onClick: () => applyLock(x.id, { subscription: [plan.id], purchase: monetizeAdvice(d(), x.id).price }, false) },
+          { label: "Prepare a public teaser", variant: "text", onClick: () => teaser(x.id) },
         ],
       });
     }
     if (ask.kind === "points") return lockPoints(x.id);
     if (ask.kind === "nft") return lockNft(x.id);
-    lockIt(x.id, ask.kind === "subscribers");
+    // Subscribers: Lock › Subscription with every active plan. A plain "lock it": recommend a starting price.
+    if (ask.kind === "subscribers") {
+      const plans = d().monetize.plans.filter((p) => p.active);
+      if (!plans.length) return missingPlan("membership");
+      return applyLock(x.id, { subscription: plans.map((p) => p.id) }, false);
+    }
+    advise(x.id);
   };
   /** Where New Post should point the creator for this item's Lock. */
   const lockTarget = (x: WorkItem) => (x.post && lockModes(x.post)[0] === "points" ? "newpost-lock-points" : x.post && lockModes(x.post)[0] === "nft" ? "newpost-lock-nft-input" : "newpost-lock-price");
@@ -422,23 +437,6 @@ export function ContentAgent() {
         onPick: (v) => (v === "setup" ? go("monetize-subscription", "monetize-add-plan") : v === "keep" ? say({ text: "Okay, it stays a draft." }) : audience({ kind: "plan", plan: v.slice(5) })),
       },
     });
-  const lockIt = (id: string, fromSubscribers = false) => {
-    if (!run("content.lock", (y) => setLocked(y, id, itemById(y, id)?.post?.price ?? null))) return;
-    pending.current = { id, field: "lock-price" };
-    say({
-      text: (
-        <>
-          {fromSubscribers ? "TopFan's post Lock works by price, loyalty points or NFT, not by membership. " : ""}I've set this post's Lock to <b>Individual Purchase</b>: fans pay once to unlock it. What unlock price would you like? You can also set it in New Post. Nothing changes on your page until you save or publish it there.
-        </>
-      ),
-      plain: "Post Lock set to Individual Purchase (pay to unlock). Asked for the price.",
-      body: <WorkCard id={id} />,
-      actions: [
-        { label: "Set it in New Post", variant: "outline", onClick: () => open(itemById(d(), id)!, "newpost-lock-price") },
-        { label: "Prepare a public teaser", variant: "outline", onClick: () => teaser(id) },
-      ],
-    });
-  };
   const teaser = (id: string) => {
     let tid = "";
     if (!run("content.teaser", (y) => void (tid = createTeaser(y, id)))) return;
@@ -447,6 +445,142 @@ export function ContentAgent() {
       body: <WorkCard id={tid} />,
       actions: [{ label: "Open teaser in New Post", variant: "primary", onClick: () => open(itemById(d(), tid)!) }],
     });
+  };
+
+  /* ---- D2: monetization advisor (recommends a Lock, then prefills the original Lock dialog) ---- */
+  /** The post the creator means: the focused one, else their latest prepared post. */
+  const postInFocus = () => {
+    const f = focused();
+    if (f?.post) return f;
+    return [...d().content.items].reverse().find((y) => y.kind === "post" && y.post && !["cancelled", "published"].includes(y.status)) ?? null;
+  };
+  /** The price shown in the current recommendation, per post (Change price updates it). */
+  const advisePrice = useRef<Record<string, number>>({});
+  /** Posts whose Lock the assistant prepared, so saving it in New Post gets a confirmation and a teaser offer. */
+  const advised = useRef<Set<string>>(new Set());
+  /** The Lock last suggested per post, so a typed price applies to it. */
+  const adviseCombo = useRef<Record<string, LockCombo>>({});
+  const advise = (id: string, mode: "price" | "points" | "members" = "price") => {
+    run("content.focus", (y) => focus(y, id));
+    const a = monetizeAdvice(d(), id, advisePrice.current[id]);
+    const x = itemById(d(), id)!;
+    const cur = x.post!.locked ? lockSummary(d(), lockCombo(x.post!)) : null;
+    const planNames = a.plans.map((p) => p.name.replace(/ Plan$/, ""));
+    const basis = a.priceBasis === "history" ? `That's the middle price of your ${a.pricedPosts} earlier paid posts.` : `$${a.price} is an example starting price: you don't have earlier paid posts to compare with, so change it if you like.`;
+    const suggest: LockCombo = mode === "points" && a.points ? { points: a.points } : mode === "members" && a.plans.length ? { subscription: a.plans.map((p) => p.id) } : { purchase: a.price };
+    const lead =
+      mode === "points" && a.points ? (
+        <>I'd let fans unlock it with <b>{a.points.toLocaleString("en-US")} loyalty points</b>. That rewards your most active fans without asking them to pay. {a.pointsBasis}</>
+      ) : mode === "members" && a.plans.length ? (
+        <>Yes: with Lock › <b>Subscription</b>, {planNames.join(", ")} members can unlock it. You can also add a one-time price for fans who aren't members.</>
+      ) : (
+        <>I'd start with a <b>${a.price} one-time unlock</b> for this post. {a.reason} {basis}</>
+      );
+    const others = [
+      mode !== "price" && `a $${a.price} one-time unlock`,
+      mode !== "points" && a.points && `${a.points.toLocaleString("en-US")} loyalty points (${a.pointsBasis?.replace(/\.$/, "").replace(/^Your/, "your")})`,
+      mode !== "members" && a.plans.length && `access for your ${planNames.join(", ")} members`,
+    ].filter(Boolean) as string[];
+    // A number typed next sets the unlock price (with whatever else was suggested).
+    pending.current = { id, field: "advise-price" };
+    adviseCombo.current[id] = suggest;
+    say({
+      text: (
+        <>
+          {lead}
+          {others.length > 0 && <> You could also offer {others.join(", or ")}.</>}
+          {a.nft ? <> NFT holders of your saved contract can unlock it too.</> : <> NFT access needs a contract address from you; I won't suggest one.</>}
+          {cur && <> It's locked now: {cur.replace(/^Fans can unlock it/, "fans unlock it")}</>}
+        </>
+      ),
+      plain: `Recommendation: ${lockSummary(d(), suggest)}`,
+      body: <WorkCard id={id} />,
+      actions: [
+        { label: cur ? "Replace with this suggestion" : "Apply suggestion", variant: "primary", onClick: () => applyLock(id, suggest) },
+        ...(suggest.purchase != null ? [{ label: "Change price", variant: "outline" as const, onClick: () => changePrice(id) }] : []),
+        { label: "Explore other options", variant: "text", onClick: () => lockOptions(id) },
+      ],
+    });
+  };
+  /** Set the Lock and open the original Lock dialog with it, for the creator to review and save. */
+  const applyLock = (id: string, c: LockCombo, openDialog = true) => {
+    if (!run("content.lockCombo", (y) => setLockCombo(y, id, c))) return;
+    advised.current.add(id);
+    const x = itemById(d(), id)!;
+    const missing = x.needs.filter((n) => /unlock price|loyalty points|contract address|membership plans/i.test(n));
+    say({
+      status: "done",
+      text: `${lockSummary(d(), c)} ${missing.length ? `Still needed: ${missing.join(" ")}` : "I've put it in the Lock dialog for you to review and save."} Nothing is published.`,
+      body: <WorkCard id={id} />,
+      actions: openDialog ? [] : [{ label: "Review it in the Lock dialog", variant: "primary", onClick: () => open(itemById(d(), id)!, undefined, { lock: true }) }],
+    });
+    if (openDialog) open(x, undefined, { lock: true });
+  };
+  const changePrice = (id: string) => {
+    pending.current = { id, field: "advise-price" };
+    say({
+      text: "What price would you like? Pick one or type an amount.",
+      choice: {
+        instant: true,
+        options: [3, 5, 10, 15].map((n) => ({ value: String(n), label: `$${n}`, recommended: n === monetizeAdvice(d(), id, advisePrice.current[id]).price })),
+        onPick: (v) => ((pending.current = null), (advisePrice.current[id] = Number(v)), advise(id)),
+      },
+    });
+  };
+  const lockOptions = (id: string) => {
+    const a = monetizeAdvice(d(), id, advisePrice.current[id]);
+    const opts: { value: string; label: string; c: LockCombo | null }[] = [
+      ...(a.points ? [{ value: "both", label: `$${a.price} or ${a.points.toLocaleString("en-US")} points`, c: { purchase: a.price, points: a.points } }] : []),
+      ...(a.points ? [{ value: "points", label: "Loyalty points only", c: { points: a.points } }] : []),
+      ...(a.plans.length ? [{ value: "members", label: "Members only", c: { subscription: a.plans.map((p) => p.id) } }] : []),
+      ...(a.plans.length ? [{ value: "members-price", label: `Members, or $${a.price} for everyone else`, c: { subscription: a.plans.map((p) => p.id), purchase: a.price } }] : []),
+      { value: "nft", label: "NFT holders", c: a.nft ? { nft: a.nft } : null },
+    ];
+    say({
+      text: `Ways fans can unlock this post. You can combine them in the Lock dialog. ${a.points ? `Points match your Buy Points rate. ` : "Loyalty Points aren't set up for buying, so I've left them out. "}${a.plans.length ? "" : "You have no active membership plan yet. "}`,
+      choice: {
+        instant: true,
+        options: opts.map((o) => ({ value: o.value, label: o.label })),
+        onPick: (v) => {
+          const o = opts.find((y) => y.value === v)!;
+          if (!o.c) return lockNft(id); // asks for the contract; never invented
+          applyLock(id, o.c);
+        },
+      },
+    });
+  };
+  /** "Let fans pay $5 or use loyalty points": both, as asked (a missing amount is suggested from their own rate). */
+  const lockFromWords = (id: string, t: string) => {
+    const a = monetizeAdvice(d(), id, advisePrice.current[id]);
+    const c: LockCombo = {};
+    const price = t.match(/\$\s*(\d+(?:\.\d{1,2})?)|\b(\d+(?:\.\d{1,2})?)\s*(dollars|usd)\b/);
+    const pts = t.match(/\b(\d[\d,.]*)\s*(loyalty\s+)?points?\b/);
+    if (price || /\b(pay|buy|purchase|price)\b/.test(t)) c.purchase = price ? Number(price[1] ?? price[2]) : a.price;
+    if (pts || /\b(loyalty|points)\b/.test(t)) c.points = pts ? Number(pts[1].replace(/,/g, "")) : a.points;
+    if (/\b(subscriber|members?|gold|silver|bronze)\b/.test(t)) {
+      const tier = t.match(/\b(gold|silver|bronze)\b/g);
+      c.subscription = tier ? a.plans.filter((p) => tier.some((n) => p.name.toLowerCase().startsWith(n))).map((p) => p.id) : a.plans.map((p) => p.id);
+    }
+    if (/\bnfts?\b/.test(t)) c.nft = a.nft;
+    applyLock(id, c, false);
+  };
+  /** Change one value or drop one option and keep the rest of the Lock. */
+  const editLock = (id: string, t: string) => {
+    const x = itemById(d(), id)!;
+    const c = lockCombo(x.post!);
+    const drop = t.match(/\b(remove|drop|no|without|turn off)\b.*\b(loyalty points|points|price|individual purchase|paying|nft|subscription|members?)\b/);
+    if (drop) {
+      const k = /points/.test(drop[2]) ? "points" : /nft/.test(drop[2]) ? "nft" : /subscription|member/.test(drop[2]) ? "subscription" : "purchase";
+      if (!(k in c)) return say({ text: "That option isn't part of this Lock." }), true;
+      delete c[k];
+      if (!Object.keys(c).length) return audience({ kind: "public" }), true;
+      return applyLock(id, c, false), true;
+    }
+    const price = t.match(/\$\s*(\d+(?:\.\d{1,2})?)|\b(\d+(?:\.\d{1,2})?)\s*(dollars|usd)\b/);
+    if (price) return applyLock(id, { ...c, purchase: Number(price[1] ?? price[2]) }, false), true;
+    const pts = t.match(/\b(\d[\d,]*)\s*(loyalty\s+)?points?\b/);
+    if (pts) return applyLock(id, { ...c, points: Number(pts[1].replace(/,/g, "")) }, false), true;
+    return false;
   };
 
   /* ---- E: newsletters ---- */
@@ -576,19 +710,43 @@ export function ContentAgent() {
       actions: [{ label: "Open in New Post", variant: "primary", onClick: () => open(itemById(d(), id)!, x.post!.locked ? lockTarget(itemById(d(), id)!) : undefined) }, ...(x.post!.type === "poll" ? [] : [refine[0]]), { label: "Change audience", variant: "outline", onClick: () => (run("content.focus", (y) => focus(y, id)), audienceChoice()) }, refine[1]],
     });
   };
+  /** Next steps after an edit, so the reply never ends without a way forward: open the draft in its form, plus follow-ups. */
+  const nextSteps = (id: string) => {
+    const x = itemById(d(), id);
+    if (!x) return [];
+    if (x.kind === "newsletter")
+      return [
+        { label: "Open in New Newsletter", variant: "primary" as const, onClick: () => open(itemById(d(), id)!, "monetize-newsletter-save-draft") },
+        { label: "Another image", variant: "outline" as const, onClick: () => moreImages(id) },
+        { label: "Make it shorter", variant: "text" as const, onClick: () => shortened(id) },
+      ];
+    if (x.kind === "experience")
+      return [
+        x.experience?.price != null
+          ? { label: "Open in Add Experience", variant: "primary" as const, onClick: () => open(itemById(d(), id)!, "monetize-product-save") }
+          : { label: "Another image", variant: "outline" as const, onClick: () => moreImages(id) },
+        { label: "Make it more premium", variant: "text" as const, onClick: () => refined(id, "premium") },
+      ];
+    if (x.kind === "post")
+      return [
+        { label: "Open in New Post", variant: "primary" as const, onClick: () => open(itemById(d(), id)!, x.post?.locked ? lockTarget(itemById(d(), id)!) : undefined) },
+        { label: "Change audience", variant: "outline" as const, onClick: () => (run("content.focus", (y) => focus(y, id)), audienceChoice()) },
+      ];
+    return [];
+  };
   const shortened = (id: string) => {
     if (!run("content.shorten", (y) => shortenDraft(y, id))) return;
-    say({ status: "done", text: "Shorter now.", body: <WorkCard id={id} /> });
+    say({ status: "done", text: "Shorter now.", body: <WorkCard id={id} />, actions: nextSteps(id).filter((a) => a.label !== "Make it shorter") });
   };
   const refined = (id: string, how: "premium" | "cta") => {
     let what = "";
     if (!run(`content.${how}`, (y) => (how === "premium" ? void (what = premium(y, id)) : strongerCta(y, id)))) return;
-    say({ status: "done", text: how === "premium" ? `Updated: ${what}.` : "Added a stronger call to action.", body: <WorkCard id={id} /> });
+    say({ status: "done", text: how === "premium" ? `Updated: ${what}.` : "Added a stronger call to action.", body: <WorkCard id={id} />, actions: nextSteps(id).filter((a) => a.label !== "Make it more premium") });
   };
   const retype = (id: string, type: string) => {
     if (!run("content.retype", (y) => changeExperienceType(y, id, type))) return;
     const label = EXPERIENCE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
-    say({ status: "done", text: `Changed to ${label}. ${itemById(d(), id)!.needs.join("; ")}.`, body: <WorkCard id={id} /> });
+    say({ status: "done", text: `Changed to ${label}. ${itemById(d(), id)!.needs.join("; ")}.`, body: <WorkCard id={id} />, actions: nextSteps(id) });
   };
   /** "Create a post and newsletter to promote this": both reference the same experience. */
   const promoteBoth = (expId: string) => {
@@ -747,7 +905,7 @@ export function ContentAgent() {
       const x = childBy(w, t);
       if (!x) return false;
       run("content.shorten", (y) => void shorten(y, x.id));
-      say({ status: "done", text: `Shorter now. Only the ${x.label.toLowerCase()} changed.`, body: <WorkCard id={x.id} /> });
+      say({ status: "done", text: `Shorter now. Only the ${x.label.toLowerCase()} changed.`, body: <WorkCard id={x.id} />, actions: nextSteps(x.id).filter((a) => a.label !== "Make it shorter") });
       return true;
     }
     if (/\b(another|different) (image|photo)\b/.test(t)) {
@@ -800,6 +958,13 @@ export function ContentAgent() {
       }
     }
     const num = t.match(/^\$?\s*(\d+(?:\.\d{1,2})?)\s*(dollars|usd|\$)?(\s+(per|a|each)\s+\w+)?\.?$/);
+    if (p?.field === "advise-price" && num) {
+      if (!(Number(num[1]) > 0)) return say({ status: "problem", text: "An unlock price has to be more than $0. Type another amount." }), true;
+      pending.current = null;
+      advisePrice.current[p.id] = Number(num[1]);
+      const c = adviseCombo.current[p.id];
+      return applyLock(p.id, { ...(c ?? {}), purchase: Number(num[1]) }, false), true;
+    }
     if (p && (p.field === "experience-price" || p.field === "lock-price") && (num || /^free\b/.test(t))) {
       const price = num ? Number(num[1]) : 0;
       const ok = run(p.field === "experience-price" ? "content.price" : "content.lockPrice", (y) => (p.field === "experience-price" ? setExperiencePrice(y, p.id, price) : setLocked(y, p.id, price)));
@@ -877,6 +1042,17 @@ export function ContentAgent() {
       if (/\bupload\b/.test(t)) return upload(), true;
       return mediaChoice(), true;
     }
+    // Monetization advice: recommend first instead of asking the creator to fill the Lock in.
+    const target = postInFocus();
+    if (target && /\b(monetiz\w*|how much should i (charge|ask)|suggest a price|what (price|should i charge)|best way to (earn|make money)|earn (money )?from (this|it)|make (this|it) (premium|paid)( content)?|premium content|let fans pay( to unlock)?|pay to unlock)\b/.test(t)) {
+      if (/\$\s*\d|\b\d+\s*(dollars|points)\b|\bor (use )?(loyalty )?points\b/.test(t)) return lockFromWords(target.id, t), true;
+      return advise(target.id), true;
+    }
+    if (target && /\breward (my )?(loyal|most active|best) fans\b/.test(t)) return advise(target.id, "points"), true;
+    if (target && /\bcan (my )?(subscribers|members) (access|see|unlock|get)\b/.test(t)) return advise(target.id, "members"), true;
+    if (target?.post?.locked && /\b(change|set|make|lower|raise)\b.*(\$\s*\d|\d+\s*(dollars|points))|\b(remove|drop|turn off)\b.*\b(loyalty points|points|price|individual purchase|nft|subscription)\b/.test(t) && editLock(target.id, t)) return true;
+    if (target && /\bunlock (it |this )?(with|for|using) \d[\d,.]* (loyalty )?points\b/.test(t)) return lockFromWords(target.id, t), true;
+    if (target && /\b(pay|price|\$\s*\d)\b.*\bor\b.*\b(points|members?|subscribers|nft)\b|\b(points|members?)\b.*\bor\b.*\b(pay|\$\s*\d)/.test(t) && /\b(let|allow|fans|unlock)\b/.test(t)) return lockFromWords(target.id, t), true;
     const ask = audienceAsk(t);
     if (ask && focused() && /\b(make|only|exclusive|share|lock|unlock|audience|visible|reward|public|available|holders?|let)\b/.test(t) && !/\b(create|write|prepare|draft) (a|an|my)\b/.test(t)) return audience(ask), true;
     if (/\b(shorter|trim it|cut it down)\b/.test(t) && focused()) {
@@ -939,6 +1115,33 @@ export function ContentAgent() {
     handler = route;
     return () => void ((api = null), (handler = null));
   });
+
+  /* ---- read-back: the Lock the creator saved in New Post (for a Lock the assistant prepared) ---- */
+  useEffect(() => {
+    const onSaved = (e: Event) => {
+      const { workId, lock } = (e as CustomEvent<{ workId: string; lock: { subscription: boolean; planIds: string[]; purchase: boolean; price: string; points: boolean; pointsValue: string; nft: boolean; nfts: string[] } }>).detail;
+      if (!advised.current.has(workId) || !itemById(d(), workId)?.post) return;
+      advised.current.delete(workId);
+      const c: LockCombo = {};
+      if (lock.subscription) c.subscription = lock.planIds;
+      if (lock.purchase) c.purchase = Number(lock.price);
+      if (lock.points) c.points = Number(lock.pointsValue);
+      if (lock.nft) c.nft = lock.nfts[0] ?? null;
+      const any = Object.keys(c).length > 0;
+      say({
+        status: "done",
+        text: `Lock saved. ${lockSummary(d(), c)} The post is still an unpublished draft: publish it from New Post when you're ready.${any ? " Want me to prepare a public teaser to help promote it?" : ""}`,
+        actions: any
+          ? [
+              { label: "Prepare a public teaser", variant: "primary", onClick: () => teaser(workId) },
+              { label: "Not now", variant: "text", onClick: () => say({ text: "Okay. You can ask for a teaser any time." }) },
+            ]
+          : [],
+      });
+    };
+    window.addEventListener("tf:lock-saved", onSaved);
+    return () => window.removeEventListener("tf:lock-saved", onSaved);
+  }, []);
 
   /* ---- read-back: what the original screens did ---- */
   useEffect(

@@ -48,6 +48,8 @@ export interface Post {
   status: "published" | "draft";
   locked: boolean;
   price?: number;
+  /** Lock › Subscription: subscribers of these plans can unlock it. */
+  lockPlanIds?: ID[];
   topicTagIds: ID[];
   groupIds: ID[];
   likes: number;

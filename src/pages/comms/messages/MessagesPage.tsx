@@ -99,7 +99,7 @@ function Inbox() {
   return (
     <>
       <div className="mt-[29px] flex h-[40px] items-center gap-[24px]">
-        <div className="flex w-[323px] shrink-0 items-center justify-between">
+        <div className="flex w-[323px] min-w-[220px] shrink items-center justify-between">
           <h2 className="text-[24px] font-bold">Messages</h2>
           {sub === "lists" ? (
             <Button data-testid="messages-new-list" className="!font-normal !normal-case !tracking-normal" onClick={() => setModal("list")}>
@@ -112,7 +112,7 @@ function Inbox() {
           )}
         </div>
         {!loading && (conv || list) && (
-          <div className="flex min-w-[0px] flex-1 items-center justify-between" data-testid="messages-chat-header">
+          <div className="flex min-w-[240px] flex-1 flex-wrap items-center justify-between gap-[8px]" data-testid="messages-chat-header">
             {conv && fan ? (
               <>
                 <div className="flex items-center gap-[16px]">
@@ -152,7 +152,7 @@ function Inbox() {
 
       <div className="mt-[25px] flex gap-[24px]" style={{ height: "max(420px, calc(100vh - 275px))" }}>
         {/* conversation list */}
-        <section className="flex w-[323px] shrink-0 flex-col overflow-hidden rounded-card bg-surface" aria-label="Conversations">
+        <section className="flex w-[323px] min-w-[220px] shrink flex-col overflow-hidden rounded-card bg-surface" aria-label="Conversations">
           <div className="p-[16px] pb-[0px]">
             <SearchPill value={q} onChange={setQ} testid="messages-search" className="!rounded-[20px]" />
           </div>
@@ -206,7 +206,7 @@ function Inbox() {
         </section>
 
         {/* chat */}
-        <section className="flex min-w-[0px] flex-1 flex-col overflow-hidden rounded-card bg-surface" aria-label="Chat">
+        <section className="flex min-w-[240px] flex-1 flex-col overflow-hidden rounded-card bg-surface" aria-label="Chat">
           {loading ? (
             <div className="flex justify-center pt-[40px]">
               <Spinner />

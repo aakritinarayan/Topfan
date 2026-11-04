@@ -414,7 +414,7 @@ export function DelegateDetailsPage({ route, query }: PageProps) {
           ))}
         </div>
 
-        <div className="mt-[30px] flex items-center justify-between">
+        <div className="mt-[30px] flex flex-wrap items-center justify-between gap-[12px]">
           <p className="text-[16px] font-medium">Historical Revenue Share Amounts</p>
           <div className="flex items-center gap-[12px]">
             <PillSelect value={year} options={["2026", "2025"] as const} onChange={setYear} testid="pref-delegate-year" tone="bg" />

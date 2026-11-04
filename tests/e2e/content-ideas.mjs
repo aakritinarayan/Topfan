@@ -157,6 +157,7 @@ check("T3: email verification respected", /verification/i.test(r) && nl.flags.so
 r = await ask(p, "Add a stronger CTA");
 nl = (await items(p)).find((x) => x.id === nl.id);
 check("T3: stronger CTA", /Book a session with me|Subscribe/.test(nl.newsletter.cta), nl.newsletter.cta);
+{ const t = await p.evaluate(() => [...document.querySelectorAll('[data-msg="assistant"]')].at(-1)?.innerText ?? ""); check("T3: the CTA reply offers next steps (not a dead end)", /Added a stronger call to action/.test(t) && /Open in New Newsletter/i.test(t), t.slice(-200)); }
 await tap(p, /^open in new newsletter$/, 1600);
 const nlTitle = await val(p, '[data-testid="monetize-newsletter-title"]');
 const nlBody = await p.$eval('[data-testid="monetize-newsletter-body"]', (x) => ({ h3: x.querySelectorAll("h3").length, text: x.innerText })).catch(() => null);

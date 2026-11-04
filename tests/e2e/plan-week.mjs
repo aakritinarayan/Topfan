@@ -64,6 +64,10 @@ await file.uploadFile(new URL("../../public/assets/videos/big-air.mp4", import.m
 const addedAssets = (await ap()).assets.filter((a) => a.added);
 check("added photo and video join the library, picked", addedAssets.length === 2 && addedAssets.every((a) => a.approved && a.poster?.startsWith("data:image/")) && (await ap()).plan.brief.assetIds.filter((id) => addedAssets.some((a) => a.id === id)).length === 2, JSON.stringify(addedAssets.map((a) => [a.label, a.kind])));
 check("added files show thumbnails", (await p.$$eval('[data-testid^="ap-plan-asset-"] img', (x) => x.filter((i) => i.complete && i.naturalWidth > 0).length)) === assets.length + 2);
+// Generate an image: an AI-generated visual joins the library, picked for the week.
+await click("ap-plan-generate-media"); await sleep(600);
+const gen = (await ap()).assets.filter((a) => a.src?.startsWith("generated/"));
+check("generate an image: added and picked", gen.length === 1 && (await ap()).plan.brief.assetIds.includes(gen[0].id) && !!(await p.$(`[data-testid="ap-plan-asset-${gen[0].id}"] img`)), JSON.stringify(gen));
 await click("ap-plan-next");
 
 // Step 5: plan

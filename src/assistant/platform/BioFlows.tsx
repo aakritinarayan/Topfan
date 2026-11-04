@@ -46,6 +46,8 @@ export function bioFlows(c: BioCtx) {
     if (itemById(d(), id)?.status === "paused") run("content.resume", (y) => setPaused(y, id, false)); // resuming a saved-for-later update
     const x = itemById(d(), id)!;
     const pending = x.status === "needs-input";
+    // Show the Link in Bio page so its preview can follow the selection while the creator reviews.
+    if (!pending && x.bio!.step === "review" && !window.location.pathname.startsWith("/edit-preference/link-in-bio")) c.go("/edit-preference/link-in-bio", "pref-lib-preview");
     say({
       text,
       plain: plain ?? `${text} ${x.bio!.links.map((l) => l.title).join(", ")}`,

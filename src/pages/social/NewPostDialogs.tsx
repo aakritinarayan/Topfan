@@ -5,15 +5,19 @@
  * Everything lists real mock-store data or the documented empty message; nothing is uploaded or sent.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Coins, Flag, Heart, Leaf, Lightbulb, Plane, Plus, Search, ShoppingBag, Smile, Trophy, Utensils, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Coins, Flag, Heart, Leaf, Lightbulb, Plane, Plus, Search, ShoppingBag, Smile, Trophy, Utensils, X } from "lucide-react";
 import { Button, InfoIcon, Select, TextButton, useOutside } from "../../platform/ui/controls";
 import { ImageSlot } from "../../platform/ui/surfaces";
 import { RoundCheck, SocialModal } from "./shared";
 import { AI_TYPES, generateArticle, type AiResult, type AiType } from "../../services/articleGen";
+import { useData } from "../../store/store";
 
 /* ---------------- Lock ---------------- */
 
 export interface LockDraft {
+  subscription: boolean;
+  /** Plans whose subscribers can unlock it (Subscription). */
+  planIds: string[];
   purchase: boolean;
   points: boolean;
   nft: boolean;
@@ -23,16 +27,20 @@ export interface LockDraft {
 }
 /** Loose format check for a pasted NFT contract address (0x + 40 hex). */
 export const NFT_RE = /^0x[0-9a-f]{40}$/i;
-const pillField = "flex h-[44px] items-center rounded-pill bg-bg px-[18px]";
+// Measured from the live New Post › Lock dialog: 51px pill fields on the page colour, 30px side padding.
+const pillField = "flex h-[51px] items-center rounded-pill bg-bg px-[30px]";
+const sectionLabel = "text-[16px]";
 
 export function LockDialog({ open, initial, onCancel, onSave }: { open: boolean; initial: LockDraft; onCancel: () => void; onSave: (v: LockDraft) => void }) {
   const [v, setV] = useState(initial);
   const [nftText, setNftText] = useState("");
   const [err, setErr] = useState<Record<string, string>>({});
+  const plans = useData((d) => d.monetize.plans.filter((p) => p.active));
   useEffect(() => {
     if (open) (setV(initial), setNftText(""), setErr({}));
   }, [open]);
-  const toggle = (k: "purchase" | "points" | "nft") => setV((x) => ({ ...x, [k]: !x[k] }));
+  const toggle = (k: "subscription" | "purchase" | "points" | "nft") => setV((x) => ({ ...x, [k]: !x[k] }));
+  const togglePlan = (id: string) => setV((x) => ({ ...x, planIds: x.planIds.includes(id) ? x.planIds.filter((p) => p !== id) : [...x.planIds, id] }));
   const addNft = () => {
     const c = nftText.trim();
     if (!NFT_RE.test(c)) return setErr((e) => ({ ...e, nft: "Enter a contract address: 0x followed by 40 characters (0–9, a–f)." }));
@@ -45,6 +53,7 @@ export function LockDialog({ open, initial, onCancel, onSave }: { open: boolean;
     let nfts = v.nfts;
     // A valid address typed but not ADDed yet counts.
     if (v.nft && NFT_RE.test(nftText.trim()) && !nfts.length) nfts = [nftText.trim()];
+    if (v.subscription && !v.planIds.length) e.plans = "Choose at least one plan.";
     if (v.purchase && !(Number(v.price) > 0)) e.price = "Enter a price above $0.";
     if (v.points && !(Number.isInteger(Number(v.pointsValue)) && Number(v.pointsValue) > 0)) e.points = "Enter a whole number of points above 0.";
     if (v.nft && !nfts.length) e.nft = "Add at least one NFT contract address.";
@@ -52,56 +61,87 @@ export function LockDialog({ open, initial, onCancel, onSave }: { open: boolean;
     if (Object.keys(e).length) return;
     onSave({ ...v, nfts });
   };
-  const opts: [keyof LockDraft & ("purchase" | "points" | "nft"), string][] = [
+  const opts: [keyof LockDraft & ("subscription" | "purchase" | "points" | "nft"), string][] = [
+    ["subscription", "Subscription"],
     ["purchase", "Individual Purchase"],
     ["points", "Loyalty Points"],
     ["nft", "Lock with NFT"],
   ];
   const Err = ({ k }: { k: string }) => (err[k] ? <p className="mt-[6px] text-[12px] text-danger" role="alert">* {err[k]}</p> : null);
   return (
-    <SocialModal open={open} onClose={onCancel} title="Choose any of the options below to lock this content:" titleClass="text-[16px] font-bold" width={560} centered hideClose testid="newpost-lock-panel" bodyClass="px-[30px] pb-[24px] pt-[20px]">
-      <div className="flex flex-wrap gap-x-[36px] gap-y-[12px]" role="group" aria-label="Lock options">
+    <SocialModal open={open} onClose={onCancel} title="Choose any of the options below to lock this content:" titleClass="text-[18px] font-bold" width={770} centered hideClose testid="newpost-lock-panel" bodyClass="px-[30px] pb-[20px] pt-[22px]">
+      <div className="flex flex-wrap justify-between gap-x-[24px] gap-y-[12px]" role="group" aria-label="Lock options">
         {opts.map(([k, l]) => (
-          <label key={k} className="flex cursor-pointer items-center gap-[10px] text-[14px]">
+          <label key={k} className="flex cursor-pointer items-center gap-[12px] whitespace-nowrap text-[16px]">
             <RoundCheck testid={`newpost-lock-opt-${k}`} label={l} checked={v[k]} onChange={() => toggle(k)} />
             {l}
           </label>
         ))}
       </div>
+      {v.subscription && (
+        <div className="mt-[30px]">
+          <p className={sectionLabel}>Select Subscription Options:</p>
+          {plans.length ? (
+            <ul className="mt-[22px] flex flex-col gap-[7px]" data-testid="newpost-lock-plans">
+              {plans.map((p) => {
+                const on = v.planIds.includes(p.id);
+                return (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={on}
+                      data-testid={`newpost-lock-plan-${p.id}`}
+                      onClick={() => togglePlan(p.id)}
+                      className="flex h-[55px] w-full items-center justify-between rounded-pill border border-accent px-[30px] text-left text-[16px]"
+                    >
+                      {p.name}
+                      <span className={`flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full ${on ? "bg-accent" : "border border-accent"}`}>{on && <Check size={15} strokeWidth={3.5} />}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="mt-[12px] text-[14px] text-soft">You don't have an active membership plan yet. Create one in Monetize › Subscriptions.</p>
+          )}
+          <Err k="plans" />
+        </div>
+      )}
       {v.purchase && (
-        <div className="mt-[26px]">
-          <p className="text-[14px]">Individual Purchase</p>
-          <div className={`${pillField} mt-[12px] pr-[8px]`}>
-            <span className="mr-[6px] text-[14px] font-bold">$</span>
-            <input aria-label="Unlock price" data-testid="newpost-lock-price" inputMode="decimal" value={v.price} onChange={(e) => setV({ ...v, price: e.target.value.replace(/[^\d.]/g, "") })} className="w-full bg-transparent text-[14px] font-bold outline-none" />
-            <span aria-hidden className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full bg-accent/70">
-              <Coins size={15} />
+        <div className="mt-[30px]">
+          <p className={sectionLabel}>Individual Purchase</p>
+          <div className={`${pillField} mt-[20px] pr-[10px]`}>
+            <span className="mr-[6px] text-[16px] font-bold">$</span>
+            <input aria-label="Unlock price" data-testid="newpost-lock-price" inputMode="decimal" value={v.price} onChange={(e) => setV({ ...v, price: e.target.value.replace(/[^\d.]/g, "") })} className="w-full bg-transparent text-[16px] font-bold outline-none" />
+            <span aria-hidden className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-accent/60">
+              <Coins size={18} />
             </span>
           </div>
           <Err k="price" />
         </div>
       )}
       {v.points && (
-        <div className="mt-[20px]">
-          <p className="text-[14px]">Allow users to unlock this content with loyalty points</p>
-          <div className={`${pillField} mt-[12px]`}>
-            <span aria-hidden className="mr-[10px] flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-black">★</span>
-            <input aria-label="Loyalty points to unlock" data-testid="newpost-lock-points" inputMode="numeric" value={v.pointsValue} onChange={(e) => setV({ ...v, pointsValue: e.target.value.replace(/[^\d]/g, "") })} className="w-full bg-transparent text-[14px] font-bold outline-none" />
-            <span className="ml-[8px] text-[14px] font-bold text-soft">Points</span>
+        <div className="mt-[28px]">
+          <p className={sectionLabel}>Allow users to unlock this content with loyalty points</p>
+          <div className={`${pillField} mt-[20px] pl-[16px]`}>
+            <span aria-hidden className="mr-[12px] flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[#f5b301] text-[13px] text-[#9a5b00]">★</span>
+            <input aria-label="Loyalty points to unlock" data-testid="newpost-lock-points" inputMode="numeric" value={v.pointsValue} onChange={(e) => setV({ ...v, pointsValue: e.target.value.replace(/[^\d]/g, "") })} className="w-full bg-transparent text-[16px] font-bold outline-none" />
+            <span className="ml-[8px] text-[20px] font-medium text-soft">Points</span>
           </div>
           <Err k="points" />
         </div>
       )}
       {v.nft && (
-        <div className="mt-[20px]">
-          <p className="flex items-center text-[14px]">
+        <div className="mt-[28px]">
+          <p className={`flex items-center justify-between pr-[40px] ${sectionLabel}`}>
             Add NFT Contract Address :
             <InfoIcon text="Fans who hold an NFT from this contract can unlock the post. Paste the contract address from the marketplace or your wallet; it starts with 0x." />
           </p>
-          <div className={`${pillField} mt-[12px] pr-[12px]`}>
-            <input aria-label="NFT contract address" data-testid="newpost-lock-nft-input" value={nftText} onChange={(e) => setNftText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addNft())} placeholder="Paste the NFT Contract ID here" className="w-full bg-transparent text-[13px] font-bold outline-none placeholder:text-muted" />
-            <button type="button" data-testid="newpost-lock-nft-add" onClick={addNft} className="flex shrink-0 items-center gap-[2px] text-[13px] font-black uppercase text-accent hover:brightness-125">
-              <Plus size={14} strokeWidth={3} /> Add
+          <div className={`${pillField} mt-[20px] pr-[24px]`}>
+            <input aria-label="NFT contract address" data-testid="newpost-lock-nft-input" value={nftText} onChange={(e) => setNftText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addNft())} placeholder="Paste the NFT Contract ID here" className="w-full bg-transparent text-[15px] font-bold outline-none placeholder:text-muted" />
+            <button type="button" data-testid="newpost-lock-nft-add" onClick={addNft} className="flex shrink-0 items-center gap-[2px] text-[16px] font-black uppercase text-accent hover:brightness-125">
+              <Plus size={18} strokeWidth={3} /> Add
             </button>
           </div>
           <Err k="nft" />
@@ -119,12 +159,12 @@ export function LockDialog({ open, initial, onCancel, onSave }: { open: boolean;
           )}
         </div>
       )}
-      {!v.purchase && !v.points && !v.nft && <p className="mt-[20px] text-[13px] text-soft">No option selected: saving removes the Lock and the post stays open to everyone who can see it.</p>}
-      <div className="mt-[28px] flex items-center justify-end gap-[8px]">
-        <TextButton data-testid="newpost-lock-cancel" onClick={onCancel}>
+      {!v.subscription && !v.purchase && !v.points && !v.nft && <p className="mt-[20px] text-[14px] text-soft">No option selected: saving removes the Lock and the post stays open to everyone who can see it.</p>}
+      <div className="mt-[56px] flex items-center justify-end gap-[24px]">
+        <TextButton data-testid="newpost-lock-cancel" onClick={onCancel} className="!text-[16px]">
           Cancel
         </TextButton>
-        <Button data-testid="newpost-lock-apply" onClick={save} className="w-[110px]">
+        <Button data-testid="newpost-lock-apply" onClick={save} className="!h-[40px] w-[120px] !text-[16px]">
           Save
         </Button>
       </div>

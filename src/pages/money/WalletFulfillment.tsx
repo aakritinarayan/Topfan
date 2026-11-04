@@ -104,7 +104,7 @@ function FulfillmentRow({ f, onAction }: { f: FulfillmentItem; onAction: (k: "fu
           </div>
         </dl>
         {open && (
-          <div className="mt-[16px] flex items-center gap-[20px]">
+          <div className="mt-[16px] flex flex-wrap items-center gap-[20px]">
             <button type="button" data-testid={`wallet-fulfillment-refund-${f.id}`} onClick={() => onAction("refund")} className="text-[14px] font-black uppercase tracking-caps hover:text-accent">
               Cancel &amp; Refund
             </button>

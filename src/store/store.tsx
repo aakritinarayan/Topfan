@@ -57,6 +57,8 @@ const KEY = storageKey("topfan-mock-v1");
 
 /** Bump when seed media changes so browsers holding older saved data get the new media fields once. */
 const MEDIA_SEED = 1;
+/** Bump when sample sub-pages change: saved data with an empty list gets the samples once. */
+const SUBPAGE_SEED = 1;
 const MEDIA_FIELDS = new Set(["avatar", "fromAvatar", "creatorAvatar", "cover", "hero", "banner", "eventsCover", "image", "src", "video", "logo", "previewMedia"]);
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 
@@ -94,7 +96,7 @@ function load(): AppData {
     }
     const raw = localStorage.getItem(KEY);
     if (!raw) return fresh;
-    const saved = JSON.parse(raw) as Partial<AppData> & { mediaSeed?: number };
+    const saved = JSON.parse(raw) as Partial<AppData> & { mediaSeed?: number; subPageSeed?: number };
     // Shallow-merge per slice so new fields added during development get their defaults.
     const out = { ...fresh } as Record<string, unknown>;
     for (const k of Object.keys(fresh) as (keyof AppData)[]) out[k] = { ...fresh[k], ...(saved[k] ?? {}) };
@@ -102,6 +104,8 @@ function load(): AppData {
     if ((saved.mediaSeed ?? 0) < MEDIA_SEED) {
       for (const k of Object.keys(fresh) as (keyof AppData)[]) out[k] = backfillMedia(fresh[k], out[k]);
     }
+    const cover = out.cover as AppData["cover"];
+    if ((saved.subPageSeed ?? 0) < SUBPAGE_SEED && !cover.subPages.length) out.cover = { ...cover, subPages: fresh.cover.subPages };
     return out as unknown as AppData;
   } catch {
     return fresh;
@@ -125,7 +129,7 @@ const subs = new Set<() => void>();
 const eventSubs = new Set<(e: StoreEvent) => void>();
 const persist = () => {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ ...data, mediaSeed: MEDIA_SEED }));
+    localStorage.setItem(KEY, JSON.stringify({ ...data, mediaSeed: MEDIA_SEED, subPageSeed: SUBPAGE_SEED }));
   } catch {
     /* storage full / private mode: keep working in memory */
   }

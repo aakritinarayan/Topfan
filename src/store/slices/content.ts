@@ -23,7 +23,7 @@ export type WorkKind = "post" | "newsletter" | "experience" | "week" | "bio";
 export type WorkStatus = "draft" | "approved" | "needs-input" | "review" | "blocked" | "saved" | "published" | "sent" | "active" | "paused" | "cancelled" | "failed";
 export type MediaOrigin = "library" | "generated" | "upload";
 /** The New Post Lock dialog's options. */
-export type LockMode = "purchase" | "points" | "nft";
+export type LockMode = "purchase" | "points" | "nft" | "subscription";
 
 export interface WorkMedia {
   key: string;
@@ -90,7 +90,7 @@ export interface WorkItem {
    * price, Loyalty Points = points, Lock with NFT = contract address). No lockBy on a locked post means
    * Individual Purchase (older items).
    */
-  post?: { type: PostType; title?: string; text: string; pollOptions?: string[]; locked: boolean; price: number | null; lockBy?: LockMode[]; points?: number | null; contract?: string | null };
+  post?: { type: PostType; title?: string; text: string; pollOptions?: string[]; locked: boolean; price: number | null; lockBy?: LockMode[]; points?: number | null; contract?: string | null; planIds?: ID[] };
   /** html/sections/intro/cta: drafts from an idea (headed sections for the newsletter editor). */
   newsletter?: { title: string; body: string; html?: string; sections?: { h: string; p: string }[]; intro?: string; cta?: string; lock: "Free" | "Subscribers" | "Paid"; audience: "all" | "plans"; planIds: ID[] };
   /** duration: the call/session length for calendar-scheduled types (an option on the form, not a booking). */
@@ -357,9 +357,9 @@ export function mediaProblem(x: WorkItem, m: Pick<WorkMedia, "w" | "h" | "origin
 
 /**
  * What the creator asked for, mapped to what TopFan supports. Posts: Public, or the New Post Lock, whose
- * options are Individual Purchase (a price), Loyalty Points (a points amount) and Lock with NFT (holders
- * of an NFT contract the creator pastes). The post Lock has no subscriber or tier option, so a tier
- * request can't be applied to a post; newsletters do support Subscribers Only and specific plans.
+ * options are Subscription (members of the plans the creator picks), Individual Purchase (a price),
+ * Loyalty Points (a points amount) and Lock with NFT (holders of an NFT contract the creator pastes);
+ * any of them can be combined. Newsletters support Subscribers Only and specific plans.
  */
 export type AudienceAsk = { kind: "public" } | { kind: "locked" } | { kind: "points" } | { kind: "nft" } | { kind: "plan"; plan: string } | { kind: "subscribers" };
 export function audienceAsk(text: string): AudienceAsk | null {
@@ -380,14 +380,15 @@ export const NFT_CONTRACT_RE = /^0x[0-9a-f]{40}$/i;
 /** The Lock options in effect (older locked items without lockBy = Individual Purchase). */
 export const lockModes = (post: NonNullable<WorkItem["post"]>): LockMode[] => (!post.locked ? [] : post.lockBy?.length ? post.lockBy : ["purchase"]);
 
-const LOCK_NEEDS = /unlock price|loyalty points|contract address/i;
+const LOCK_NEEDS = /unlock price|loyalty points|contract address|membership plans/i;
 const NEED: Record<LockMode, string> = {
+  subscription: "Which membership plans can unlock it (you pick them in New Post).",
   purchase: "An unlock price for the Lock (you set it in New Post).",
   points: "The loyalty points fans spend to unlock it (you set them in New Post).",
   nft: "The NFT contract address (paste it; I won't guess one).",
 };
 /** Turn on the post Lock with one option; whatever detail is missing is listed for the creator. */
-function lockWith(d: AppData, id: ID, mode: LockMode, patch: { price?: number | null; points?: number | null; contract?: string | null }) {
+function lockWith(d: AppData, id: ID, mode: LockMode, patch: { price?: number | null; points?: number | null; contract?: string | null; planIds?: ID[] }) {
   const x = itemById(d, id);
   if (!x?.post) return;
   if (x.post.type === "text") x.post.type = "images"; // Text posts have no Lock in TopFan
@@ -396,11 +397,56 @@ function lockWith(d: AppData, id: ID, mode: LockMode, patch: { price?: number | 
   x.post.price = mode === "purchase" ? patch.price ?? null : null;
   x.post.points = mode === "points" ? patch.points ?? null : null;
   x.post.contract = mode === "nft" ? patch.contract ?? null : null;
+  x.post.planIds = mode === "subscription" ? patch.planIds ?? [] : [];
+  lockNeeds(x);
+}
+/** What a Lock option still needs from the creator. */
+const lockMissing = (post: NonNullable<WorkItem["post"]>, m: LockMode) =>
+  m === "purchase" ? post.price == null : m === "points" ? post.points == null : m === "nft" ? !post.contract : !post.planIds?.length;
+function lockNeeds(x: WorkItem) {
   x.needs = x.needs.filter((n) => !LOCK_NEEDS.test(n));
-  const missing = mode === "purchase" ? x.post.price == null : mode === "points" ? x.post.points == null : !x.post.contract;
-  if (missing) x.needs.push(NEED[mode]);
+  for (const m of lockModes(x.post!)) if (lockMissing(x.post!, m)) x.needs.push(NEED[m]);
   x.status = x.needs.length ? "needs-input" : "draft";
   touch(x);
+}
+
+/** The Lock options to set together (any combination the Lock dialog allows); unset values are listed as needed. */
+export interface LockCombo {
+  purchase?: number | null;
+  points?: number | null;
+  nft?: string | null;
+  subscription?: ID[];
+}
+/** Turn on several Lock options at once, replacing the post's current Lock. Values are validated like the dialog does. */
+export function setLockCombo(d: AppData, id: ID, c: LockCombo) {
+  const x = itemById(d, id);
+  if (!x?.post) return;
+  if (c.purchase != null && !(c.purchase > 0)) throw new Refused("An unlock price has to be more than $0.");
+  if (c.points != null && !(Number.isInteger(c.points) && c.points > 0)) throw new Refused("Loyalty points have to be a whole number above 0.");
+  if (c.nft != null && !NFT_CONTRACT_RE.test(c.nft.trim())) throw new Refused("That doesn't look like an NFT contract address. It should be 0x followed by 40 characters (0–9, a–f).");
+  const plans = (c.subscription ?? []).filter((pid) => d.monetize.plans.some((p) => p.id === pid && p.active));
+  if (c.subscription?.length && !plans.length) throw new Refused("Those membership plans aren't active.");
+  const modes = (["subscription", "purchase", "points", "nft"] as const).filter((k) => k in c);
+  if (!modes.length) throw new Refused("Pick at least one way for fans to unlock it.");
+  if (x.post.type === "text") x.post.type = "images"; // Text posts have no Lock in TopFan
+  x.post.locked = true;
+  x.post.lockBy = [...modes];
+  x.post.price = "purchase" in c ? c.purchase ?? null : null;
+  x.post.points = "points" in c ? c.points ?? null : null;
+  x.post.contract = "nft" in c ? c.nft?.trim() ?? null : null;
+  x.post.planIds = "subscription" in c ? plans : [];
+  lockNeeds(x);
+}
+/** The post's Lock as a combo (to change one value and keep the rest). */
+export function lockCombo(post: NonNullable<WorkItem["post"]>): LockCombo {
+  const c: LockCombo = {};
+  for (const m of lockModes(post)) {
+    if (m === "purchase") c.purchase = post.price ?? null;
+    if (m === "points") c.points = post.points ?? null;
+    if (m === "nft") c.nft = post.contract ?? null;
+    if (m === "subscription") c.subscription = post.planIds ?? [];
+  }
+  return c;
 }
 
 /** Make a post public (removes the Lock and its price, points or contract). */
@@ -412,6 +458,7 @@ export function setPublic(d: AppData, id: ID) {
   x.post.lockBy = [];
   x.post.points = null;
   x.post.contract = null;
+  x.post.planIds = [];
   x.needs = x.needs.filter((n) => !LOCK_NEEDS.test(n));
   x.flags = x.flags.filter((f) => !/access/i.test(f));
   if (x.status === "needs-input" && !x.needs.length) x.status = "draft";
@@ -717,7 +764,7 @@ export function focus(d: AppData, id: ID | null) {
 }
 
 /** The creator edited fields on the original screen: their text wins from now on. */
-export function syncFromScreen(d: AppData, id: ID, patch: { text?: string; title?: string; body?: string; description?: string; price?: number | null; locked?: boolean; lockBy?: LockMode[]; points?: number | null; contract?: string | null }) {
+export function syncFromScreen(d: AppData, id: ID, patch: { text?: string; title?: string; body?: string; description?: string; price?: number | null; locked?: boolean; lockBy?: LockMode[]; points?: number | null; contract?: string | null; planIds?: ID[] }) {
   const x = itemById(d, id);
   if (!x) return;
   let changed = false;
@@ -740,6 +787,11 @@ export function syncFromScreen(d: AppData, id: ID, patch: { text?: string; title
       x.post.contract = patch.contract;
       changed = true;
       if (patch.contract) x.needs = x.needs.filter((n) => !/contract address/i.test(n));
+    }
+    if (patch.planIds !== undefined && patch.planIds.join() !== (x.post.planIds ?? []).join()) {
+      x.post.planIds = [...patch.planIds];
+      changed = true;
+      if (patch.planIds.length) x.needs = x.needs.filter((n) => !/membership plans/i.test(n));
     }
     if (!x.post.locked) x.needs = x.needs.filter((n) => !LOCK_NEEDS.test(n));
   }
@@ -791,4 +843,73 @@ export function linkSaved(d: AppData, id: ID, ref: WorkItem["ref"], status: Extr
           touch(y);
         }
     }
+}
+
+/* ------------------------------------------------------------------ monetization advice (post Lock) */
+
+/**
+ * A starting recommendation for a post's Lock, from the creator's own data only:
+ * - price: the median of their earlier priced posts, or an example $5 when there are none (said plainly);
+ * - points: the same value in loyalty points at their own Buy Points rate (cheapest bundle without bonus);
+ * - plans: their active membership plans (Lock › Subscription);
+ * - nft: a contract already saved in their account (never invented).
+ * No sales, engagement or conversion figures exist in the demo data, so none are used or quoted.
+ */
+export interface MonetizeAdvice {
+  price: number;
+  priceBasis: "history" | "example";
+  /** Earlier priced posts counted for the median (0 = example price). */
+  pricedPosts: number;
+  reason: string;
+  points: number | null;
+  /** "Your 500-point bundle sells for $5." */
+  pointsBasis: string | null;
+  plans: { id: ID; name: string }[];
+  nft: string | null;
+}
+export function monetizeAdvice(d: AppData, id: ID, price?: number): MonetizeAdvice {
+  const x = itemById(d, id);
+  const text = `${x?.post?.title ?? ""} ${x?.post?.text ?? ""} ${x?.goal ?? ""}`.toLowerCase();
+  const priced = d.social.posts.map((p) => p.price ?? 0).filter((n) => n > 0).sort((a, b) => a - b);
+  const median = priced.length ? priced[Math.floor((priced.length - 1) / 2)] : null;
+  const p = price ?? median ?? 5;
+  const how = /\b(tutorial|guide|how[- ]to|tips?|breakdown|lesson|step[- ]by[- ]step|learn|technique|setup)\b/.test(text);
+  const reason = how
+    ? "It teaches something specific, which suits a one-time unlock."
+    : x?.post?.type === "video" || x?.post?.type === "reel"
+      ? "It's a full video, which suits a one-time unlock."
+      : "A one-time unlock is the simplest way to start earning from a single post.";
+  const g = d.prefsB.gamification;
+  const bundle = g.buyEnabled ? g.bundles.filter((b) => b.active && b.price > 0).sort((a, b) => a.price - b.price)[0] : undefined;
+  const rate = bundle ? bundle.points / bundle.price : null; // points per dollar, as fans buy them
+  const points = rate ? Math.round(p * rate) : null;
+  const saved = [
+    ...d.monetize.products.flatMap((pr) => pr.restrict?.nftContracts ?? []),
+    ...d.monetize.newsletters.flatMap((n) => [...(n.buyRestrict?.nftContracts ?? []), ...(n.freeNftContracts ?? [])]),
+    ...d.content.items.map((y) => y.post?.contract ?? ""),
+  ].find((c) => NFT_CONTRACT_RE.test(c)) ?? null;
+  return {
+    price: p,
+    priceBasis: median != null && price == null ? "history" : "example",
+    pricedPosts: priced.length,
+    reason,
+    points,
+    pointsBasis: bundle ? `Your ${bundle.points.toLocaleString("en-US")}-point bundle sells for $${bundle.price}.` : null,
+    plans: d.monetize.plans.filter((pl) => pl.active).map((pl) => ({ id: pl.id, name: pl.name })),
+    nft: saved,
+  };
+}
+
+/** "Fans can unlock it by paying $5, with 500 loyalty points, or as Gold or Silver members." */
+export function lockSummary(d: AppData, c: LockCombo): string {
+  const parts: string[] = [];
+  if ("purchase" in c) parts.push(c.purchase != null ? `by paying $${c.purchase % 1 ? c.purchase.toFixed(2) : c.purchase}` : "by paying an unlock price (not set yet)");
+  if ("points" in c) parts.push(c.points != null ? `with ${c.points.toLocaleString("en-US")} loyalty points` : "with loyalty points (amount not set yet)");
+  if ("subscription" in c) {
+    const names = (c.subscription ?? []).map((pid) => d.monetize.plans.find((p) => p.id === pid)?.name.replace(/ Plan$/, "")).filter(Boolean) as string[];
+    parts.push(names.length ? `as ${names.length > 1 ? `${names.slice(0, -1).join(", ")} or ${names.at(-1)}` : names[0]} members` : "as members of the plans you pick");
+  }
+  if ("nft" in c) parts.push(c.nft ? `by holding an NFT from ${c.nft.slice(0, 6)}…${c.nft.slice(-4)}` : "by holding an NFT (contract not added yet)");
+  if (!parts.length) return "Everyone who can see the post can view it.";
+  return `Fans can unlock it ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")} or ${parts.at(-1)}` : parts[0]}.`;
 }

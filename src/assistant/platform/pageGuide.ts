@@ -42,21 +42,25 @@ const ca = (id: string, label: string, fn: (c: NonNullable<ReturnType<typeof con
 const pageHelp: Def = { id: "page-help", label: "What can I do on this page?", run: (g) => void g.handle("What can I do on this page?") };
 
 /** Per page: [Account Setup & Navigation actions, AI-Assisted Content actions]. */
-const PAGES: Record<string, { featureId: string; intro?: string; contentIntro?: string; setup: Def[]; content: Def[] }> = {
+/** `helps`: one plain line on how the page helps the creator, shown when they open it. */
+const PAGES: Record<string, { featureId: string; intro?: string; contentIntro?: string; helps?: string; setup: Def[]; content: Def[] }> = {
   feed: {
     featureId: "feed",
+    helps: "Posting often keeps fans coming back, and you can see what they like most.",
     contentIntro: "Your posts and how fans are responding to them.",
     setup: [pageHelp, task("create-post", "Explore how to create a post"), task("white-label", "Customize my website")],
     content: [ca("post", "Create another post", (c) => c.post()), ca("repurpose", "Repurpose this content", (c) => c.newsletter("Turn my latest post into a newsletter")), ca("performance", "Review available performance information", (c) => c.performance()), planWeek, reviewDrafts()],
   },
   newpost: {
     featureId: "new-post",
+    helps: "Good posts keep fans interested and bring new ones to your page.",
     contentIntro: "Create a post for your fans. I can help write it, add a visual and choose who can see it.",
     setup: [understand("new-post", "Understand available post types"), task("create-post", "Walk me through creating a post"), understand("feed", "Learn where published posts appear")],
     content: [ca("write", "Help me write this post", (c) => c.post()), ca("visual", "Add a visual", (c) => c.media()), ca("audience", "Choose who can see this", (c) => c.audience()), reviewDrafts("Review my AI-generated drafts")],
   },
   "monetize-subscription": {
     featureId: "subscriptions",
+    helps: "Memberships give you steady monthly income from your biggest fans.",
     intro: "You can create and manage recurring membership plans for your fans.",
     contentIntro: "Membership plans give fans recurring access. Newsletters can go to specific plans; posts can be locked behind an unlock price.",
     setup: [understand("subscriptions", "Understand subscriptions"), task("launch-subscription", "Create a membership"), exploreEarning],
@@ -64,56 +68,66 @@ const PAGES: Record<string, { featureId: string; intro?: string; contentIntro?: 
   },
   "monetize-newsletters": {
     featureId: "newsletters",
+    helps: "A newsletter lands in fans' inboxes, so they don't miss your news.",
     contentIntro: "Write newsletters for your fans and subscribers. I can draft one, or turn a post into one.",
     setup: [understand("newsletters"), task("send-newsletter", "Set up a newsletter"), exploreEarning],
     content: [ca("newsletter", "Draft a newsletter", (c) => c.newsletter()), ca("repurpose", "Repurpose an existing post", (c) => c.newsletter("Turn my latest post into a newsletter")), ca("recipients", "Review recipient options", (c) => c.recipients()), understand("newsletters", "Understand this page")],
   },
   "monetize-experience": {
     featureId: "experiences",
+    helps: "Experiences let fans spend time with you, and you get paid for it.",
     contentIntro: "Paid experiences fans can book with you, like a video call or an in-person session.",
     setup: [understand("experiences"), task("sell-experience", "Set up an experience"), exploreEarning],
     content: [ca("experience", "Plan an experience", (c) => c.experience()), ca("description", "Help with the description", (c) => c.experience("Plan a fan experience")), ca("required", "Review required details", (c) => c.requiredDetails()), understand("experiences", "Understand this page")],
   },
   "monetize-courses": {
     featureId: "courses",
+    helps: "A course lets you teach what you know and earn from it again and again.",
     setup: [understand("courses"), task("sell-course", "Set up a course"), exploreEarning],
     content: [{ id: "outline", label: "Draft a course outline", content: true, run: (g) => g.offerDraft("course-outline") }, { id: "announce-course", label: "Announce my course", content: true, run: (g) => g.offerDraft("post-idea", ANNOUNCE("[course title]")) }, understand("courses", "Understand this page")],
   },
   "wallet-balance": {
     featureId: "wallet-balance",
+    helps: "See what you've earned and where your money is, in one place.",
     setup: [understand("wallet-balance", "Understand my wallet"), { id: "earnings", label: "Where can I check my earnings?", run: (g) => void g.handle("Where can I check my earnings?") }, exploreEarning],
     content: [understand("wallet-balance", "Understand this page"), planWeek],
   },
   insights: {
     featureId: "insights",
+    helps: "See which posts and offers work best, so you know what to do more of.",
     setup: [understand("insights"), { id: "earnings", label: "Check my earnings", run: (g) => g.navigateTo("earnings") }, task("vip-group", "Help me create a VIP group")],
     content: [understand("insights", "Understand this page"), planWeek, reviewDrafts()],
   },
   "pref-profile": {
     featureId: "profile",
+    helps: "A complete profile helps fans trust you and find what they're looking for.",
     intro: "Manage your profile and website settings here. Each settings area is a tab above; I can guide you to the right one.",
     setup: [pageHelp, { id: "open-wls", label: "Open my website settings", run: (g) => g.navigateTo("white-label") }, understand("profile", "Understand profile settings")],
     content: [{ id: "open-lib", label: "Open my Link in Bio", content: true, run: (g) => g.navigateTo("link-in-bio") }, understand("profile", "Understand this page")],
   },
   "pref-whitelabel": {
     featureId: "white-label",
+    helps: "Your own website makes your page look professional and easy to share.",
     setup: [cover("start", "Edit my cover page"), task("white-label", "Update logo and colors"), understand("white-label", "Review my website settings"), task("first-time-setup", "Connect my domain")],
     content: [understand("white-label", "Understand this page"), { id: "branding", label: "View existing branding settings", run: (g) => g.navigateTo("white-label", { topic: "colors" }) }],
   },
   "pref-whitelabel-cover": {
     featureId: "cover-page",
+    helps: "A clear cover page tells visitors who you are and where to go next.",
     intro: "This is the first page visitors see on your website: its search details, sections and sub-pages.",
     setup: [cover("prepare", "Prepare my cover page"), cover("improveIntro", "Help improve my introduction"), cover("suggestColors", "Suggest brand colors"), cover("reviewMissing", "Review missing information")],
     content: [understand("cover-page", "Understand this page")],
   },
   "pref-link-in-bio": {
     featureId: "link-in-bio",
+    helps: "One link in your social bios sends fans to everything you offer.",
     contentIntro: "Your Link in Bio brings your content, offerings, and social profiles together in one place. I can help you organize it.",
     setup: [understand("link-in-bio"), task("link-in-bio", "Set up my Link in Bio"), pageHelp],
     content: [ca("bio-setup", "Set up my links", (c) => c.bioSetup()), ca("bio-promote", "Promote an offering", (c) => c.bioPromote()), ca("bio-improve", "Improve existing links", (c) => c.bioImprove()), understand("link-in-bio", "Understand this page")],
   },
   "pref-groups": {
     featureId: "groups",
+    helps: "Groups let you talk to your closest fans in a more personal way.",
     setup: [understand("groups"), task("vip-group", "Help me create a VIP group"), pageHelp],
     content: [{ id: "group-welcome", label: "Write a group welcome post", content: true, run: (g) => g.offerDraft("group-welcome") }, memberUpdate, understand("groups", "Understand this page")],
   },
@@ -127,9 +141,9 @@ export function pageIntro(path: string) {
   const route = resolve(path).route;
   const page = PAGES[pageKey(route.id)];
   const f = page ? featureById(page.featureId) : featureForRoute(route.id);
-  if (!f) return { name: route.title, line: null };
+  if (!f) return { name: route.title, line: null, helps: null };
   const intro = (!inScope("discovery") && page?.contentIntro) || page?.intro || f.description;
-  return { name: f.name, line: `You're in ${f.name}. ${intro}` };
+  return { name: f.name, line: `You're in ${f.name}. ${intro}`, helps: page?.helps ?? null };
 }
 
 /**

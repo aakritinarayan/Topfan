@@ -99,8 +99,10 @@ interface Form {
   locked: boolean;
   /** The Lock dialog is open. */
   lockOpen: boolean;
-  /** Lock options: Individual Purchase (price), Loyalty Points (points), Lock with NFT (contracts). */
-  lock: { purchase: boolean; points: boolean; nft: boolean };
+  /** Lock options: Subscription (plans), Individual Purchase (price), Loyalty Points (points), Lock with NFT (contracts). */
+  lock: { subscription: boolean; purchase: boolean; points: boolean; nft: boolean };
+  /** Membership plans whose subscribers can unlock it (Lock › Subscription). */
+  planIds: string[];
   price: string;
   points: string;
   nfts: string[];
@@ -135,7 +137,7 @@ interface LevelRow {
 const blankRow = (): LevelRow => ({ title: "", amount: "", gift: null });
 const blank = (t: PostType, draft: { title: string; html: string }): Form => ({
   files: [], text: "", title: t === "article" ? draft.title : "", html: t === "article" ? draft.html : "", plain: "",
-  locked: false, lockOpen: false, lock: { purchase: true, points: false, nft: false }, price: "", points: "", nfts: [],
+  locked: false, lockOpen: false, lock: { subscription: false, purchase: true, points: false, nft: false }, planIds: [], price: "", points: "", nfts: [],
   collabOpen: false, collaborators: [], interestsOpen: false, interests: [], topicTagIds: [], groupIds: [],
   opts: { discovery: true, discoveryReel: true, signIn: false, sensitive: false }, preview: null,
   question: "", date: "", time: "", options: ["", ""], cta: "", url: "", goal: "", allowBeyond: true, rows: [blankRow()],
@@ -147,9 +149,9 @@ const card = "rounded-panel bg-surface";
 const field = "w-full resize-none bg-transparent text-[18px] text-white outline-none placeholder:text-muted";
 /** Lock options in effect on the form (empty when no Lock). */
 const formModes = (f: Pick<Form, "locked" | "lockOpen" | "lock">): LockMode[] =>
-  f.locked || f.lockOpen ? (["purchase", "points", "nft"] as const).filter((k) => f.lock[k]) : [];
-const lockSig = (locked: boolean, modes: LockMode[], price: number | null, points: number | null, contract: string | null) =>
-  JSON.stringify(locked ? [modes, modes.includes("purchase") ? price : null, modes.includes("points") ? points : null, modes.includes("nft") ? contract : null] : null);
+  f.locked || f.lockOpen ? (["subscription", "purchase", "points", "nft"] as const).filter((k) => f.lock[k]) : [];
+const lockSig = (locked: boolean, modes: LockMode[], price: number | null, points: number | null, contract: string | null, planIds: string[] = []) =>
+  JSON.stringify(locked ? [[...modes].sort(), modes.includes("purchase") ? price : null, modes.includes("points") ? points : null, modes.includes("nft") ? contract : null, modes.includes("subscription") ? planIds : null] : null);
 /** The Lock on the form, in the work item's terms. */
 const formLock = (f: Form) => {
   const modes = formModes(f);
@@ -159,19 +161,23 @@ const formLock = (f: Form) => {
     price: modes.includes("purchase") && f.price ? Number(f.price) : null,
     points: modes.includes("points") && f.points ? Number(f.points) : null,
     contract: modes.includes("nft") ? f.nfts[0] ?? null : null,
+    planIds: modes.includes("subscription") ? f.planIds : [],
   };
 };
 /**
  * The assistant's Lock (Individual Purchase / Loyalty Points / NFT) prefills the Lock dialog; a Lock
  * still missing its price, points or contract opens the dialog so the creator sets it.
  */
-function lockFromWork(wp: NonNullable<NonNullable<ReturnType<typeof itemById>>["post"]>): Pick<Form, "locked" | "lockOpen" | "lock" | "price" | "points" | "nfts"> {
+function lockFromWork(wp: NonNullable<NonNullable<ReturnType<typeof itemById>>["post"]>, openDialog = false): Pick<Form, "locked" | "lockOpen" | "lock" | "planIds" | "price" | "points" | "nfts"> {
   const modes = lockModes(wp);
-  const missing = modes.some((m) => (m === "purchase" ? wp.price == null : m === "points" ? wp.points == null : !wp.contract));
+  const missing = modes.some((m) => (m === "purchase" ? wp.price == null : m === "points" ? wp.points == null : m === "nft" ? !wp.contract : !wp.planIds?.length));
+  // ?lock=1: the assistant prepared this Lock for review, so the dialog opens with it for the creator to save.
+  const review = openDialog && wp.locked;
   return {
-    locked: wp.locked && !missing,
-    lockOpen: wp.locked && missing,
-    lock: modes.length ? { purchase: modes.includes("purchase"), points: modes.includes("points"), nft: modes.includes("nft") } : { purchase: true, points: false, nft: false },
+    locked: wp.locked && !missing && !review,
+    lockOpen: wp.locked && (missing || review),
+    lock: modes.length ? { subscription: modes.includes("subscription"), purchase: modes.includes("purchase"), points: modes.includes("points"), nft: modes.includes("nft") } : { subscription: false, purchase: true, points: false, nft: false },
+    planIds: wp.planIds ?? [],
     price: wp.price != null ? String(wp.price) : "",
     points: wp.points != null ? String(wp.points) : "",
     nfts: wp.contract ? [wp.contract] : [],
@@ -206,7 +212,7 @@ export function NewPostPage({ route, query }: PageProps) {
           html: wp.type === "article" ? wp.text : "",
           question: wp.type === "poll" ? wp.text : "",
           options: wp.pollOptions?.length ? [...wp.pollOptions] : ["", ""],
-          ...lockFromWork(wp),
+          ...lockFromWork(wp, query.get("lock") === "1"),
           files: work?.media ? [work.media.label] : [],
           fileSrc: work?.media ? { [work.media.label]: work.media.key } : {},
         }
@@ -226,7 +232,7 @@ export function NewPostPage({ route, query }: PageProps) {
   // back; a Lock change the assistant makes while this screen is open is applied here (newest wins).
   const storeLock = useData((d) => {
     const p = workId ? itemById(d, workId)?.post : null;
-    return p ? lockSig(p.locked, lockModes(p), p.price ?? null, p.points ?? null, p.contract ?? null) : "";
+    return p ? lockSig(p.locked, lockModes(p), p.price ?? null, p.points ?? null, p.contract ?? null, p.planIds ?? []) : "";
   });
   const known = useRef(storeLock);
   useEffect(() => {
@@ -241,7 +247,7 @@ export function NewPostPage({ route, query }: PageProps) {
     const t = setTimeout(() => {
       const text = type === "poll" ? f.question : type === "article" ? f.plain || f.html : f.text;
       const l = formLock(f);
-      const sig = lockSig(l.locked, l.modes, l.price, l.points, l.contract);
+      const sig = lockSig(l.locked, l.modes, l.price, l.points, l.contract, l.planIds);
       const lockChanged = sig !== known.current;
       const cur = itemById(getData(), workId)?.post;
       if (!cur) return;
@@ -249,12 +255,12 @@ export function NewPostPage({ route, query }: PageProps) {
       known.current = sig;
       act(
         "content.syncPost",
-        (d) => syncFromScreen(d, workId, { text, title: type === "article" ? f.title : undefined, ...(lockChanged ? { locked: l.locked, price: l.price, lockBy: l.modes, points: l.points, contract: l.contract } : {}) }),
+        (d) => syncFromScreen(d, workId, { text, title: type === "article" ? f.title : undefined, ...(lockChanged ? { locked: l.locked, price: l.price, lockBy: l.modes, points: l.points, contract: l.contract, planIds: l.planIds } : {}) }),
         { need: "content.write" },
       );
     }, 600);
     return () => clearTimeout(t);
-  }, [f.text, f.question, f.title, f.plain, f.html, f.price, f.points, f.nfts, f.lock, f.locked, f.lockOpen, type]);
+  }, [f.text, f.question, f.title, f.plain, f.html, f.price, f.points, f.nfts, f.planIds, f.lock, f.locked, f.lockOpen, type]);
 
   return (
     <div data-testid={`page-${route.id}`} className="pb-[40px]">
@@ -299,7 +305,7 @@ export function NewPostPage({ route, query }: PageProps) {
         ))}
       </div>
       {!type ? (
-        <div data-testid="newpost-empty" className="mt-[25px] flex h-[330px] w-[650px] flex-col items-center justify-center rounded-card bg-surface">
+        <div data-testid="newpost-empty" className="mt-[25px] flex h-[330px] w-full max-w-[650px] flex-col items-center justify-center rounded-card bg-surface">
           <span className="flex h-[100px] w-[100px] items-center justify-center rounded-full bg-accent/25 text-accent">
             <SquarePlay size={40} strokeWidth={1.6} />
           </span>
@@ -403,6 +409,7 @@ function Composer({ type, f, set, apId, workId }: { type: PostType; f: Form; set
       text,
       locked: f.locked,
       price: f.locked && f.lock.purchase && Number(f.price) > 0 ? Number(f.price) : undefined,
+      ...(f.locked && f.lock.subscription && f.planIds.length ? { lockPlanIds: f.planIds } : {}),
       topicTagIds: f.topicTagIds,
       groupIds: f.groupIds,
       media: (type === "audio" && f.preview ? [f.preview] : names).map((n) => ({ kind: kind as "image" | "video" | "audio", placeholder: n, ...(f.fileSrc[n] ? { src: f.fileSrc[n] } : {}) })),
@@ -418,7 +425,7 @@ function Composer({ type, f, set, apId, workId }: { type: PostType; f: Form; set
     go("feed", { handle });
   };
 
-  const footer = spec.footer ? <LockCollab f={f} set={set} /> : null;
+  const footer = spec.footer ? <LockCollab f={f} set={set} workId={workId ?? null} /> : null;
   // The assistant's work item (if this post came from it) records the saved or published post.
   const link = (d: AppData, postId: string, status: "saved" | "published") => workId && linkSaved(d, workId, { postId }, status);
 
@@ -666,17 +673,19 @@ function UploadCard({ up, files, fileSrc, onFiles, type }: { up: Upload; files: 
 }
 
 /** Lock button label: what the saved Lock asks of fans. */
-function lockLabel(f: Form) {
+function lockLabel(f: Form, planName: (id: string) => string) {
   if (!f.locked) return "Lock";
-  const parts = [f.lock.purchase && Number(f.price) > 0 ? money(Number(f.price)) : null, f.lock.points ? `${f.points} Points` : null, f.lock.nft ? "NFT" : null].filter(Boolean);
+  const parts = [f.lock.subscription && f.planIds.length ? f.planIds.map(planName).join(", ") : null, f.lock.purchase && Number(f.price) > 0 ? money(Number(f.price)) : null, f.lock.points ? `${f.points} Points` : null, f.lock.nft ? "NFT" : null].filter(Boolean);
   return `Locked${parts.length ? ` · ${parts.join(" · ")}` : ""}`;
 }
 
-function LockCollab({ f, set }: { f: Form; set: Setter }) {
+function LockCollab({ f, set, workId }: { f: Form; set: Setter; workId: string | null }) {
   const btn = "inline-flex h-[40px] items-center gap-[10px] rounded-md bg-accent px-[12px] text-[14px] font-medium hover:brightness-110";
   const own = useData((d) => d.account.handle);
   const creators = DEMO_CREATORS.filter((c) => c.handle !== own).map((c) => ({ ...c, avatar: creatorMedia(c.handle).avatar }));
-  const initial: LockDraft = { ...f.lock, price: f.price, pointsValue: f.points, nfts: f.nfts };
+  const plans = useData((d) => d.monetize.plans);
+  const planName = (id: string) => plans.find((p) => p.id === id)?.name.replace(/ Plan$/, "") ?? id;
+  const initial: LockDraft = { ...f.lock, planIds: f.planIds, price: f.price, pointsValue: f.points, nfts: f.nfts };
   // A first Lock starts with Individual Purchase on (reference newpost-04).
   if (!f.locked && !f.lockOpen) Object.assign(initial, { purchase: true });
   return (
@@ -684,7 +693,7 @@ function LockCollab({ f, set }: { f: Form; set: Setter }) {
       <div className="flex gap-[8px]">
         <button data-testid="newpost-lock" aria-haspopup="dialog" aria-expanded={f.lockOpen} onClick={() => set("lockOpen", !f.lockOpen)} className={btn}>
           <Tag size={20} className="-scale-x-100" />
-          {lockLabel(f)}
+          {lockLabel(f, planName)}
         </button>
         <button data-testid="newpost-collaborate" aria-haspopup="dialog" aria-expanded={f.collabOpen} onClick={() => set("collabOpen", !f.collabOpen)} className={btn}>
           <UserPlus size={20} />
@@ -701,13 +710,16 @@ function LockCollab({ f, set }: { f: Form; set: Setter }) {
         initial={initial}
         onCancel={() => set("lockOpen", false)}
         onSave={(v) => {
-          const any = v.purchase || v.points || v.nft;
-          set("lock", { purchase: v.purchase, points: v.points, nft: v.nft });
+          const any = v.subscription || v.purchase || v.points || v.nft;
+          set("lock", { subscription: v.subscription, purchase: v.purchase, points: v.points, nft: v.nft });
+          set("planIds", v.subscription ? v.planIds : []);
           set("price", v.purchase ? v.price : "");
           set("points", v.points ? v.pointsValue : "");
           set("nfts", v.nft ? v.nfts : []);
           set("locked", any);
           set("lockOpen", false);
+          // Tell the assistant what was saved (it confirms and offers a teaser when it prepared this Lock).
+          if (workId) window.dispatchEvent(new CustomEvent("tf:lock-saved", { detail: { workId, lock: v } }));
         }}
       />
       <CollabDialog open={f.collabOpen} creators={creators} selected={f.collaborators} onClose={() => set("collabOpen", false)} onTag={(h) => (set("collaborators", h), set("collabOpen", false))} />
