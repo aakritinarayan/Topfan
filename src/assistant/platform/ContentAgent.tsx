@@ -259,7 +259,7 @@ export function ContentAgent() {
     if (!run("content.media", (y) => attachMedia(y, x.id, m))) return;
     say({
       status: "done",
-      text: `Attached to your ${x.label.toLowerCase()}${m.origin === "generated" ? " (marked as an AI-generated illustration, simulated)" : ""}.`,
+      text: `Attached to your ${x.label.toLowerCase()}${m.origin === "generated" ? " (marked as an AI-generated image, simulated)" : ""}.`,
       actions: [
         { label: x.kind === "post" ? "Open in New Post" : `Open in ${x.kind === "newsletter" ? "New Newsletter" : "Add Experience"}`, variant: "primary", onClick: () => open(itemById(d(), x.id)!) },
         { label: "Remove it", variant: "text", onClick: () => (run("content.media", (y) => rejectMedia(y, x.id)), say({ text: "Removed. I won't suggest that image for this again." })) },
@@ -278,7 +278,7 @@ export function ContentAgent() {
     live.current.a.run(label, delaysOff() ? 200 : 1600, () => {
       live.current.a.setMood("idle");
       say({
-        text: `${options.length > 1 ? "Two directions" : "Here's the revision"}. Pick one to attach. Simulated: these are original pre-made illustrations, not photos of you.`,
+        text: `${options.length > 1 ? "Two directions" : "Here's the revision"}. Pick one to attach. Simulated: these are pre-made sample photos, not generated live and not photos of you.`,
         details: "No image service is connected in this demo, so nothing was generated live.",
         body: <MediaPick options={options} onPick={use} simulated />,
       });
@@ -883,7 +883,7 @@ export function WorkCard({ id }: { id: string }) {
       {x.media ? (
         <figure className="mt-2 overflow-hidden rounded-tile" data-testid="content-card-media">
           <img src={mediaSrc(x.media.key) ?? ""} alt={x.media.label} className="h-24 w-full object-cover" />
-          <figcaption className="py-1 text-[11px] text-soft">{x.media.origin === "generated" ? "AI illustration (simulated)" : x.media.origin === "library" ? `Your photo: ${x.media.label}` : x.media.label}</figcaption>
+          <figcaption className="py-1 text-[11px] text-soft">{x.media.origin === "generated" ? "AI image (simulated)" : x.media.origin === "library" ? `Your photo: ${x.media.label}` : x.media.label}</figcaption>
         </figure>
       ) : (
         x.mediaNeed && <p className="mt-1.5 text-[12px] text-soft">Image: {x.mediaNeed.toLowerCase()} (not chosen yet)</p>

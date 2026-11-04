@@ -1360,38 +1360,46 @@
  },
  "generated/training-cinematic": {
   "file": "assets/generated/training-cinematic.webp",
-  "source": "original (scripts/media/generate-ai-visuals.mjs)",
-  "author": "TopFan POC",
-  "license": "Original demo artwork",
+  "source": "https://commons.wikimedia.org/wiki/File:Great_Pow_Line_near_Kirkwood_Hwy_88_california_-_panoramio.jpg",
+  "title": "Great Pow Line near Kirkwood Hwy 88 california - panoramio.jpg",
+  "author": "skeight976",
+  "license": "CC BY 3.0",
+  "derived": "graded crop of posts/nl-snow-report (scripts/media/generate-ai-visuals.mjs)",
   "width": 1600,
-  "height": 1000,
-  "alt": "Original illustration: mountain ridges at dusk with a red sun and a snowboard line (simulated AI image)"
+  "height": 900,
+  "alt": "Simulated AI image (sample photo): fresh powder slope with long shadows, warm cinematic grade"
  },
  "generated/training-minimal": {
   "file": "assets/generated/training-minimal.webp",
-  "source": "original (scripts/media/generate-ai-visuals.mjs)",
-  "author": "TopFan POC",
-  "license": "Original demo artwork",
+  "source": "https://commons.wikimedia.org/wiki/File:Sunrise_at_Maligne_lake.jpg",
+  "title": "Sunrise at Maligne lake.jpg",
+  "author": "Sergey Pesterev",
+  "license": "CC BY-SA 4.0",
+  "derived": "graded crop of posts/nl-welcome (scripts/media/generate-ai-visuals.mjs)",
   "width": 1600,
-  "height": 1000,
-  "alt": "Original illustration: minimal line mountains with a red sun (simulated AI image)"
+  "height": 900,
+  "alt": "Simulated AI image (sample photo): snowy peaks over a calm lake, soft and minimal"
  },
  "generated/training-dark": {
   "file": "assets/generated/training-dark.webp",
-  "source": "original (scripts/media/generate-ai-visuals.mjs)",
-  "author": "TopFan POC",
-  "license": "Original demo artwork",
+  "source": "https://commons.wikimedia.org/wiki/File:Great_Pow_Line_near_Kirkwood_Hwy_88_california_-_panoramio.jpg",
+  "title": "Great Pow Line near Kirkwood Hwy 88 california - panoramio.jpg",
+  "author": "skeight976",
+  "license": "CC BY 3.0",
+  "derived": "graded crop of posts/nl-snow-report (scripts/media/generate-ai-visuals.mjs)",
   "width": 1600,
-  "height": 1000,
-  "alt": "Original illustration: darker mountain ridges with a dim red sun (simulated AI image)"
+  "height": 900,
+  "alt": "Simulated AI image (sample photo): powder slope at dusk, darker grade"
  },
  "generated/training-wide": {
   "file": "assets/generated/training-wide.webp",
-  "source": "original (scripts/media/generate-ai-visuals.mjs)",
-  "author": "TopFan POC",
-  "license": "Original demo artwork",
-  "width": 1920,
-  "height": 900,
-  "alt": "Original illustration: wide mountain scene with open space on the left for text (simulated AI image)"
+  "source": "https://commons.wikimedia.org/wiki/File:Sunrise_at_Maligne_lake.jpg",
+  "title": "Sunrise at Maligne lake.jpg",
+  "author": "Sergey Pesterev",
+  "license": "CC BY-SA 4.0",
+  "derived": "graded crop of posts/nl-welcome (scripts/media/generate-ai-visuals.mjs)",
+  "width": 1600,
+  "height": 700,
+  "alt": "Simulated AI image (sample photo): wide mountain view with darker open space on the left for text"
  }
 }

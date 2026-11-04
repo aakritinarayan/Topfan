@@ -22,7 +22,7 @@ import { InfoIcon, Select } from "../../platform/ui/controls";
 import { useToast } from "../../platform/ui/toast";
 import { pathFor } from "../../app/routeCatalog";
 import { DEMO_CREATORS } from "../../app/profiles";
-import { creatorMedia } from "../../media";
+import { creatorMedia, mediaSrc } from "../../media";
 import { ConfirmDialog, RoundCheck, money, useGo } from "./shared";
 import type { AiResult } from "../../services/articleGen";
 import { AiDialog, CollabDialog, CustomGiftDialog, DatePopover, EmojiPanel, LockDialog, PickerDialog, Popover, TimeDialog, type LockDraft, type PickItem } from "./NewPostDialogs";
@@ -425,7 +425,7 @@ function Composer({ type, f, set, apId, workId }: { type: PostType; f: Form; set
   return (
     <div data-testid={`newpost-composer-${type}`} className={`mt-[25px] ${spec.width === 800 ? "w-[800px]" : "w-full"}`}>
       <div className="space-y-[8px]">
-        {spec.upload && <UploadCard up={spec.upload} files={f.files} onFiles={(v) => set("files", v)} type={type} />}
+        {spec.upload && <UploadCard up={spec.upload} files={f.files} fileSrc={f.fileSrc} onFiles={(v, src) => (set("files", v), src && set("fileSrc", { ...f.fileSrc, ...src }))} type={type} />}
 
         {type === "article" && (
           <>
@@ -505,7 +505,7 @@ function Composer({ type, f, set, apId, workId }: { type: PostType; f: Form; set
         })}
       </div>
 
-      {spec.preview && <PreviewUpload value={f.preview} onChange={(v) => set("preview", v)} />}
+      {spec.preview && <PreviewUpload value={f.preview} src={f.preview ? mediaSrc(f.fileSrc[f.preview]) : null} onChange={(v, src) => (set("preview", v), src && set("fileSrc", { ...f.fileSrc, ...src }))} />}
 
       {/* footer: publish options chevron + PUBLISH NOW, disabled until valid */}
       <div className="relative mt-[30px] flex items-center gap-[10px]">
@@ -562,7 +562,69 @@ function Composer({ type, f, set, apId, workId }: { type: PostType; f: Form; set
 
 /* ---------------- building blocks ---------------- */
 
-function UploadCard({ up, files, onFiles, type }: { up: Upload; files: string[]; onFiles: (v: string[]) => void; type: PostType }) {
+/**
+ * Mock upload: nothing leaves the browser. Images are kept as a small local copy (so the preview, the
+ * published post and a refresh still show them); video and audio play from this tab only (too large
+ * to keep), and their name stays on the post.
+ */
+const PREVIEW_MAX = 1280;
+async function localImage(file: File): Promise<string | null> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, PREVIEW_MAX / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * k);
+    c.height = Math.round(bmp.height * k);
+    c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
+    bmp.close();
+    return c.toDataURL("image/jpeg", 0.82);
+  } catch {
+    return null; // e.g. HEIC/HEIF, which this browser can't decode: the file name still shows
+  }
+}
+const tabOnly = new Map<string, string>(); // video/audio object URLs for this tab
+export async function localMedia(files: File[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const x of files) {
+    if (x.type.startsWith("image/")) {
+      const u = await localImage(x);
+      if (u) out[x.name] = u;
+    } else if (x.type.startsWith("video/") || x.type.startsWith("audio/")) {
+      const u = URL.createObjectURL(x);
+      tabOnly.set(x.name, u);
+    }
+  }
+  return out;
+}
+
+function MediaThumb({ name, src, onRemove }: { name: string; src: string | null; onRemove: () => void }) {
+  const blob = tabOnly.get(name);
+  const video = !src && blob && /\.(mp4|mov|m4v|webm)$/i.test(name);
+  const audio = !src && blob && /\.(mp3|wav|m4a|aac|ogg)$/i.test(name);
+  return (
+    <li data-testid="newpost-file-preview" className={`relative flex flex-col overflow-hidden rounded-popover bg-bg ${audio ? "w-[300px]" : "w-[150px]"}`}>
+      {src ? (
+        <img src={src} alt={name} className="h-[110px] w-full object-cover" />
+      ) : video ? (
+        <video src={blob} controls muted playsInline preload="metadata" className="h-[110px] w-full bg-black object-contain" />
+      ) : audio ? (
+        <audio src={blob} controls preload="metadata" className="mx-[8px] mt-[10px] h-[36px] w-[calc(100%-16px)]" />
+      ) : (
+        <span className="flex h-[110px] w-full items-center justify-center px-[10px] text-center text-[11px] text-muted">Preview not available for this file type</span>
+      )}
+      <span className="flex items-center gap-[6px] px-[10px] py-[6px] text-[12px]">
+        <span className="min-w-0 flex-1 truncate" title={name}>
+          {name}
+        </span>
+        <button aria-label={`Remove ${name}`} onClick={onRemove} className="shrink-0 hover:text-accent">
+          <X size={12} />
+        </button>
+      </span>
+    </li>
+  );
+}
+
+function UploadCard({ up, files, fileSrc, onFiles, type }: { up: Upload; files: string[]; fileSrc: Record<string, string>; onFiles: (v: string[], src?: Record<string, string>) => void; type: PostType }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
     <div className={`${card} flex min-h-[139px] flex-col items-center justify-center py-[22px]`}>
@@ -573,11 +635,14 @@ function UploadCard({ up, files, onFiles, type }: { up: Upload; files: string[];
         accept={up.accept}
         multiple={up.multiple}
         data-testid={`newpost-file-${type}`}
-        onChange={(e) => {
-          // Mock upload: only the file name is kept; nothing leaves the browser.
-          const names = Array.from(e.target.files ?? []).map((x) => x.name);
-          if (names.length) onFiles(up.multiple ? [...files, ...names] : names.slice(0, 1));
+        onChange={async (e) => {
+          const picked = Array.from(e.target.files ?? []);
           e.target.value = "";
+          if (!picked.length) return;
+          const chosen = up.multiple ? picked : picked.slice(0, 1);
+          const names = chosen.map((x) => x.name);
+          const src = await localMedia(chosen);
+          onFiles(up.multiple ? [...files, ...names] : names, src);
         }}
       />
       <button
@@ -590,14 +655,9 @@ function UploadCard({ up, files, onFiles, type }: { up: Upload; files: string[];
       </button>
       <p className="mt-[13px] text-[12px] text-accent">{up.helper}</p>
       {files.length > 0 && (
-        <ul className="mt-[12px] flex flex-wrap justify-center gap-[8px]" data-testid="newpost-files">
+        <ul className="mt-[14px] flex flex-wrap justify-center gap-[10px] px-[16px]" data-testid="newpost-files">
           {files.map((n, i) => (
-            <li key={i} className="flex items-center gap-[8px] rounded-pill bg-bg px-[12px] py-[4px] text-[12px]">
-              {n}
-              <button aria-label={`Remove ${n}`} onClick={() => onFiles(files.filter((_, j) => j !== i))}>
-                <X size={12} />
-              </button>
-            </li>
+            <MediaThumb key={`${n}-${i}`} name={n} src={mediaSrc(fileSrc[n])} onRemove={() => onFiles(files.filter((_, j) => j !== i))} />
           ))}
         </ul>
       )}
@@ -712,7 +772,7 @@ function ChipPicker({ title, items, value, onChange, testid }: { title: string; 
   );
 }
 
-function PreviewUpload({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+function PreviewUpload({ value, src, onChange }: { value: string | null; src: string | null; onChange: (v: string | null, src?: Record<string, string>) => void }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
     <div className="mt-[30px]">
@@ -720,13 +780,26 @@ function PreviewUpload({ value, onChange }: { value: string | null; onChange: (v
         Feed Preview Image*
         <InfoIcon text="This image is shown on the post card in the Feed." />
       </p>
-      <input ref={ref} type="file" hidden accept="image/*" data-testid="newpost-preview-file" onChange={(e) => (e.target.files?.[0] && onChange(e.target.files[0].name), (e.target.value = ""))} />
+      <input ref={ref} type="file" hidden accept="image/*" data-testid="newpost-preview-file" onChange={async (e) => {
+          const x = e.target.files?.[0];
+          e.target.value = "";
+          if (x) onChange(x.name, await localMedia([x]));
+        }}
+      />
       <div className="mt-[18px] flex items-center gap-[12px]">
         <button data-testid="newpost-preview-upload" onClick={() => ref.current?.click()} className="flex h-[92px] w-[78px] flex-col items-center justify-center gap-[6px] rounded-tile border border-dashed border-accent text-[14px] text-accent hover:bg-accent-tint">
           <Plus size={22} strokeWidth={1.6} />
           Upload
         </button>
-        {value && (
+        {value && src && (
+          <span data-testid="newpost-preview-thumb" className="relative h-[92px] w-[92px] overflow-hidden rounded-tile bg-surface">
+            <img src={src} alt={value} title={value} className="h-full w-full object-cover" />
+            <button aria-label="Remove preview image" onClick={() => onChange(null)} className="absolute right-[4px] top-[4px] flex h-[20px] w-[20px] items-center justify-center rounded-full bg-black/70 hover:text-accent">
+              <X size={12} />
+            </button>
+          </span>
+        )}
+        {value && !src && (
           <span className="flex items-center gap-[8px] rounded-pill bg-surface px-[12px] py-[4px] text-[12px]">
             {value}
             <button aria-label="Remove preview image" onClick={() => onChange(null)}>

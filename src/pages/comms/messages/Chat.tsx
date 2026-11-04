@@ -220,9 +220,10 @@ function StoreItemImage({ item, className }: { item: ChatStoreItem; className: s
 
 export function StoreItemCard({ item }: { item: ChatStoreItem }) {
   return (
-    <div className="flex gap-[24px] rounded-lg bg-bg p-[8px]">
+    <div className="flex flex-wrap gap-[24px] rounded-lg bg-bg p-[8px]">
       <StoreItemImage item={item} className="h-[131px] w-[134px] shrink-0" />
-      <div className="min-w-[0px] flex-1 rounded-lg bg-surface p-[20px]">
+      {/* Wraps under the image when the bubble is narrow, instead of squeezing the text. */}
+      <div className="min-w-0 flex-1 basis-[220px] rounded-lg bg-surface p-[20px]">
         <p className="text-[16px] font-bold leading-[20px]">{item.title}</p>
         <p className="mt-[12px] text-[14px] font-bold">{item.subtitle}</p>
         <p className="mt-[12px] text-[12px] leading-[16px]">{item.description}</p>
@@ -231,9 +232,9 @@ export function StoreItemCard({ item }: { item: ChatStoreItem }) {
             <p className="mb-[8px] mt-[20px] text-[12px] font-bold">Choose an Option Below:</p>
             <div className="space-y-[8px]">
               {item.options.map((o) => (
-                <div key={o.label} className="flex items-center justify-between rounded-lg bg-bg px-[16px] py-[12px] text-[12px]">
-                  <span>{o.label}</span>
-                  <span>{money(o.price)}</span>
+                <div key={o.label} className="flex items-center justify-between gap-[12px] rounded-lg bg-bg px-[16px] py-[12px] text-[12px]">
+                  <span className="min-w-0">{o.label}</span>
+                  <span className="shrink-0 whitespace-nowrap">{money(o.price)}</span>
                 </div>
               ))}
             </div>

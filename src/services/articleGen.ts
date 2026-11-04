@@ -5,7 +5,7 @@
  *   grounded in the same approved facts Content Autopilot uses. When no model is configured or it
  *   fails, the draft is prepared from the creator's own notes (as the Demo 2 content assistant does),
  *   with [brackets] for anything only the creator knows. The result always says which path ran.
- * - Images: the demo's simulated visuals (original artwork, not photos of the creator), labelled.
+ * - Images: the demo's simulated visuals (pre-made sample photos, not photos of the creator), labelled.
  * Nothing is saved or published here: the editor's draft changes, and PUBLISH NOW stays the creator's.
  */
 import { getData } from "../store/store";
@@ -34,7 +34,7 @@ export interface AiResult {
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const SIM = "Simulated AI visual: original artwork, not a photo of you";
+const SIM = "Simulated AI visual: a pre-made sample photo, not a photo of you";
 
 function visuals(): AiImage[] {
   return GENERATED.training

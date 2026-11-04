@@ -59,7 +59,7 @@ A suggested time is shown as "Suggested: …" and is never presented as schedule
 - **Broadening visibility** (locked → public) always asks first.
 - **Email sending is not verified** in the mock account. Newsletters can be saved as drafts. Send and schedule are refused by the service, and the assistant reports it.
 - **Experiences have no date or capacity fields.** Fans request a booking and the creator confirms it. A ticketed date belongs in Events & Ticketing, and the assistant asks which one the creator means.
-- **There is no image backend.** "Generate" shows two original pre-made illustrations, labelled *simulated* and *not photos of you*. Revisions available: darker, wider with space for text, minimal, cinematic. Other edits (such as removing a background) are declined.
+- **There is no image backend.** "Generate" shows two pre-made sample photos (licensed landscapes, graded per direction), labelled *simulated* and *not photos of you*. Revisions available: darker, wider with space for text, minimal, cinematic. Other edits (such as removing a background) are declined.
 - **There is no post scheduling** in TopFan, and the assistant never claims a post is scheduled.
 - Drafts use only the creator's notes, tricks and posts. Unknown details stay in `[brackets]` or appear as a "needs" line. The assistant doesn't invent results, sponsors, prices, dates or engagement numbers.
 

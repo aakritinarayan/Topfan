@@ -125,15 +125,15 @@ export const initialContent = (): ContentState => ({ items: [], focusId: null })
 
 /* ------------------------------------------------------------------ demo media */
 
-/** Original artwork made for this demo (not photos of the creator). "Generated" here is simulated. */
+/** Sample photos standing in for generated images (licensed landscapes, not photos of the creator). "Generated" here is simulated. */
 export const GENERATED: Record<string, { label: string; direction: string; key: string; w: number; h: number; tone?: "dark" | "wide" | "minimal" | "space" }[]> = {
   training: [
-    { label: "Training visual · cinematic", direction: "Cinematic", key: "generated/training-cinematic", w: 1600, h: 1000 },
-    { label: "Training visual · minimal", direction: "Minimal", key: "generated/training-minimal", w: 1600, h: 1000 },
+    { label: "Training visual · cinematic", direction: "Cinematic", key: "generated/training-cinematic", w: 1600, h: 900 },
+    { label: "Training visual · minimal", direction: "Minimal", key: "generated/training-minimal", w: 1600, h: 900 },
   ],
   revisions: [
-    { label: "Training visual · darker", direction: "Darker", key: "generated/training-dark", w: 1600, h: 1000, tone: "dark" },
-    { label: "Training visual · wide with space for text", direction: "Wider, space for text", key: "generated/training-wide", w: 1920, h: 900, tone: "space" },
+    { label: "Training visual · darker", direction: "Darker", key: "generated/training-dark", w: 1600, h: 900, tone: "dark" },
+    { label: "Training visual · wide with space for text", direction: "Wider, space for text", key: "generated/training-wide", w: 1600, h: 700, tone: "space" },
   ],
 };
 
@@ -304,7 +304,7 @@ export function libraryMedia(d: AppData, assetId: ID): WorkMedia | null {
 /** The image brief for a post, from its own text and the creator's branding (no long prompt needed). */
 export function imageBrief(d: AppData, x: WorkItem) {
   const subject = x.post?.type === "poll" ? "a fan poll about tricks" : x.experience ? "a small-group snowboard training session" : x.link?.rel === "teaser-of" ? "a members-only training breakdown (no details shown)" : "snowboard training";
-  return `Original illustration for ${subject}: mountain park shapes, the creator's red accent (${d.account.theme.accent}) on a dark background, 16:10, no people, no logos, room for a caption.`;
+  return `Photo-style image for ${subject}: snowy mountain scenery, graded to the creator's red-and-dark look (${d.account.theme.accent}), 16:9, no people, no logos, room for a caption.`;
 }
 
 /** Media checks before attaching (ratio, size, type, rights). Returns a problem, or null. */
