@@ -98,7 +98,8 @@ function NewsletterForm({ routeId, n, workId }: { routeId: string; n: Newsletter
   const allPlanIds = plans.map((p) => p.id);
 
   const [title, setTitle] = useState(n?.title ?? wn?.title ?? "");
-  const [html, setHtml] = useState(n?.bodyHtml ?? textToHtml(n?.body ?? wn?.body ?? ""));
+  // Drafts from an idea arrive with headed sections; sanitised like anything else typed into the editor.
+  const [html, setHtml] = useState(n?.bodyHtml ?? (wn?.html ? safeHtml(wn.html) : textToHtml(n?.body ?? wn?.body ?? "")));
   const [plain, setPlain] = useState(n?.body ?? wn?.body ?? "");
   const [interests, setInterests] = useState<string[]>(n?.interests ?? []);
   const [image, setImage] = useState<string | null>(n?.image ?? (wn ? work?.media?.key ?? null : null));

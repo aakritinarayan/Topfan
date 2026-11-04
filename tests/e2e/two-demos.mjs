@@ -148,7 +148,12 @@ const AUTOPILOT_TALK = /Your weekly content is prepared|Content Autopilot|Smart 
   check("D2-3: create welcome and content suggestions", /What would you like to create\?/.test(welcome) && c0.join("|") === "Create a post|Plan my content|Create a newsletter" && /More ideas/.test(welcome) && !D1_ONLY.test(c0.join("|")), `${welcome} | ${c0.join("|")}`);
   // 4–6: content help, New Post, a draft.
   let r = await ask(p, "Help me write a post");
-  check("D2-4: content help (a post draft card)", !!(await p.$('[data-testid="content-card"][data-kind="post"]')) && /Draft/.test(r), r);
+  // A broad request shows ideas first; picking one prepares the full draft.
+  const ideaCards = await p.$$('[data-testid="content-idea"]');
+  await p.evaluate(() => document.querySelector('[data-testid="content-idea-pick"]')?.click());
+  await sleep(1100);
+  r = (await replies(p)).at(-1) ?? "";
+  check("D2-4: content help (ideas, then a post draft card)", ideaCards.length >= 3 && !!(await p.$('[data-testid="content-card"][data-kind="post"]')) && /Draft/.test(r), r);
   await go(p, "/dashboard/newpost");
   check("D2-5: existing New Post composer", path(p) === "/dashboard/newpost" && !!(await p.$('[data-testid^="newpost-"]')));
   await openPanel(p);

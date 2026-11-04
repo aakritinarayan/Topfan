@@ -113,3 +113,35 @@ Pages: `/edit-preference/link-in-bio` (view) and `/edit-preference/link-in-bio/a
 - `?bioFixture=save-fail` makes the next save fail once, to demonstrate recovery: the draft stays in the editor and the assistant offers Try again.
 
 **Demo 2 fixture links:** Demo 2 starts with four hand-added links (fictional): "Click Here", "Instagram", a duplicate "IG", and "Summer Park Camp 2026", which points to an offering that doesn't exist. Demo 1's Link in Bio is unchanged.
+
+## Ideas → full drafts (posts, experiences, newsletters)
+
+**Code:**
+- `src/store/slices/ideas.ts` holds:
+  - the idea sets: 3–4 per round and 2 rounds per kind, so "more ideas" gives different concepts;
+  - `draftFromIdea` (a full draft with a cover image);
+  - the shared `imageOptions` pool per content type;
+  - the refinements `premium`, `strongerCta`, `changeExperienceType` and `shortenDraft`.
+- The flows live in `ContentAgent.tsx`: `ideas`, `pickIdea`, `moreImages`, `refined`, `retype` and `promoteBoth`.
+- Routing:
+  - Open-ended requests show ideas: "help me create a post / plan an experience / create a newsletter", "… ideas".
+  - Follow-ups use the remembered list or the focused draft: "more ideas", "use the second option", "make it more premium", "add a stronger CTA", "generate another image", "change it to a one-to-one call", "create a post and newsletter to promote this", "use this for my newsletter", "continue editing my previous draft".
+
+**Grounding:** every idea is built from the creator's approved sources (training notes, trick list, fan questions, recent posts, live offerings).
+- Unknowns stay in `[brackets]` or are listed as needs: price, availability, address, custom instructions.
+- Nothing invents news, dates, prices, bookings or achievements.
+
+**Forms:**
+- Create Experiences gets type, title, description, duration (scheduled types), the price once the creator gives it, and the preview image, and it starts **Disabled**.
+- New Newsletter gets the subject, a headed body (`newsletter.html`, sanitised by the editor) and the cover image. Email verification still blocks sending.
+- New Post gets the caption and the attached image.
+
+**Images:**
+- Pre-made sample photos, labelled simulated. Each pool matches its screen's rules: posts ≥1080 px wide; newsletter images over 450×200.
+- "Generate another image" rotates through the pool and never re-offers the current or a rejected image.
+
+**Safety:**
+- Picking a different idea keeps earlier drafts; picking the same idea reopens its draft.
+- Text the creator edited on the page is never rewritten. The refinements refuse and offer a new version instead.
+
+**Test:** `tests/e2e/content-ideas.mjs` covers the five scenarios (post, experience, newsletter, connected tasks, demo separation), plus follow-ups, edit protection and refresh.

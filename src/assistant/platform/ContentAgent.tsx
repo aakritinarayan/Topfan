@@ -20,6 +20,8 @@ import { openAutopilot } from "./autopilotView";
 import { bioFlows } from "./BioFlows";
 import { proposePromote } from "../../store/slices/bio";
 import { inScope } from "../../app/demo";
+import { changeExperienceType, draftFromIdea, imageOptions, premium, shortenDraft, showIdeas, strongerCta, type Idea, type IdeaKind } from "../../store/slices/ideas";
+import { EXPERIENCE_TYPE_OPTIONS } from "../../pages/monetize/forms/ExperienceForm";
 import {
   approveReady,
   attachMedia,
@@ -226,6 +228,8 @@ export function ContentAgent() {
     // "…for Gold members": check the plan exists and say what the post Lock can and can't do.
     const ask = audienceAsk(goal);
     if (ask?.kind === "plan") audience(ask);
+    // Copy and images together for the creative topics.
+    if (x.post!.type === "images" && !x.media && /journey|fan question/i.test(x.label)) moreImages(id);
   };
 
   /* ---- C: media ---- */
@@ -270,6 +274,7 @@ export function ContentAgent() {
   const generate = (kind: "training" | "revisions" = "training", only?: number) => {
     const x = focused();
     if (!x) return;
+    if (x.kind !== "post") return moreImages(x.id);
     const brief = imageBrief(d(), x);
     const options = GENERATED[kind].filter((_, i) => only == null || i === only).map((g) => ({ key: g.key, label: g.label, origin: "generated" as const, brief, direction: g.direction, w: g.w, h: g.h }));
     const label = "Preparing image options…";
@@ -507,6 +512,107 @@ export function ContentAgent() {
       details: `${x.experience!.similarTo ? `You already offer "${x.experience!.similarTo}", a similar format. ` : ""}TopFan Experiences have no date or capacity fields: fans request a booking and you confirm it in Wallet › Fulfillment Requests.`,
     });
   };
+  /* ---- F2: ideas → a full draft (posts, experiences, newsletters) ---- */
+  const imageRound = useRef<Record<string, number>>({});
+  /** Two image options for any draft (the shared pool for its screen), different each time. */
+  const moreImages = (id: string) => {
+    const x = itemById(d(), id);
+    if (!x) return;
+    run("content.focus", (y) => focus(y, id));
+    const n = (imageRound.current[id] = (imageRound.current[id] ?? -1) + 1);
+    const options = imageOptions(x, n);
+    live.current.a.setMood("generating");
+    live.current.a.run("Preparing image options…", delaysOff() ? 200 : 1200, () => {
+      live.current.a.setMood("idle");
+      say({
+        text: `Two image options for your ${x.kind === "post" ? "post" : x.kind === "newsletter" ? "newsletter cover" : "experience preview"}. Pick one to attach. Simulated: pre-made sample photos, not generated live and not photos of you.`,
+        body: <MediaPick options={options} onPick={use} simulated />,
+        actions: [{ label: "Upload my own instead", variant: "text", onClick: upload }],
+      });
+    });
+  };
+  const ideaCopy: Record<IdeaKind, { intro: string; cta: string }> = {
+    post: { intro: "Post ideas from your notes and fan questions. Pick one and I'll prepare the full post with an image.", cta: "Use this idea" },
+    experience: { intro: "Experience ideas from your riding, what fans ask and the Experience types TopFan supports. Pick one to see the full proposal.", cta: "Explore idea" },
+    newsletter: { intro: "Newsletter topics from your notes, recent posts and offerings. Pick one and I'll write the full draft.", cta: "Use this topic" },
+  };
+  const ideas = (kind: IdeaKind, more = false) => {
+    let list: Idea[] = [];
+    if (!run("content.ideas", (y) => void (list = showIdeas(y, kind, more)))) return;
+    say({
+      text: more ? "Here are different ones:" : ideaCopy[kind].intro,
+      plain: `Ideas: ${list.map((i, n) => `${n + 1}. ${i.title}`).join("; ")}`,
+      details: "These are ideas, not existing offerings. Images are pre-made sample photos (simulated).",
+      body: <IdeaCards ideas={list} cta={ideaCopy[kind].cta} onPick={(i) => pickIdea(kind, i.id)} />,
+      actions: [{ label: "More ideas", variant: "text", onClick: () => ideas(kind, true) }],
+    });
+  };
+  const pickIdea = (kind: IdeaKind, ideaId: string) => {
+    let id = "";
+    if (!run("content.idea", (y) => void (id = draftFromIdea(y, kind, ideaId)))) return;
+    const x = itemById(d(), id)!;
+    const refine = [
+      { label: "Another image", variant: "outline" as const, onClick: () => moreImages(id) },
+      { label: "Make it shorter", variant: "text" as const, onClick: () => shortened(id) },
+    ];
+    if (x.kind === "experience") {
+      pending.current = { id, field: "experience-price" };
+      return say({
+        text: <>Here's the full proposal with a preview image. What price would you like? (You decide; I won't set one.)</>,
+        plain: `Experience proposal: ${x.experience!.title}. Asked for the price.`,
+        body: <WorkCard id={id} />,
+        details: `Still needed from you: ${x.needs.join("; ")}. Nothing is booked or scheduled, and no calendar is connected.`,
+        actions: [refine[0], { label: "Make it more premium", variant: "text", onClick: () => refined(id, "premium") }],
+      });
+    }
+    if (x.kind === "newsletter") {
+      const blocked = x.status === "blocked" || x.flags.some((f) => /email sending/i.test(f));
+      return say({
+        text: blocked ? "Your full newsletter draft is ready, with a cover image. Email sending needs verification, so you can save it as a draft for now." : "Your full newsletter draft is ready, with a cover image.",
+        body: <WorkCard id={id} />,
+        actions: [{ label: "Open in New Newsletter", variant: "primary", onClick: () => open(itemById(d(), id)!, "monetize-newsletter-save-draft") }, ...refine, { label: "Add a stronger CTA", variant: "text", onClick: () => refined(id, "cta") }],
+      });
+    }
+    say({
+      text: x.post!.type === "poll" ? "Here's the full poll. Edit anything in New Post; publishing is your click." : "Here's the full post with an image. Edit anything in New Post; publishing is your click.",
+      body: <WorkCard id={id} />,
+      actions: [{ label: "Open in New Post", variant: "primary", onClick: () => open(itemById(d(), id)!, x.post!.locked ? lockTarget(itemById(d(), id)!) : undefined) }, ...(x.post!.type === "poll" ? [] : [refine[0]]), { label: "Change audience", variant: "outline", onClick: () => (run("content.focus", (y) => focus(y, id)), audienceChoice()) }, refine[1]],
+    });
+  };
+  const shortened = (id: string) => {
+    if (!run("content.shorten", (y) => shortenDraft(y, id))) return;
+    say({ status: "done", text: "Shorter now.", body: <WorkCard id={id} /> });
+  };
+  const refined = (id: string, how: "premium" | "cta") => {
+    let what = "";
+    if (!run(`content.${how}`, (y) => (how === "premium" ? void (what = premium(y, id)) : strongerCta(y, id)))) return;
+    say({ status: "done", text: how === "premium" ? `Updated: ${what}.` : "Added a stronger call to action.", body: <WorkCard id={id} /> });
+  };
+  const retype = (id: string, type: string) => {
+    if (!run("content.retype", (y) => changeExperienceType(y, id, type))) return;
+    const label = EXPERIENCE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
+    say({ status: "done", text: `Changed to ${label}. ${itemById(d(), id)!.needs.join("; ")}.`, body: <WorkCard id={id} /> });
+  };
+  /** "Create a post and newsletter to promote this": both reference the same experience. */
+  const promoteBoth = (expId: string) => {
+    let pid = "";
+    let nid = "";
+    if (!run("content.announce", (y) => void ((pid = createAnnouncement(y, expId)), (nid = createNewsletter(y, `Newsletter promoting ${itemById(y, expId)!.label}`, { mentionsId: expId }))))) return;
+    const e = itemById(d(), expId)!;
+    say({
+      text: `Prepared both, linked to ${e.label}. ${e.ref?.productId ? "" : "The booking link only works once the experience is saved and enabled, so I've marked that. "}Nothing is posted or sent.`,
+      body: (
+        <>
+          <WorkCard id={pid} />
+          <WorkCard id={nid} />
+        </>
+      ),
+      actions: [
+        { label: "Open the post", variant: "primary", onClick: () => open(itemById(d(), pid)!) },
+        { label: "Open the newsletter", variant: "outline", onClick: () => open(itemById(d(), nid)!, "monetize-newsletter-save-draft") },
+      ],
+    });
+  };
   const afterPrice = (id: string) => {
     const x = itemById(d(), id)!;
     say({
@@ -719,6 +825,40 @@ export function ContentAgent() {
     const kinds = [/\bposts?|content|update\b/, /\bnewsletter\b/, /\bexperience|session\b/, /\bexclusive|members\b/, /\blink ?in ?bio\b/].filter((r) => r.test(t)).length;
     const promoteWeek = /\bplan\b.*\bweek\b/.test(t) && /\b(promote|link ?in ?bio)\b/.test(t) && /\b(experience|session|offering|event)\b/.test(t);
     if (/\b(entire|whole|full) week\b|\bbusy this week\b|plan my whole week|around these activities/.test(t) || promoteWeek || (/\bplan|prepare|organi[sz]e\b/.test(t) && kinds >= 3)) return week(raw), true;
+    // Ideas first when the request is open-ended; follow-ups work on the list or the focused draft.
+    const ideasNow = d().content.ideas;
+    if (/^(please )?(help me|can you help me|i want to|let's) (create|make|write|plan|do) (a|an|my) (post|newsletter|experience)\b\.?$|\b(post|newsletter|experience) (ideas|topics|concepts)\b|\bideas for (a |an |my )?(post|newsletter|experience)\b|\bwhat should i post\b/.test(t))
+      return ideas(/newsletter/.test(t) ? "newsletter" : /experience/.test(t) ? "experience" : "post"), true;
+    if (ideasNow && /\b(more|other|different|new) (ideas|options|topics|concepts)\b|^give me more\b/.test(t)) return ideas(ideasNow.kind, true), true;
+    const nth = /\b(use|pick|choose|go with|explore|take|open) (the )?(first|second|third|fourth|1st|2nd|3rd|4th|last)( one| option| idea| topic)?\b|\b(option|idea|topic|number) ([1-4])\b/.exec(t);
+    if (ideasNow && nth) {
+      const words = ["first", "second", "third", "fourth"];
+      const w = nth[3] ?? "";
+      const i = nth[6] ? Number(nth[6]) - 1 : w === "last" ? ideasNow.ids.length - 1 : Math.max(words.indexOf(w), ["1st", "2nd", "3rd", "4th"].indexOf(w));
+      if (ideasNow.ids[i]) return pickIdea(ideasNow.kind, ideasNow.ids[i]), true;
+      return say({ text: `There are only ${ideasNow.ids.length} ideas in the list.` }), true;
+    }
+    if (/\b(make it|more) premium\b|\bmore exclusive\b/.test(t) && focused()) return refined(focused()!.id, "premium"), true;
+    if (/\b(stronger|clearer|better) (cta|call to action)\b|\badd a (cta|call to action)\b/.test(t) && focused()) return refined(focused()!.id, "cta"), true;
+    if (/\b(another|different|new|other) (image|picture|photo|cover|visual)\b|\bregenerate (the )?(image|cover|picture)\b/.test(t) && focused()) return moreImages(focused()!.id), true;
+    const retypeTo = /\b(change|make|switch|turn)\b.*\b(to|into) (a |an )?(one[- ]to[- ]one|1:1|video|in[- ]person|personali[sz]ed video|custom)\b/.exec(t);
+    if (retypeTo && focused()?.kind === "experience") {
+      const v = retypeTo[4];
+      return retype(focused()!.id, /in[- ]person/.test(v) ? "In Person Session" : /personali/.test(v) ? "Personalized Video" : /custom/.test(v) ? "Other" : "1:1 Video Call"), true;
+    }
+    if (/\bpost and (a )?newsletter\b|\bnewsletter and (a )?post\b/.test(t) && /\b(promote|announce|for) (this|it|my)\b/.test(t)) {
+      const exp = focused()?.kind === "experience" ? focused() : [...d().content.items].reverse().find((x) => x.kind === "experience" && x.status !== "cancelled");
+      if (exp) return promoteBoth(exp.id), true;
+      return say({ text: "Which experience? Ask me for experience ideas or prepare one first." }), true;
+    }
+    if (/\buse (this|it) (for|in) (my|a) newsletter\b/.test(t) && focused()) {
+      const x = focused()!;
+      return x.kind === "experience" ? promoteBoth(x.id) : newsletter("Turn this post into a newsletter", { fromId: x.kind === "post" ? x.id : undefined }), true;
+    }
+    if (/\bcontinue (editing )?(my )?(previous|last|earlier) draft\b/.test(t)) {
+      const last = [...d().content.items].reverse().find((x) => x.kind !== "week" && !["published", "sent", "cancelled"].includes(x.status));
+      return last ? showItem(last.id) : say({ text: "There's no unfinished draft. Want some ideas?", actions: [{ label: "Post ideas", variant: "outline", onClick: () => ideas("post") }] }), true;
+    }
     if (/\bteaser\b/.test(t)) {
       const x = focused();
       if (!x?.post?.locked) return say({ text: "A teaser is for a locked post. Lock a post first, then I'll prepare a public teaser for it." }), true;
@@ -739,9 +879,7 @@ export function ContentAgent() {
     if (ask && focused() && /\b(make|only|exclusive|share|lock|unlock|audience|visible|reward|public|available|holders?|let)\b/.test(t) && !/\b(create|write|prepare|draft) (a|an|my)\b/.test(t)) return audience(ask), true;
     if (/\b(shorter|trim it|cut it down)\b/.test(t) && focused()) {
       const x = focused()!;
-      run("content.shorten", (y) => void shorten(y, x.id));
-      say({ status: "done", text: "Shorter now.", body: <WorkCard id={x.id} /> });
-      return true;
+      return shortened(x.id), true;
     }
     // Page guidance phrases, typed.
     if (/\b(recipient|who (can|will) (get|receive))\b/.test(t) && /newsletter|recipient/.test(t)) return recipients(), true;
@@ -879,11 +1017,16 @@ export function WorkCard({ id }: { id: string }) {
       </div>
       {title && <p className="mt-1.5 font-bold">{title}</p>}
       <p className="mt-1 line-clamp-4 whitespace-pre-line">{body}</p>
-      {x.experience && <p className="mt-1 text-soft">{x.experience.experienceType} · {x.experience.price != null ? money(x.experience.price) : "Price: you decide"}</p>}
+      {x.experience && (
+        <p className="mt-1 text-soft">
+          {EXPERIENCE_TYPE_OPTIONS.find((o) => o.value === x.experience!.experienceType)?.label ?? x.experience.experienceType}
+          {x.experience.duration ? ` · ${x.experience.duration}` : ""} · {x.experience.price != null ? money(x.experience.price) : "Price: you decide"}
+        </p>
+      )}
       {x.media ? (
         <figure className="mt-2 overflow-hidden rounded-tile" data-testid="content-card-media">
           <img src={mediaSrc(x.media.key) ?? ""} alt={x.media.label} className="h-24 w-full object-cover" />
-          <figcaption className="py-1 text-[11px] text-soft">{x.media.origin === "generated" ? "AI image (simulated)" : x.media.origin === "library" ? `Your photo: ${x.media.label}` : x.media.label}</figcaption>
+          <figcaption className="py-1 text-[11px] text-soft">{x.media.origin === "generated" ? "Sample image (simulated)" : x.media.origin === "library" ? `Your photo: ${x.media.label}` : x.media.label}</figcaption>
         </figure>
       ) : (
         x.mediaNeed && <p className="mt-1.5 text-[12px] text-soft">Image: {x.mediaNeed.toLowerCase()} (not chosen yet)</p>
@@ -935,6 +1078,30 @@ function WeekCard({ id, onOpen, onShow, onApprove }: { id: string; onOpen: (x: W
           Approve {s.ready} ready
         </button>
       )}
+    </div>
+  );
+}
+
+/** Compact idea cards: thumbnail, type, title, one line and a small action (picking another keeps earlier drafts). */
+function IdeaCards({ ideas, cta, onPick }: { ideas: Idea[]; cta: string; onPick: (i: Idea) => void }) {
+  const [picked, setPicked] = useState<string | null>(null);
+  return (
+    <div className="mt-1 grid grid-cols-2 gap-2" data-testid="content-ideas">
+      {ideas.map((i, n) => (
+        <div key={i.id} data-testid="content-idea" data-idea={i.id} className={`flex flex-col overflow-hidden rounded-tile border bg-bg ${picked === i.id ? "border-accent" : "border-line"}`}>
+          <img src={mediaSrc(i.image) ?? ""} alt="" className="h-16 w-full object-cover" />
+          <div className="flex flex-1 flex-col px-2 pb-2 pt-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-caps text-soft">
+              {n + 1} · {i.tag}
+            </span>
+            <span className="mt-0.5 text-[12px] font-bold leading-tight">{i.title}</span>
+            <span className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-soft">{i.line}</span>
+            <button data-testid="content-idea-pick" onClick={() => (setPicked(i.id), onPick(i))} className="mt-auto self-start pt-1.5 text-[11px] font-bold text-accent hover:brightness-125">
+              {cta}
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

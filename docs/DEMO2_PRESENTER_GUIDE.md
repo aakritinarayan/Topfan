@@ -2,7 +2,7 @@
 
 **Before you start**
 - Open `http://localhost:5173/demo/ai-content?resetMock=1` on a laptop (1512×805 or larger works best; 1126×797 is fine).
-- Phone widths aren't supported.
+- On a phone, the whole desktop layout is fitted to the screen. Use a laptop for presenting.
 - Open the assistant with the mascot.
 - If Content Autopilot's notice appears, close it.
 
@@ -40,6 +40,30 @@ The panel says **"What would you like to create?"** and offers three ideas: Crea
 2. When it asks for a price, type **"75"**. (Typing "free" is declined with an explanation.)
 3. Click **Open in Add Experience**. The Create Experiences form is prefilled and **Disabled** until the creator enables it. (Google/Outlook Calendar buttons say plainly that nothing is connected in this demo.)
 4. Back in the assistant, type **"Announce it"**. The announcement post is prepared and the booking link is flagged until the experience is live.
+
+## 5b. Ideas → full drafts (2–3 min)
+Use these when you want to show the assistant doing the creative preparation.
+
+1. **Experience ideas.**
+   - Type **"Help me plan an experience"**. Four idea cards appear, each with an image and a supported Experience type.
+   - Type **"Use the first option"**. The full proposal appears with a preview image, and it asks for your price.
+   - Optional: **"Make it more premium"**, **"Change it to a one-to-one call"**, **"Generate another image"**.
+   - Type **"60"**, then click **Open in Add Experience**. Title, description, type, duration, price and image are filled in, and it's set to **Disabled**.
+2. **Newsletter topics.**
+   - Back in the assistant, type **"Help me create a newsletter"** and click **Use this topic** on one card.
+   - The full draft (subject, intro, sections, CTA, cover) is ready. It notes that email sending needs verification.
+   - Optional: **"Add a stronger CTA"**.
+   - Click **Open in New Newsletter**. The headed sections and cover are in the editor. Click **Save as Draft**.
+3. **A post with copy and images together.** Type **"Create a motivational post about my snowboarding journey"**. You get a caption from AJ's notes with hashtags, plus two image options. Pick one, then **Open in New Post**.
+4. **Connected tasks.** With the experience as the last one you worked on, type **"Create a post and newsletter to promote this"**. Both are linked to that same experience, and nothing is posted or sent.
+
+Other follow-ups that work:
+- **"Give me more ideas"** gives different concepts.
+- **"Use the second option"**
+- **"Make the caption shorter"**
+- **"Continue editing my previous draft"**
+
+Picking another idea keeps the earlier draft. Text you've edited on the page is never rewritten.
 
 ## 6. The whole week (2 min), the flagship
 1. Type **"I'm busy this week. Plan a training post, an exclusive post for members, a newsletter and a paid fan session."** The panel shows **"Your week is prepared."** with counts and four rows: Mon post, Wed members-only post, Fri newsletter, Sat experience.

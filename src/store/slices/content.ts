@@ -16,6 +16,7 @@
  */
 import type { AppData } from "../store";
 import type { ID, PostType } from "../model";
+export type { ID };
 import { Refused } from "../refused";
 
 export type WorkKind = "post" | "newsletter" | "experience" | "week" | "bio";
@@ -90,8 +91,10 @@ export interface WorkItem {
    * Individual Purchase (older items).
    */
   post?: { type: PostType; title?: string; text: string; pollOptions?: string[]; locked: boolean; price: number | null; lockBy?: LockMode[]; points?: number | null; contract?: string | null };
-  newsletter?: { title: string; body: string; lock: "Free" | "Subscribers" | "Paid"; audience: "all" | "plans"; planIds: ID[] };
-  experience?: { experienceType: string; title: string; description: string; price: number | null; similarTo?: string };
+  /** html/sections/intro/cta: drafts from an idea (headed sections for the newsletter editor). */
+  newsletter?: { title: string; body: string; html?: string; sections?: { h: string; p: string }[]; intro?: string; cta?: string; lock: "Free" | "Subscribers" | "Paid"; audience: "all" | "plans"; planIds: ID[] };
+  /** duration: the call/session length for calendar-scheduled types (an option on the form, not a booking). */
+  experience?: { experienceType: string; title: string; description: string; price: number | null; duration?: string; similarTo?: string };
   bio?: BioPlan;
   media?: WorkMedia | null;
   /** What the media should show when none is chosen yet. */
@@ -119,6 +122,8 @@ export interface ContentState {
   items: WorkItem[];
   /** The item the conversation is about ("make it shorter", "this post"). */
   focusId: ID | null;
+  /** The idea list last shown (so "use the second option" and "more ideas" work), and the draft made from each. */
+  ideas?: { kind: "post" | "experience" | "newsletter"; round: number; ids: string[]; chosen: Record<string, ID> };
 }
 
 export const initialContent = (): ContentState => ({ items: [], focusId: null });
@@ -187,7 +192,7 @@ function slotFor(d: AppData, day: number): string {
 
 /* ------------------------------------------------------------------ posts */
 
-export type PostTopic = "training" | "poll" | "exclusive" | "behind" | "article" | "reel" | "teaser" | "announcement";
+export type PostTopic = "training" | "journey" | "qa" | "poll" | "exclusive" | "behind" | "article" | "reel" | "teaser" | "announcement";
 
 /** The post format for a goal, when the creator didn't name one. */
 export function topicFor(goal: string): PostTopic {
@@ -196,6 +201,8 @@ export function topicFor(goal: string): PostTopic {
   if (/\breel\b/.test(g)) return "reel";
   if (/\barticle|long(er)? (post|read)|write.* about my experience\b/.test(g)) return "article";
   if (/behind the scenes|bts\b/.test(g)) return "behind";
+  if (/\bjourney|motivat|inspir|how far i('ve| have) come\b/.test(g)) return "journey";
+  if (/\b(fan|fans'?) question|answer(ing)? (a )?(fan )?question|first (snow)?board\b/.test(g)) return "qa";
   if (/\bmember|exclusive|premium|gold|silver|bronze|subscriber|paying|lock/.test(g)) return "exclusive";
   return "training";
 }
@@ -225,6 +232,27 @@ function postDraft(d: AppData, topic: PostTopic): Pick<WorkItem, "label" | "post
         },
         sources: [notes],
         needs: ["Fill in the [bracketed] training details. Only you know them."],
+      };
+    case "journey":
+      return {
+        label: "My snowboarding journey",
+        post: {
+          type: "images",
+          text: `[When and where you started riding.] Every season starts the same way: ${fact(d, "src-notes", 1)}. Right now I'm ${fact(d, "src-notes", 0)}, and ${fact(d, "src-notes", 2)}. Progress is slow until it isn't. Keep showing up. #snowboarding #progression #keepriding`,
+          locked: false,
+          price: null,
+        },
+        sources: [notes],
+        mediaNeed: "An image for the post",
+        needs: ["Add the [bracketed] part in your own words."],
+      };
+    case "qa":
+      return {
+        label: "Answering a fan question",
+        post: { type: "images", text: `You asked, so here it is: ${fact(d, "src-qa", 0).replace(/^fans keep asking /, "")}. [Your short answer: size, shape and flex for a first board.] Drop your next question below. #snowboarding #firstboard #askme`, locked: false, price: null },
+        sources: [{ label: "Fan questions inbox" }],
+        mediaNeed: "An image for the post",
+        needs: ["Add your answer in the [brackets]."],
       };
     case "behind":
       return { label: "Behind the scenes", post: { type: "images", text: `${cap(fact(d, "src-notes", 2))}. Here's a look behind the scenes.`, locked: false, price: null }, sources: [notes], mediaNeed: "A photo from the shoot", needs: [] };
@@ -268,7 +296,14 @@ export function shorten(d: AppData, id: ID): boolean {
   if (!x) return false;
   const cut = (s: string, n: number) => (s.match(/[^.!?]+[.!?]+(\s|$)/g) ?? [s]).slice(0, n).join("").trim();
   if (x.post) x.post.text = cut(x.post.text, 2);
-  else if (x.newsletter) x.newsletter.body = x.newsletter.body.split("\n\n").slice(0, 2).join("\n\n");
+  else if (x.newsletter) {
+    if (x.newsletter.sections?.length && x.newsletter.intro) {
+      // Headed draft: keep the intro, the first section and the call to action.
+      x.newsletter.sections = x.newsletter.sections.slice(0, 1);
+      x.newsletter.body = [x.newsletter.intro, ...x.newsletter.sections.map((q) => `${q.h}\n${q.p}`), x.newsletter.cta ?? ""].filter(Boolean).join("\n\n");
+      x.newsletter.html = undefined; // rebuilt by the caller (ideas.ts) when needed; the plain body is the source
+    } else x.newsletter.body = x.newsletter.body.split("\n\n").slice(0, 2).join("\n\n");
+  }
   else if (x.experience) x.experience.description = cut(x.experience.description, 2);
   else return false;
   touch(x);
@@ -309,6 +344,9 @@ export function imageBrief(d: AppData, x: WorkItem) {
 
 /** Media checks before attaching (ratio, size, type, rights). Returns a problem, or null. */
 export function mediaProblem(x: WorkItem, m: Pick<WorkMedia, "w" | "h" | "origin">): string | null {
+  // Each screen's own rule: New Post (sharp feed image), New Newsletter (its preview-image validation).
+  if (x.kind === "newsletter") return m.w > 450 && m.h > 200 ? null : "Newsletter images need to be wider than 450 px and taller than 200 px.";
+  if (x.kind !== "post") return null;
   const type = x.post?.type;
   if (type === "reel" && m.w >= m.h) return "Reels need a vertical (portrait) clip. This is a landscape image.";
   if (m.w < 1080) return "This image is too small for a sharp post (under 1080 px wide).";
@@ -707,7 +745,7 @@ export function syncFromScreen(d: AppData, id: ID, patch: { text?: string; title
   }
   if (x.newsletter) {
     if (patch.title != null && patch.title !== x.newsletter.title) (x.newsletter.title = patch.title), (changed = true);
-    if (patch.body != null && patch.body !== x.newsletter.body) (x.newsletter.body = patch.body), (changed = true);
+    if (patch.body != null && patch.body !== x.newsletter.body) (x.newsletter.body = patch.body), (x.newsletter.html = undefined), (changed = true);
   }
   if (x.experience) {
     if (patch.title != null && patch.title !== x.experience.title) (x.experience.title = patch.title), (changed = true);

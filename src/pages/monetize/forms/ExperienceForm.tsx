@@ -77,7 +77,7 @@ export function ExperienceForm({ routeId, p, workId }: { routeId: string; p: Pro
     p?.experienceOptions?.map((o) => ({ label: o.label, price: String(o.price) })) ?? [{ label: "", price: isScheduledType(p?.experienceType ?? workType) ? "" : legacyPrice }],
   );
   const [durs, setDurs] = useState<Row[]>(
-    p?.durations?.map((o) => ({ label: DURATIONS.includes(o.label) ? o.label : "", price: String(o.price) })) ?? [{ label: "", price: isScheduledType(p?.experienceType ?? workType) ? legacyPrice : "" }],
+    p?.durations?.map((o) => ({ label: DURATIONS.includes(o.label) ? o.label : "", price: String(o.price) })) ?? [{ label: we?.duration && DURATIONS.includes(we.duration) ? we.duration : "", price: isScheduledType(p?.experienceType ?? workType) ? legacyPrice : "" }],
   );
   const [sched, setSched] = useState<ExperienceSchedule>(p?.schedule ?? DEFAULT_SCHEDULE);
   const [addr, setAddr] = useState<Addr>(p?.address ?? EMPTY_ADDR);
