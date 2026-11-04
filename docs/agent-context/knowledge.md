@@ -7,7 +7,7 @@ Navigation (left sidebar): NEW POST, LIVESTREAM, Home, Feed, Activity, Messages,
 - Livestream (Sidebar › LIVESTREAM): Start a livestream now, or schedule one as an event in Monetize › Events & Ticketing.
 - Feed (Sidebar › Feed): Your public profile and posts, as fans see them.
 - Home (Sidebar › Home): Your public Home page (the White Label Site landing page).
-- Subscriptions (Monetize › Subscriptions): Monthly plans fans subscribe to (Gold, Silver, Bronze). Each plan has prices for 1, 3, 6 or 12 months, optional discounts and free trials, and benefits.
+- Subscriptions (Monetize › Subscriptions): Monthly plans fans subscribe to (Gold, Silver, Bronze). Each plan has prices for 1, 3, 6 or 12 months (plus an optional Season Pass or Lifetime price), optional discounts and free trials, free direct messages, benefits, and optional free experiences or merchandise per package.
 - Newsletters (Monetize › Newsletters): Write and send newsletters to fans, optionally paid. Sending uses your Outbound Emails sender domain.
 - Experiences (Monetize › Experiences): Sell personal experiences such as shoutouts, video calls and 1:1 sessions. Fans' orders appear in Wallet › My Fulfillment Requests.
 - Courses (Monetize › Courses): Sell a course with lessons.

@@ -67,6 +67,20 @@ export interface SubscriptionPlan {
   benefits: string[];
   subscribers: number;
   active: boolean;
+  /** Create/Update Plan extras (mock only; nothing is charged or sent). */
+  dmCount?: DmCount | null;
+  /** "Price to Send You an Individual Direct Message" (USD). */
+  dmPrice?: number;
+  /** Season Pass / Lifetime packages (the 1/3/6/12 month ones stay in `prices`). */
+  extraTiers?: { kind: "season" | "lifetime"; amount: number; endDate?: string; freeTrialDays?: number }[];
+  /** Per package: free experiences and redeemable merchandise. Key = "1" | "3" | "6" | "12" | "season" | "lifetime". */
+  includes?: Record<string, PlanInclude>;
+}
+
+export type DmCount = "Zero" | "5" | "10" | "25" | "50" | "100" | "Unlimited";
+export interface PlanInclude {
+  experiences?: { productId: ID; perMonth: number; option: string }[];
+  merchIds?: ID[];
 }
 
 export interface EventItem {

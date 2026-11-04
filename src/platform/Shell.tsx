@@ -56,7 +56,8 @@ export function Header({ wide = false }: { wide?: boolean }) {
   const fanView = useData((d) => d.account.session.fanView);
   return (
     <header className="sticky top-0 z-40 bg-bg">
-      <div className={`mx-auto flex h-[75px] items-center justify-between ${wide ? "max-w-[1512px] px-5" : "max-w-[1280px] px-[26px]"}`}>
+      {/* Full width: logo at the left edge, language + avatar at the right edge (matches the live site at wide windows). */}
+      <div className={`flex h-[75px] items-center justify-between ${wide ? "mx-auto max-w-[1512px] px-5" : "px-[26px]"}`}>
         <Logo />
         {fanView === "logged-out" ? <LoggedOutHeaderActions /> : (
           <div className="flex items-center gap-3">

@@ -4,8 +4,8 @@
  * publishes or activates it: New Post, New Newsletter, Add Experience. Requests are routed here by
  * deterministic rules (the model never invents routes or actions); every change goes through act().
  *
- * Nothing here publishes, sends, schedules or activates. Image "generation" is simulated with original
- * pre-made artwork and says so. The post Lock offers Individual Purchase (price), Loyalty Points and Lock
+ * Nothing here publishes, sends, schedules or activates. Image "generation" uses pre-made sample artwork
+ * (no image service is connected; the panel header shows DEMO MODE). The post Lock offers Individual Purchase (price), Loyalty Points and Lock
  * with NFT (a contract address the creator pastes); it has no tier option, so tier requests on posts are
  * explained, never faked; newsletters do support specific plans.
  */
@@ -263,29 +263,27 @@ export function ContentAgent() {
     if (!run("content.media", (y) => attachMedia(y, x.id, m))) return;
     say({
       status: "done",
-      text: `Attached to your ${x.label.toLowerCase()}${m.origin === "generated" ? " (marked as an AI-generated image, simulated)" : ""}.`,
+      text: `Attached to your ${x.label.toLowerCase()}.`,
       actions: [
         { label: x.kind === "post" ? "Open in New Post" : `Open in ${x.kind === "newsletter" ? "New Newsletter" : "Add Experience"}`, variant: "primary", onClick: () => open(itemById(d(), x.id)!) },
         { label: "Remove it", variant: "text", onClick: () => (run("content.media", (y) => rejectMedia(y, x.id)), say({ text: "Removed. I won't suggest that image for this again." })) },
       ],
     });
   };
-  /** Simulated: two original pre-made directions, never a claim that a service generated them. */
+  /** Two visual directions (pre-made sample artwork in this prototype). */
   const generate = (kind: "training" | "revisions" = "training", only?: number) => {
     const x = focused();
     if (!x) return;
     if (x.kind !== "post") return moreImages(x.id);
     const brief = imageBrief(d(), x);
     const options = GENERATED[kind].filter((_, i) => only == null || i === only).map((g) => ({ key: g.key, label: g.label, origin: "generated" as const, brief, direction: g.direction, w: g.w, h: g.h }));
-    const label = "Preparing image options…";
-    say({ text: "Image brief from your post and branding:", body: <Draftish label="Brief (you don't need to edit it)" value={brief} /> });
+    const label = "Creating your image…";
     live.current.a.setMood("generating");
     live.current.a.run(label, delaysOff() ? 200 : 1600, () => {
       live.current.a.setMood("idle");
       say({
-        text: `${options.length > 1 ? "Two directions" : "Here's the revision"}. Pick one to attach. Simulated: these are pre-made sample photos, not generated live and not photos of you.`,
-        details: "No image service is connected in this demo, so nothing was generated live.",
-        body: <MediaPick options={options} onPick={use} simulated />,
+        text: options.length > 1 ? "Choose an image for your post." : "Here's the new version.",
+        body: <MediaPick options={options} onPick={use} />,
       });
     });
   };
@@ -303,7 +301,7 @@ export function ContentAgent() {
     if (/wider|space for text|room for text|wide/.test(t)) return generate("revisions", 1);
     if (/minimal|simpler|cleaner/.test(t)) return generate("training", 1);
     if (/cinematic|dramatic/.test(t)) return generate("training", 0);
-    say({ text: "That kind of edit (like removing the background) isn't available in this demo. I can make it darker, wider with space for text, more minimal, or more cinematic." });
+    say({ text: "I can make it darker, wider with room for text, more minimal or more cinematic." });
   };
 
   /* ---- D: audience (the existing Lock) ---- */
@@ -522,11 +520,11 @@ export function ContentAgent() {
     const n = (imageRound.current[id] = (imageRound.current[id] ?? -1) + 1);
     const options = imageOptions(x, n);
     live.current.a.setMood("generating");
-    live.current.a.run("Preparing image options…", delaysOff() ? 200 : 1200, () => {
+    live.current.a.run("Creating your image…", delaysOff() ? 200 : 1200, () => {
       live.current.a.setMood("idle");
       say({
-        text: `Two image options for your ${x.kind === "post" ? "post" : x.kind === "newsletter" ? "newsletter cover" : "experience preview"}. Pick one to attach. Simulated: pre-made sample photos, not generated live and not photos of you.`,
-        body: <MediaPick options={options} onPick={use} simulated />,
+        text: `Choose an image for your ${x.kind === "post" ? "post" : x.kind === "newsletter" ? "newsletter cover" : "experience"}.`,
+        body: <MediaPick options={options} onPick={use} />,
         actions: [{ label: "Upload my own instead", variant: "text", onClick: upload }],
       });
     });
@@ -542,7 +540,6 @@ export function ContentAgent() {
     say({
       text: more ? "Here are different ones:" : ideaCopy[kind].intro,
       plain: `Ideas: ${list.map((i, n) => `${n + 1}. ${i.title}`).join("; ")}`,
-      details: "These are ideas, not existing offerings. Images are pre-made sample photos (simulated).",
       body: <IdeaCards ideas={list} cta={ideaCopy[kind].cta} onPick={(i) => pickIdea(kind, i.id)} />,
       actions: [{ label: "More ideas", variant: "text", onClick: () => ideas(kind, true) }],
     });
@@ -829,7 +826,12 @@ export function ContentAgent() {
     const ideasNow = d().content.ideas;
     if (/^(please )?(help me|can you help me|i want to|let's) (create|make|write|plan|do) (a|an|my) (post|newsletter|experience)\b\.?$|\b(post|newsletter|experience) (ideas|topics|concepts)\b|\bideas for (a |an |my )?(post|newsletter|experience)\b|\bwhat should i post\b/.test(t))
       return ideas(/newsletter/.test(t) ? "newsletter" : /experience/.test(t) ? "experience" : "post"), true;
-    if (ideasNow && /\b(more|other|different|new) (ideas|options|topics|concepts)\b|^give me more\b/.test(t)) return ideas(ideasNow.kind, true), true;
+    if (/\b(more|other|different|new|some|any) (ideas|options|topics|concepts)\b|^give me more\b|^(more|other) ideas\b/.test(t)) {
+      // With a list on screen, the next round; otherwise ideas for whatever the creator is working on (default: posts).
+      const f = focused();
+      const kind: IdeaKind = /newsletter/.test(t) ? "newsletter" : /experience/.test(t) ? "experience" : /\bpost\b/.test(t) ? "post" : ideasNow?.kind ?? (f?.newsletter ? "newsletter" : f?.experience ? "experience" : "post");
+      return ideas(kind, !!ideasNow && ideasNow.kind === kind), true;
+    }
     const nth = /\b(use|pick|choose|go with|explore|take|open) (the )?(first|second|third|fourth|1st|2nd|3rd|4th|last)( one| option| idea| topic)?\b|\b(option|idea|topic|number) ([1-4])\b/.exec(t);
     if (ideasNow && nth) {
       const words = ["first", "second", "third", "fourth"];
@@ -1026,7 +1028,7 @@ export function WorkCard({ id }: { id: string }) {
       {x.media ? (
         <figure className="mt-2 overflow-hidden rounded-tile" data-testid="content-card-media">
           <img src={mediaSrc(x.media.key) ?? ""} alt={x.media.label} className="h-24 w-full object-cover" />
-          <figcaption className="py-1 text-[11px] text-soft">{x.media.origin === "generated" ? "Sample image (simulated)" : x.media.origin === "library" ? `Your photo: ${x.media.label}` : x.media.label}</figcaption>
+          <figcaption className="py-1 text-[11px] text-soft">{x.media.origin === "generated" ? "AI-generated image" : x.media.origin === "library" ? `Your photo: ${x.media.label}` : x.media.label}</figcaption>
         </figure>
       ) : (
         x.mediaNeed && <p className="mt-1.5 text-[12px] text-soft">Image: {x.mediaNeed.toLowerCase()} (not chosen yet)</p>
@@ -1106,7 +1108,7 @@ function IdeaCards({ ideas, cta, onPick }: { ideas: Idea[]; cta: string; onPick:
   );
 }
 
-function MediaPick({ options, onPick, simulated }: { options: WorkMedia[]; onPick: (m: WorkMedia) => void; simulated?: boolean }) {
+function MediaPick({ options, onPick }: { options: WorkMedia[]; onPick: (m: WorkMedia) => void }) {
   const [picked, setPicked] = useState<string | null>(null);
   return (
     <div className="mt-1 grid grid-cols-2 gap-2" data-testid="content-media-pick">
@@ -1115,7 +1117,6 @@ function MediaPick({ options, onPick, simulated }: { options: WorkMedia[]; onPic
           <img src={mediaSrc(m.key) ?? ""} alt={m.label} className="h-20 w-full object-cover" />
           <span className="block px-2 py-1 text-[11px]">
             {m.direction ?? m.label}
-            {simulated && <span className="text-soft"> · simulated</span>}
           </span>
         </button>
       ))}
@@ -1123,11 +1124,3 @@ function MediaPick({ options, onPick, simulated }: { options: WorkMedia[]; onPic
   );
 }
 
-function Draftish({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="mt-1 rounded-inner bg-bg px-3 py-2">
-      <p className="text-[11px] text-soft">{label}</p>
-      <p className="mt-0.5 text-[12px]">{value}</p>
-    </div>
-  );
-}

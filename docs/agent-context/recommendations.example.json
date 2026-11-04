@@ -26,7 +26,7 @@
       "id": "refunds-pending",
       "priority": 2,
       "title": "3 refund requests waiting for review",
-      "why": "The oldest has waited 547 days. Nothing is refunded until you decide.",
+      "why": "The oldest has waited 548 days. Nothing is refunded until you decide.",
       "featureId": "refunds",
       "taskId": "review-refunds",
       "count": 3,

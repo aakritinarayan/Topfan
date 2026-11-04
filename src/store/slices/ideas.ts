@@ -30,7 +30,10 @@ interface ExperienceIdea extends Idea {
   duration?: string;
 }
 interface NewsletterIdea extends Idea {
+  /** The creator's goal for it (shown to the creator, never to fans). */
   purpose: string;
+  /** Fan-facing opening line. */
+  intro: string;
   sections: { h: string; p: string }[];
   cta: string;
 }
@@ -77,24 +80,24 @@ function newsletterIdeas(d: AppData, round: number): NewsletterIdea[] {
   const call = offer(d, "exp-video-call");
   const rounds: NewsletterIdea[][] = [
     [
-      { id: "nl-week", kind: "newsletter", title: "This Week on the Mountain", line: "A short recap of what you've been up to.", tag: "Weekly recap", image: "posts/nl-snow-report", purpose: "Keep fans close between posts.",
+      { id: "nl-week", kind: "newsletter", title: "This Week on the Mountain", line: "A short recap of what you've been up to.", tag: "Weekly recap", image: "posts/nl-snow-report", purpose: "Keep fans close between posts.", intro: "Hi everyone, here's a quick look at my week on the mountain.",
         sections: [{ h: "On the mountain", p: `${cap(fact(d, "src-notes", 1))}, and I'm ${fact(d, "src-notes", 0)}.` }, ...(recent.length ? [{ h: "In case you missed it", p: recent.join(" ") }] : []), { h: "What's next", p: `${cap(fact(d, "src-notes", 2))}. [When fans can expect the first clips.]` }],
         cta: "See the latest on my page." },
-      { id: "nl-tricks", kind: "newsletter", title: `${tricks.length} Tricks I'm Working On`, line: "Your current trick list, explained.", tag: "Riding tips", image: "generated/training-cinematic", purpose: "Share what you're learning and teach a little.",
+      { id: "nl-tricks", kind: "newsletter", title: `${tricks.length} Tricks I'm Working On`, line: "Your current trick list, explained.", tag: "Riding tips", image: "generated/training-cinematic", purpose: "Share what you're learning and teach a little.", intro: "Hi everyone, here are the tricks I'm working on right now, and a tip for each.",
         sections: tricks.map((t) => ({ h: t, p: `[Where you are with the ${t.toLowerCase()} and one tip for fans trying it.]` })), cta: "Reply and tell me which one you want a breakdown of." },
-      { id: "nl-bts", kind: "newsletter", title: "Behind the Scenes of My Training", line: "How a training and filming week really goes.", tag: "Behind the scenes", image: "generated/training-minimal", purpose: "Give subscribers something they don't see in the Feed.",
+      { id: "nl-bts", kind: "newsletter", title: "Behind the Scenes of My Training", line: "How a training and filming week really goes.", tag: "Behind the scenes", image: "generated/training-minimal", purpose: "Give subscribers something they don't see in the Feed.", intro: "Hi everyone, here's what a training and filming week really looks like.",
         sections: [{ h: "The plan this season", p: `${cap(fact(d, "src-notes", 2))}.` }, { h: "A typical day", p: "[Your training day in a few lines: warm-up, laps, filming, recovery.]" }, { h: "What I'm learning", p: `${cap(fact(d, "src-notes", 0))}. [What's clicking and what isn't yet.]` }],
         cta: "Thanks for following along." },
-      { id: "nl-gear", kind: "newsletter", title: "My Gear and Riding Tips", line: "Your setup, and the first-board question fans ask.", tag: "Gear & tips", image: "posts/nl-new-ride", purpose: "Answer what fans keep asking.",
+      { id: "nl-gear", kind: "newsletter", title: "My Gear and Riding Tips", line: "Your setup, and the first-board question fans ask.", tag: "Gear & tips", image: "posts/nl-new-ride", purpose: "Answer what fans keep asking.", intro: "Hi everyone, a lot of you ask about my setup, so here it is, with a few tips.",
         sections: [{ h: "What I'm riding", p: "[Your current board, bindings and boots. Only what you actually use.]" }, { h: "Picking a first board", p: `${cap(fact(d, "src-qa", 0))}. [Your short answer: size, shape, flex.]` }],
         cta: call ? `Want personal advice? Book a call with me: ${call.title}.` : "Reply with your questions." },
     ],
     [
-      { id: "nl-qa", kind: "newsletter", title: "You Asked: Fan Q&A", line: "Answers to the questions in your inbox.", tag: "Fan Q&A", image: "posts/nl-welcome", purpose: "Turn fan questions into content.",
+      { id: "nl-qa", kind: "newsletter", title: "You Asked: Fan Q&A", line: "Answers to the questions in your inbox.", tag: "Fan Q&A", image: "posts/nl-welcome", purpose: "Turn fan questions into content.", intro: "Hi everyone, you asked, so here are my answers.",
         sections: (d.autopilot.sources.find((s) => s.id === "src-qa")?.facts ?? []).map((q) => ({ h: cap(q.replace(/^fans (keep asking|asked about) /, "")), p: "[Your answer in your own words.]" })), cta: "Keep the questions coming: just reply." },
-      { id: "nl-offerings", kind: "newsletter", title: "Ways to Ride With Me", line: "Your live experiences, in one place.", tag: "Offerings", image: "experiences/park-session", purpose: "Promote what fans can already book.",
+      { id: "nl-offerings", kind: "newsletter", title: "Ways to Ride With Me", line: "Your live experiences, in one place.", tag: "Offerings", image: "experiences/park-session", purpose: "Promote what fans can already book.", intro: "Hi everyone, here are the ways you can ride with me right now.",
         sections: d.monetize.products.filter((p) => p.kind === "experience" && p.published).slice(0, 3).map((p) => ({ h: p.title, p: p.description })), cta: "See all experiences in my Store." },
-      { id: "nl-season", kind: "newsletter", title: "Season Goals", line: "What you're aiming for this season.", tag: "Season update", image: "generated/training-wide", purpose: "Let fans follow your progress.",
+      { id: "nl-season", kind: "newsletter", title: "Season Goals", line: "What you're aiming for this season.", tag: "Season update", image: "generated/training-wide", purpose: "Let fans follow your progress.", intro: "Hi everyone, here's what I'm aiming for this season.",
         sections: [{ h: "Where I'm starting", p: `${cap(fact(d, "src-notes", 1))}.` }, { h: "The goals", p: `${cap(fact(d, "src-notes", 0))}. [Your other goals for the season.]` }], cta: "Follow along on my page." },
     ],
   ];
@@ -214,7 +217,7 @@ export const sectionsToHtml = (intro: string, sections: { h: string; p: string }
 const sectionsToText = (intro: string, sections: { h: string; p: string }[], cta: string) => [intro, ...sections.map((s) => `${s.h}\n${s.p}`), cta].join("\n\n");
 
 function newsletterDraft(d: AppData, idea: NewsletterIdea): ID {
-  const intro = `Hi everyone, ${idea.purpose.charAt(0).toLowerCase()}${idea.purpose.slice(1).replace(/\.$/, "")}: here's ${idea.title.toLowerCase()}.`;
+  const intro = idea.intro;
   const id = nid("w-nl");
   const item: WorkItem = {
     id,

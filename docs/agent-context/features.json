@@ -151,9 +151,12 @@
         "gold plan",
         "silver plan",
         "bronze plan",
-        "start earning"
+        "start earning",
+        "subscribers",
+        "how many subscribers",
+        "my subscribers"
       ],
-      "description": "Monthly plans fans subscribe to (Gold, Silver, Bronze). Each plan has prices for 1, 3, 6 or 12 months, optional discounts and free trials, and benefits.",
+      "description": "Monthly plans fans subscribe to (Gold, Silver, Bronze). Each plan has prices for 1, 3, 6 or 12 months (plus an optional Season Pass or Lifetime price), optional discounts and free trials, free direct messages, benefits, and optional free experiences or merchandise per package.",
       "goals": [
         "earn",
         "exclusive-content",
@@ -673,7 +676,12 @@
         "engagement metrics",
         "likes and comments",
         "post performance",
-        "which posts did well"
+        "which posts did well",
+        "how is my last post doing",
+        "how is my post doing",
+        "post performance",
+        "how are my posts doing",
+        "likes on my post"
       ],
       "description": "How fans engage with your posts.",
       "goals": [
@@ -734,7 +742,14 @@
         "how much did i make",
         "money made",
         "sales",
-        "earning metrics"
+        "earning metrics",
+        "how much did i earn",
+        "how much have i earned",
+        "what did i earn",
+        "my income",
+        "my revenue",
+        "earned this month",
+        "my earnings"
       ],
       "description": "Revenue over time by stream.",
       "goals": [
@@ -1100,6 +1115,13 @@
         "tipping",
         "paid dm price",
         "dm price",
+        "paid dms",
+        "paid messages",
+        "message price",
+        "pay to message me",
+        "pay to message",
+        "charge for messages",
+        "charge fans to message",
         "subscriber only chat",
         "subscriber only comments",
         "guaranteed reply"
@@ -1138,7 +1160,10 @@
         "pause account",
         "delete account",
         "deactivate",
-        "close my account"
+        "close my account",
+        "delete my account",
+        "pause my account",
+        "deactivate my account"
       ],
       "description": "Privacy, password, sign-in methods, Google Calendar, blocked users, and pause or delete your account.",
       "goals": [
@@ -1178,7 +1203,21 @@
         "gtm",
         "google tag manager",
         "dns",
-        "site address"
+        "site address",
+        "website settings",
+        "site settings",
+        "my site settings",
+        "branding settings",
+        "website branding",
+        "my branding",
+        "website logo",
+        "site logo",
+        "logo on my site",
+        "my logo",
+        "website appearance",
+        "site appearance",
+        "look of my site",
+        "my website settings"
       ],
       "description": "Your own website on your domain: domain and DNS, logo, colors, SEO and the cover page.",
       "goals": [
@@ -1504,7 +1543,14 @@
         "faq",
         "faqs",
         "questions",
-        "how does topfan work"
+        "how does topfan work",
+        "fees",
+        "topfan fees",
+        "does topfan take a cut",
+        "take a cut",
+        "how much does topfan cost",
+        "topfan cost",
+        "pricing"
       ],
       "description": "Frequently asked questions.",
       "goals": [

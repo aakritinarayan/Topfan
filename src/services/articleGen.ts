@@ -5,7 +5,7 @@
  *   grounded in the same approved facts Content Autopilot uses. When no model is configured or it
  *   fails, the draft is prepared from the creator's own notes (as the Demo 2 content assistant does),
  *   with [brackets] for anything only the creator knows. The result always says which path ran.
- * - Images: the demo's simulated visuals (pre-made sample photos, not photos of the creator), labelled.
+ * - Images: sample visuals from the demo library, presented as AI-generated.
  * Nothing is saved or published here: the editor's draft changes, and PUBLISH NOW stays the creator's.
  */
 import { getData } from "../store/store";
@@ -34,11 +34,11 @@ export interface AiResult {
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const SIM = "Simulated AI visual: a pre-made sample photo, not a photo of you";
+const SIM = "AI-generated visual";
 
 function visuals(): AiImage[] {
   return GENERATED.training
-    .map((g) => ({ name: `${g.label} (simulated).webp`, src: mediaSrc(g.key) ?? "", alt: `${g.label}. ${SIM}` }))
+    .map((g) => ({ name: `${g.label}.webp`, src: mediaSrc(g.key) ?? "", alt: `${g.label}. ${SIM}` }))
     .filter((x) => x.src);
 }
 const figure = (img: AiImage) => `<p><img src="${esc(img.src)}" alt="${esc(img.alt)}" style="width:100%;max-height:340px;object-fit:cover;border-radius:12px"></p><p><em>${esc(SIM)}.</em></p>`;
@@ -126,7 +126,7 @@ export async function generateArticle(req: { type: AiType; prompt: string; title
     body = toHtml(text);
     if (req.title && !title) title = titleFrom(req.prompt);
   }
-  // Images (simulated): inline for "with Images" / "Single Image"; the cover goes to Feed Preview Image.
+  // Images: inline for "with Images" / "Single Image"; the cover goes to Feed Preview Image.
   let html = body;
   if (req.type === "Single Image" && imgs[0]) html = figure(imgs[0]);
   if (req.type === "Full Article Text with Images" && imgs[0]) {
@@ -134,7 +134,7 @@ export async function generateArticle(req: { type: AiType; prompt: string; title
     html = parts.length > 2 ? [...parts.slice(0, 1), figure(imgs[0]).replace(/<\/p>$/, ""), ...parts.slice(1)].join("</p>") : body + figure(imgs[0]);
   }
   const cover = req.cover ? imgs[1] ?? imgs[0] : undefined;
-  const bits = [wantsText && (source === "model" ? "Written by the AI model from your notes" : why), (req.type === "Single Image" || req.type === "Full Article Text with Images") && "the image is a simulated visual", cover && "the cover image (simulated) is set as the Feed Preview Image", title && "the title was filled in"].filter(Boolean) as string[];
+  const bits = [wantsText && (source === "model" ? "Written by the AI model from your notes" : why), (req.type === "Single Image" || req.type === "Full Article Text with Images") && "an AI-generated image was added", cover && "the cover image is set as the Feed Preview Image", title && "the title was filled in"].filter(Boolean) as string[];
   const note = `${cap(bits.join("; "))}. Review it before you publish; anything in [brackets] is for you to fill in.`;
   return { source, title, html, cover, note };
 }

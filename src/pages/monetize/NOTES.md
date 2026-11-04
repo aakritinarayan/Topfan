@@ -11,7 +11,7 @@ vip-offers · portfolio · discount-codes · advertisements (`/monetize` redirec
 ### Create / edit flows (all `status: "inferred"`; the spec gives no URLs for them)
 | id | path |
 |---|---|
-| monetize-plan-add / -plan-edit | /monetize/subscription/add-plan, /edit-plan/:planId |
+| monetize-plan-add / -plan-edit | /monetize/subscription/create (old /add-plan redirects), /edit-plan/:planId |
 | monetize-subscribers | /monetize/subscription/subscribers/:planId |
 | monetize-newsletter-new / -edit | /monetize/newsletters/add, /edit/:newsletterId |
 | monetize-newsletter-recipients | /monetize/newsletters/recipients |
@@ -52,7 +52,7 @@ Fan-side purchases (placeOrder, requestBooking) need no capability. They are sim
 through `selectEvents` or `toMEvent`, which fill in the defaults for time, tz, ctas and tickets.
 
 ## Source bugs reproduced
-- The plan card counts benefits off by one: it shows "6 benefits" over 7 bullets (`benefitCountLabel`).
+- The plan card counts benefits off by one: it shows "6 benefits" over 7 bullets, because the chip leaves out the Direct Messages bullet (`benefitCountLabel`). Subscriptions + Create/Update Plan follow the aj-white-subscriptions pack (`forms/PlanForm.tsx`, `forms/plan/`).
 - Casing is inconsistent: "E-Book" vs "E-book" in downloadable titles.
 - Downloadable cards show no price. The store shows a price only for course, NFT and external items, as captured.
 

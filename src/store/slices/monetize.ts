@@ -8,7 +8,7 @@
  */
 import type { AppData } from "../store";
 import { Refused } from "../refused";
-import type { AdBrand, EventItem, ID, SubscriptionPlan } from "../model";
+import type { AdBrand, DmCount, EventItem, ID, SubscriptionPlan } from "../model";
 
 /* ------------------------------------------------------------------ types */
 
@@ -312,20 +312,23 @@ export const initialMonetize: MonetizeState = {
     {
       id: "gold", name: "Gold Plan",
       prices: [{ amount: 25, months: 1 }, { amount: 67.5, months: 3, discountPct: 10, freeTrialDays: 1 }, { amount: 120, months: 6, discountPct: 20, freeTrialDays: 3 }, { amount: 210, months: 12, discountPct: 30 }],
-      // 7 bullets while the chip says "6 benefits": source bug reproduced (see benefitCountLabel).
+      // 7 bullets while the chip says "6 benefits": the chip leaves out the Direct Messages line (see benefitCountLabel).
       benefits: ["Exclusive Photos", "Exclusive Videos", "Exclusive Podcasts", "All E-Courses are FREE", "Money Saving VIP Offers from my Partners", "Chat Room Access", "5 Free Direct Messages Per Month"],
+      dmCount: "5",
       subscribers: 8, active: true,
     },
     {
       id: "silver", name: "Silver Plan",
       prices: [{ amount: 10, months: 1 }, { amount: 27, months: 3, discountPct: 10 }, { amount: 48, months: 6, discountPct: 20 }, { amount: 84, months: 12, discountPct: 30 }],
-      benefits: ["Exclusive Photos", "Exclusive Videos", "Chat Room Access", "Money Saving VIP Offers from my Partners", "2 Free Direct Messages Per Month"],
+      benefits: ["Chat Room Access", "Exclusive Podcasts", "Exclusive Photos", "Exclusive Videos", "50 Free Direct Messages Per Month"],
+      dmCount: "50",
       subscribers: 2, active: true,
     },
     {
       id: "bronze", name: "Bronze Plan",
       prices: [{ amount: 5, months: 1 }, { amount: 13.5, months: 3, discountPct: 10 }, { amount: 24, months: 6, discountPct: 20 }, { amount: 42, months: 12, discountPct: 30 }],
-      benefits: ["Exclusive Photos", "Chat Room Access"],
+      benefits: ["Exclusive Content in the Feed", "25 Free Direct Messages Per Month"],
+      dmCount: "25",
       subscribers: 6, active: true,
     },
   ],
@@ -424,12 +427,16 @@ const today = () => new Date().toISOString().slice(0, 10);
 /** "$1,399.00" */
 export const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+/** The plan's "N Free Direct Messages Per Month" bullet (added from the form's DM pills). */
+export const DM_LINE = /^(\d+|Unlimited) Free Direct Messages Per Month$/;
+export const dmLine = (c: DmCount | null | undefined) => (c && c !== "Zero" ? `${c} Free Direct Messages Per Month` : null);
+
 /**
- * Label for the "N benefits" chip. Source bug reproduced: the live chip counts one fewer benefit
- * than the bullets it expands to (Gold shows "6 benefits" over 7 bullets). Cause inferred.
+ * Label for the "N benefits" chip. Copy quirk kept from the reference: the chip leaves out the
+ * Direct Messages bullet, so it reads one lower than the list it opens (Gold: "6 benefits" over 7 bullets).
  */
-export const benefitCountLabel = (n: number) => {
-  const c = Math.max(0, n - 1);
+export const benefitCountLabel = (benefits: string[]) => {
+  const c = benefits.filter((b) => !DM_LINE.test(b)).length;
   return `${c} benefit${c === 1 ? "" : "s"}`;
 };
 
@@ -468,17 +475,18 @@ export const selectEvents = (d: AppData) => d.monetize.events.map(toMEvent).sort
 
 /* ------------------------------------------------------------------ actions: plans */
 
-export type PlanInput = Pick<SubscriptionPlan, "name" | "prices" | "benefits">;
+export type PlanExtras = Partial<Pick<SubscriptionPlan, "dmCount" | "dmPrice" | "extraTiers" | "includes">>;
+export type PlanInput = Pick<SubscriptionPlan, "name" | "prices" | "benefits"> & PlanExtras;
 
 /** Add a subscription plan (need content.write). Returns the new id. */
 export function addPlan(d: AppData, input: PlanInput) {
   const id = uid("plan");
-  d.monetize.plans.push({ id, name: input.name, prices: input.prices, benefits: input.benefits, subscribers: 0, active: true });
+  d.monetize.plans.push({ ...input, id, subscribers: 0, active: true });
   return id;
 }
 
-/** Update a plan's name/benefits (need content.write). */
-export function updatePlanDetails(d: AppData, id: ID, input: Pick<SubscriptionPlan, "name" | "benefits">) {
+/** Update a plan's name/benefits and form extras (need content.write). Prices go through updatePlanPrices. */
+export function updatePlanDetails(d: AppData, id: ID, input: Pick<SubscriptionPlan, "name" | "benefits"> & PlanExtras) {
   const p = d.monetize.plans.find((x) => x.id === id);
   if (p) Object.assign(p, input);
 }

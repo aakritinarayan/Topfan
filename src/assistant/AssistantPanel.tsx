@@ -108,10 +108,12 @@ export function AssistantPanel() {
   };
 
   return (
+    // Floating card: a page-colored rail (covers any page overflow) holding the card 16px from the top, right and bottom.
+    <div className="sticky top-0 z-30 flex h-screen shrink-0 bg-bg py-4 pr-4" data-testid="ai-panel-rail">
     <motion.aside
       aria-label="TopFan AI"
       data-testid="ai-panel"
-      className="sticky top-0 flex h-screen w-[clamp(340px,27vw,420px)] shrink-0 flex-col border-l border-line bg-bg"
+      className="relative flex h-full w-[clamp(340px,27vw,420px)] flex-col rounded-[28px] border border-line bg-bg shadow-[0_18px_50px_rgba(0,0,0,.55),0_2px_8px_rgba(0,0,0,.35)]"
       initial={slideIn ? { opacity: 0, x: 24 } : false}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
@@ -127,7 +129,7 @@ export function AssistantPanel() {
         <ChevronRight size={18} strokeWidth={2.5} />
       </button>
       {/* Header — same height as the page header */}
-      <div className="flex h-[75px] shrink-0 items-center gap-3 border-b border-line px-5">
+      <div className="flex h-[75px] shrink-0 items-center gap-3 border-b border-line px-6">
         {/* Landing spot for the intro mascot (the flight itself does the settle). */}
         <motion.span
           data-assistant-avatar
@@ -155,7 +157,7 @@ export function AssistantPanel() {
         </motion.div>
       </div>
 
-      <motion.div {...reveal(0.15)} className="flex shrink-0 flex-col gap-2 px-5 pb-1 pt-3" inert={waiting}>
+      <motion.div {...reveal(0.15)} className="flex shrink-0 flex-col gap-2 px-6 pb-1 pt-4" inert={waiting}>
         {onboarding ? (
           <Checklist state={state} />
         ) : (
@@ -167,7 +169,7 @@ export function AssistantPanel() {
       </motion.div>
 
       {/* Conversation */}
-      <motion.div {...reveal(0.25)} ref={scroller} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 pb-4 pt-5 [mask-image:linear-gradient(to_bottom,transparent_0,#000_20px)]" inert={waiting}>
+      <motion.div {...reveal(0.25)} ref={scroller} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-4 pt-5 [mask-image:linear-gradient(to_bottom,transparent_0,#000_20px)]" inert={waiting}>
         {!onboarding && apView ? (
           <AutopilotView />
         ) : (
@@ -186,7 +188,7 @@ export function AssistantPanel() {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="mx-5 mb-3 flex shrink-0 items-center gap-3 rounded-pill bg-surface py-2 pl-4 pr-2"
+            className="mx-6 mb-3 flex shrink-0 items-center gap-3 rounded-pill bg-surface py-2 pl-4 pr-2"
           >
             <Loader2 size={16} className="shrink-0 animate-spin text-accent" />
             <span className="min-w-0 flex-1">
@@ -209,7 +211,7 @@ export function AssistantPanel() {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="mx-5 mb-3 flex shrink-0 items-center gap-3 rounded-pill bg-surface py-2 pl-4 pr-2"
+            className="mx-6 mb-3 flex shrink-0 items-center gap-3 rounded-pill bg-surface py-2 pl-4 pr-2"
             role="status"
           >
             <Loader2 size={16} className="shrink-0 animate-spin text-accent" />
@@ -236,7 +238,7 @@ export function AssistantPanel() {
           e.preventDefault();
           send();
         }}
-        className="flex shrink-0 items-center gap-2 border-t border-line px-5 py-4"
+        className="flex shrink-0 items-center gap-2 border-t border-line px-6 pb-5 pt-4"
       >
         <input
           ref={input}
@@ -264,6 +266,7 @@ export function AssistantPanel() {
         </button>
       </motion.form>
     </motion.aside>
+    </div>
   );
 }
 
@@ -327,7 +330,7 @@ function VoiceStatus({
   onStop: () => void;
 }) {
   if (state === "idle") return null;
-  const row = "mx-5 mb-3 shrink-0 rounded-inner bg-surface px-4 py-3 text-[12px] leading-[17px]";
+  const row = "mx-6 mb-3 shrink-0 rounded-inner bg-surface px-4 py-3 text-[12px] leading-[17px]";
   if (state === "failed")
     return (
       <div className={row} role="alert">

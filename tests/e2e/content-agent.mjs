@@ -89,7 +89,7 @@ const nothingLive = async (p) => {
   ({ r } = await tap(p, /^add an image$/));
   check("S1: three image choices", /Use one of my photos/i.test(r) && /Generate an original image/i.test(r) && /Upload my own image/i.test(r), r);
   ({ r } = await tap(p, /^generate an original image$/, 1200));
-  check("S1: brief shown, generation labelled simulated", /brief/i.test(r) && /Simulated/i.test(r) && /not photos of you/i.test(r), r);
+  check("S1: image choices shown as generated, no simulated copy", /Choose an image/i.test(r) && !/simulated|pre-made|not photos of you/i.test(r), r);
   const opts = await p.$$('[data-testid="content-media-option"]');
   check("S1: two directions", opts.length >= 2, opts.length);
   await opts.at(-2).click();
@@ -107,7 +107,7 @@ const nothingLive = async (p) => {
   check("S1: opens the ORIGINAL New Post composer", path(p) === "/dashboard/newpost", path(p));
   check("S1: composer prefilled with the draft", (await val(p, "newpost-text"))?.includes("switch backside 540"), await val(p, "newpost-text"));
   const files = await p.$eval('[data-testid="newpost-files"]', (x) => x.innerText).catch(() => "");
-  check("S1: image carried into the composer (file list)", /illustration|simulated|darker/i.test(files), files);
+  check("S1: image carried into the composer (file list)", /illustration|darker|\.webp/i.test(files), files);
   await p.$eval('[data-testid="newpost-text"]', (x) => x.focus());
   await p.keyboard.press("End");
   await p.type('[data-testid="newpost-text"]', " See you on the hill.");

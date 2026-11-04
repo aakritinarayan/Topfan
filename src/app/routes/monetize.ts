@@ -26,8 +26,10 @@ export const monetizeRoutes: RouteDef[] = [
   tab("advertisements", "advertisements", "Advertisements", ["14l-", "14m-", "14x-"]),
 
   /* create / edit flows (inferred). Bandsintown Import Settings, Add Portfolio and New Discount Code are modals. */
-  flow("monetize-plan-add", "/monetize/subscription/add-plan", "Add Plan", "monetize-subscription", "SUBSCRIPTIONS › ADD NEW PLAN"),
-  flow("monetize-plan-edit", "/monetize/subscription/edit-plan/:planId", "Edit Plan", "monetize-subscription", "SUBSCRIPTIONS › plan pencil"),
+  flow("monetize-plan-add", "/monetize/subscription/create", "Create New Plan", "monetize-subscription", "SUBSCRIPTIONS › ADD NEW PLAN", "URL and form from the aj-white-subscriptions reference pack (07–25)."),
+  // Old path (before the reference pack): kept as a redirect so earlier links still open the form.
+  { ...flow("monetize-plan-add-legacy", "/monetize/subscription/add-plan", "Create New Plan", "monetize-subscription", "SUBSCRIPTIONS › ADD NEW PLAN (old URL)", "Redirects to /monetize/subscription/create, keeping the query."), redirect: "monetize-plan-add" },
+  flow("monetize-plan-edit", "/monetize/subscription/edit-plan/:planId", "Update Plan", "monetize-subscription", "SUBSCRIPTIONS › plan pencil", "Form from the aj-white-subscriptions reference pack (26); the URL was not captured."),
   flow("monetize-subscribers", "/monetize/subscription/subscribers/:planId", "View Subscribers", "monetize-subscription", "SUBSCRIPTIONS › N ACTIVE SUBSCRIBERS"),
   flow("monetize-newsletter-new", "/monetize/newsletters/add", "New Newsletter", "monetize-newsletters", "NEWSLETTERS › + NEW NEWSLETTER", "URL and form from the creator-platform reference pack (newsletter-09…13)."),
   flow("monetize-newsletter-edit", "/monetize/newsletters/edit/:newsletterId", "Edit Newsletter", "monetize-newsletters", "NEWSLETTERS › row pencil", "URL and form from the creator-platform reference pack (newsletter-05…08)."),

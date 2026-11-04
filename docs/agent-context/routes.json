@@ -802,8 +802,8 @@
   },
   {
     "id": "monetize-plan-add",
-    "pattern": "/monetize/subscription/add-plan",
-    "title": "Add Plan",
+    "pattern": "/monetize/subscription/create",
+    "title": "Create New Plan",
     "section": "monetize",
     "parent": "monetize-subscription",
     "menu": "Sidebar › Monetize › SUBSCRIPTIONS › ADD NEW PLAN",
@@ -815,12 +815,30 @@
     ],
     "status": "inferred",
     "spec": "14-monetize.md",
-    "note": "Route and form inferred (not captured)."
+    "note": "URL and form from the aj-white-subscriptions reference pack (07–25)."
+  },
+  {
+    "id": "monetize-plan-add-legacy",
+    "pattern": "/monetize/subscription/add-plan",
+    "title": "Create New Plan",
+    "section": "monetize",
+    "parent": "monetize-subscription",
+    "menu": "Sidebar › Monetize › SUBSCRIPTIONS › ADD NEW PLAN (old URL)",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Redirects to /monetize/subscription/create, keeping the query.",
+    "redirect": "monetize-plan-add"
   },
   {
     "id": "monetize-plan-edit",
     "pattern": "/monetize/subscription/edit-plan/:planId",
-    "title": "Edit Plan",
+    "title": "Update Plan",
     "section": "monetize",
     "parent": "monetize-subscription",
     "menu": "Sidebar › Monetize › SUBSCRIPTIONS › plan pencil",
@@ -832,7 +850,7 @@
     ],
     "status": "inferred",
     "spec": "14-monetize.md",
-    "note": "Route and form inferred (not captured)."
+    "note": "Form from the aj-white-subscriptions reference pack (26); the URL was not captured."
   },
   {
     "id": "monetize-subscribers",
@@ -866,7 +884,7 @@
     ],
     "status": "inferred",
     "spec": "14-monetize.md",
-    "note": "Route and form inferred (not captured)."
+    "note": "URL and form from the creator-platform reference pack (newsletter-09…13)."
   },
   {
     "id": "monetize-newsletter-edit",
@@ -883,7 +901,7 @@
     ],
     "status": "inferred",
     "spec": "14-monetize.md",
-    "note": "Route and form inferred (not captured)."
+    "note": "URL and form from the creator-platform reference pack (newsletter-05…08)."
   },
   {
     "id": "monetize-newsletter-recipients",
@@ -908,7 +926,7 @@
     "title": "Create Experiences",
     "section": "monetize",
     "parent": "monetize-experience",
-    "menu": "Sidebar › Monetize › EXPERIENCES › Add Another Experience",
+    "menu": "Sidebar › Monetize › EXPERIENCES › CREATE EXPERIENCES / Add Another Experience",
     "layout": "dashboard",
     "access": [
       "creator",
@@ -917,7 +935,25 @@
     ],
     "status": "inferred",
     "spec": "14-monetize.md",
-    "note": "Route and form inferred (not captured)."
+    "note": "URL and form from the creator-platform reference pack (experience-02…16)."
+  },
+  {
+    "id": "monetize-experience-add-legacy",
+    "pattern": "/monetize/experience/add-experience",
+    "title": "Create Experiences",
+    "section": "monetize",
+    "parent": "monetize-experience",
+    "menu": "Sidebar › Monetize › EXPERIENCES › CREATE EXPERIENCES (old URL)",
+    "layout": "dashboard",
+    "access": [
+      "creator",
+      "content",
+      "financial"
+    ],
+    "status": "inferred",
+    "spec": "14-monetize.md",
+    "note": "Redirects to /monetize/experience/create-experience, keeping the query.",
+    "redirect": "monetize-experience-add"
   },
   {
     "id": "monetize-experience-edit",

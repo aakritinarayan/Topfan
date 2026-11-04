@@ -64,7 +64,7 @@ let r = await ask(p, "Create a training update post for this week", 1000);
 check("2.1: Images post draft from training notes, Draft, sources", /Draft/i.test(r) && /Training notes/i.test(r), r.slice(0, 300));
 r = (await tap(p, /^add an image$/)).r;
 r = (await tap(p, /^generate an original image$/, 1200)).r;
-check("2.2: two directions, Simulated label", /simulated/i.test(r), r.slice(0, 300));
+check("2.2: two directions, no simulated label", /Choose an image/i.test(r) && !/simulated/i.test(r), r.slice(0, 300));
 const pick1 = await tap(p, /cinematic|minimal/, 900);
 check("2.3: a direction can be picked", !!pick1.hit, pick1.hit);
 r = await ask(p, "Make it darker", 1000);
