@@ -642,16 +642,17 @@ export async function localMedia(files: File[]): Promise<Record<string, string>>
   return out;
 }
 
+/** Images and video fill the section's width (one per row, or two side by side); audio keeps its player width. */
 function MediaThumb({ name, src, onRemove }: { name: string; src: string | null; onRemove: () => void }) {
   const blob = tabOnly.get(name);
   const video = !src && blob && /\.(mp4|mov|m4v|webm)$/i.test(name);
   const audio = !src && blob && /\.(mp3|wav|m4a|aac|ogg)$/i.test(name);
   return (
-    <li data-testid="newpost-file-preview" className={`relative flex flex-col overflow-hidden rounded-popover bg-bg ${audio ? "w-[300px]" : "w-[150px]"}`}>
+    <li data-testid="newpost-file-preview" className={`relative flex flex-col overflow-hidden rounded-popover bg-bg ${audio ? "w-[300px] justify-self-center" : "w-full"}`}>
       {src ? (
-        <img src={src} alt={name} className="h-[110px] w-full object-cover" />
+        <img src={src} alt={name} className="aspect-video w-full object-cover" />
       ) : video ? (
-        <video src={blob} controls muted playsInline preload="metadata" className="h-[110px] w-full bg-black object-contain" />
+        <video src={blob} controls muted playsInline preload="metadata" className="aspect-video w-full bg-black object-contain" />
       ) : audio ? (
         <audio src={blob} controls preload="metadata" className="mx-[8px] mt-[10px] h-[36px] w-[calc(100%-16px)]" />
       ) : (
@@ -700,7 +701,7 @@ function UploadCard({ up, files, fileSrc, onFiles, type }: { up: Upload; files: 
       </button>
       <p className="mt-[13px] text-[12px] text-accent">{up.helper}</p>
       {files.length > 0 && (
-        <ul className="mt-[14px] flex flex-wrap justify-center gap-[10px] px-[16px]" data-testid="newpost-files">
+        <ul className={`mt-[14px] grid w-full gap-[10px] px-[24px] ${files.length > 1 ? "grid-cols-2" : "grid-cols-1"}`} data-testid="newpost-files">
           {files.map((n, i) => (
             <MediaThumb key={`${n}-${i}`} name={n} src={mediaSrc(fileSrc[n])} onRemove={() => onFiles(files.filter((_, j) => j !== i))} />
           ))}
