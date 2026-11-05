@@ -2,7 +2,7 @@
  * Assistant overlay layer: right-hand panel (expanded) or an edge launcher (collapsed).
  * Built only from platform parts (DESIGN_NOTES §8). Collapsing never resets anything.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, Check, ChevronDown, ChevronRight, CircleAlert, Loader2, Mic, RotateCcw, Square, X } from "lucide-react";
 import { useAssistant, type Msg, type MsgStatus } from "../state/assistantStore";
@@ -48,7 +48,9 @@ const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce
  * don't fold.
  * Kept outside the component: the panel remounts when the page layout changes.
  */
-const pageStart = { route: "", cut: 0, showOlder: false, msgs: 0, lastMsgAt: 0 };
+const pageStart = { route: "", cut: 0, older: 0, msgs: 0, lastMsgAt: 0, convTop: 0, apTop: null as number | null };
+/** Older messages revealed per "See older chats" (and per scroll to the top after that). */
+const OLDER_BATCH = 6;
 
 export function AssistantPanel() {
   const { state } = usePlatform();
@@ -80,22 +82,92 @@ export function AssistantPanel() {
     pageStart.route = routeId;
     if (!prev || onboarding || Date.now() - pageStart.lastMsgAt < 800 || messages.every((m) => m.dismissible)) return;
     pageStart.cut = messages.length;
-    pageStart.showOlder = false;
+    pageStart.older = 0;
     rerender((n) => n + 1);
   }, [routeId]);
   const cut = pageStart.cut <= messages.length ? pageStart.cut : 0;
   const recent = cut ? messages.slice(cut) : messages;
+  const olderShown = Math.min(pageStart.older, cut);
+  const moreOlder = olderShown < cut;
 
-  useEffect(() => {
+  /* Reading position. `nearBottom` is kept from scroll events; new messages follow the conversation only
+     when the creator just sent one or was already at the bottom, never while reading history. */
+  const nearBottom = useRef(true);
+  const anchor = useRef<{ node: HTMLElement; top: number; until: number } | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const following = useRef(0); // until this time, our own scroll to the bottom is in flight
+  const toBottom = (smooth: boolean) => {
     const el = scroller.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    following.current = Date.now() + 800;
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
     // Chrome can cancel a smooth scroll when another one starts elsewhere; settle at the bottom regardless.
-    const t = setTimeout(() => {
+    setTimeout(() => {
       if (el.scrollHeight - el.scrollTop - el.clientHeight > 4) el.scrollTo({ top: el.scrollHeight });
+      nearBottom.current = true;
     }, 700);
-    return () => clearTimeout(t);
-  }, [messages.length, working, open, chat.status]);
+  };
+  const seen = useRef(messages.length);
+  useEffect(() => {
+    // The creator's own message (it can arrive in the same update as the reply) always brings the view down.
+    const sent = messages.slice(seen.current).some((m) => m.from === "user");
+    seen.current = messages.length;
+    if (sent || nearBottom.current) (nearBottom.current = true), toBottom(true);
+  }, [messages.length, working, chat.status]);
+  useEffect(() => {
+    if (open) (nearBottom.current = true), toBottom(false);
+  }, [open]);
+
+  /** Reveal the next batch above what's on screen, keeping the first visible message exactly where it was. */
+  const showOlder = () => {
+    const el = scroller.current;
+    if (!el || !moreOlder || loadingOlder) return;
+    const box = el.getBoundingClientRect();
+    // The first thing in view (a message, or the page's welcome card) is what must not move.
+    const items = [...el.querySelectorAll<HTMLElement>("[data-mid]"), ...[...el.children].filter((c): c is HTMLElement => c instanceof HTMLElement && !c.matches('[data-testid^="ai-older"]'))];
+    const first = items.filter((x) => x.offsetHeight > 0 && x.getBoundingClientRect().bottom > box.top + 1).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0];
+    anchor.current = first ? { node: first, top: first.getBoundingClientRect().top - box.top, until: Date.now() + 1500 } : null;
+    setLoadingOlder(true);
+    // A beat for the indicator; the history is local, so this never becomes a loading screen.
+    setTimeout(() => {
+      pageStart.older = Math.min(cut, pageStart.older + OLDER_BATCH);
+      setLoadingOlder(false);
+    }, 180);
+  };
+  // After the batch renders (and while late images or cards settle), hold the anchor in place.
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    const a = anchor.current;
+    if (!el || !a) return;
+    const hold = () => {
+      const node = a.node;
+      if (!node.isConnected) return;
+      const drift = node.getBoundingClientRect().top - el.getBoundingClientRect().top - a.top;
+      if (Math.abs(drift) > 0.5) el.scrollTop += drift;
+    };
+    hold();
+    const ro = new ResizeObserver(() => (Date.now() < a.until ? hold() : ro.disconnect()));
+    [...el.children].forEach((c) => ro.observe(c));
+    el.querySelectorAll("[data-mid]").forEach((c) => ro.observe(c));
+    const t = setTimeout(() => ro.disconnect(), a.until - Date.now());
+    return () => (ro.disconnect(), clearTimeout(t));
+  }, [olderShown]);
+  const onScroll = () => {
+    const el = scroller.current;
+    if (!el) return;
+    if (Date.now() < following.current) return;
+    nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (!apView || onboarding) pageStart.convTop = el.scrollTop;
+    // Once older chats are open, reaching the top keeps loading history.
+    if (olderShown > 0 && moreOlder && el.scrollTop < 24) showOlder();
+  };
+  // Switching to the Autopilot view and back returns to the same place in the conversation.
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    if (apView && !onboarding) return void (pageStart.apTop = pageStart.convTop);
+    if (pageStart.apTop != null) (el.scrollTop = pageStart.apTop), (pageStart.apTop = null), (nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80);
+  }, [apView]);
 
   // Mascot follows the voice input; the chat engine sets the answering moods.
   useEffect(() => {
@@ -206,7 +278,12 @@ export function AssistantPanel() {
       </motion.div>
 
       {/* Conversation */}
-      <motion.div {...reveal(0.25)} ref={scroller} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-4 pt-5 [mask-image:linear-gradient(to_bottom,transparent_0,#000_20px)]" inert={waiting}>
+      <motion.div
+        {...reveal(0.25)}
+        ref={scroller}
+        onScroll={onScroll}
+        data-testid="ai-scroller"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto [overflow-anchor:none] px-6 pb-4 pt-5 [mask-image:linear-gradient(to_bottom,transparent_0,#000_20px)]" inert={waiting}>
         {!onboarding && apView ? (
           <AutopilotView />
         ) : (
@@ -214,18 +291,24 @@ export function AssistantPanel() {
             {!onboarding && messages.every((m) => m.dismissible) && <PlatformWelcome />}
             {cut > 0 && (
               <>
-                <button
-                  type="button"
-                  data-testid="ai-older-toggle"
-                  aria-expanded={pageStart.showOlder}
-                  onClick={() => ((pageStart.showOlder = !pageStart.showOlder), rerender((n) => n + 1))}
-                  className="flex items-center gap-1.5 self-center rounded-full border border-line px-3 py-1 text-[12px] text-soft hover:border-accent hover:text-white"
-                >
-                  <ChevronDown size={14} className={pageStart.showOlder ? "rotate-180" : ""} />
-                  {pageStart.showOlder ? "Hide older chats" : "See older chats"}
-                </button>
-                <div className={pageStart.showOlder ? "flex flex-col gap-3" : "hidden"} data-testid="ai-older">
-                  {messages.slice(0, cut).map((m) => (
+                {moreOlder ? (
+                  <button
+                    type="button"
+                    data-testid="ai-older-toggle"
+                    aria-busy={loadingOlder}
+                    onClick={showOlder}
+                    className="flex items-center gap-1.5 self-center rounded-full border border-line px-3 py-1 text-[12px] text-soft hover:border-accent hover:text-white"
+                  >
+                    {loadingOlder ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} className="rotate-180" />}
+                    See older chats
+                  </button>
+                ) : (
+                  <span data-testid="ai-older-start" className="self-center text-[11px] text-muted">
+                    Start of your conversation
+                  </span>
+                )}
+                <div className="flex flex-col gap-3" data-testid="ai-older">
+                  {messages.slice(cut - olderShown, cut).map((m) => (
                     <MessageView key={m.id} m={m} />
                   ))}
                 </div>
@@ -659,12 +742,12 @@ function MessageView({ m }: { m: Msg }) {
   const { resolve, userSays, dismiss } = useAssistant();
   if (m.from === "user")
     return (
-      <motion.div data-msg="user" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
+      <motion.div data-msg="user" data-mid={m.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
         <span className="max-w-[85%] rounded-[20px] rounded-br-md bg-accent px-4 py-2.5 text-sm">{m.text}</span>
       </motion.div>
     );
   return (
-    <motion.div data-msg="assistant" data-status={m.status ?? ""} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="relative min-w-0 break-words rounded-[20px] bg-surface p-4 text-sm leading-5">
+    <motion.div data-msg="assistant" data-mid={m.id} data-status={m.status ?? ""} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="relative min-w-0 break-words rounded-[20px] bg-surface p-4 text-sm leading-5">
       {m.dismissible && !m.resolved && (
         <button
           onClick={() => dismiss(m.id)}

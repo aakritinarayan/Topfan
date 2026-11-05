@@ -265,6 +265,8 @@ for (const id of ["setup-navigation", "ai-content"]) {
   const cb = await chips(p, "ai-suggestion-");
   check(`${tag}: older chats folded, one click away`, /See older chats/.test(await p.$eval('[data-testid="ai-older-toggle"]', (x) => x.innerText).catch(() => "")));
   check(`${tag}: page intro follows navigation (Courses), max 3`, /courses/i.test(page) && cb.length >= 1 && cb.length <= 3 && !other.test(cb.join("|")), `${page} | ${cb.join("|")}`);
+  // Older chats are loaded on demand; once all are loaded, the count must be exactly what it was.
+  for (let i = 0; i < 10 && (await p.$('[data-testid="ai-older-toggle"]')); i++) await p.click('[data-testid="ai-older-toggle"]').then(() => sleep(400));
   check(`${tag}: navigating adds no messages`, (await replies(p)).length === n0, `${n0} → ${(await replies(p)).length}`);
   const more = await p.$('[data-testid="ai-panel"] [data-testid="ai-more-suggestions"]');
   if (more) {
