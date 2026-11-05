@@ -57,7 +57,7 @@ export function Tracker({ current }: { current: number }) {
                 {step.short}
               </span>
             </span>
-            {i < n - 1 && <span aria-hidden className="mx-2 flex-1" />}
+            {i < n - 1 && <span aria-hidden className={`h-px flex-1 transition-colors duration-700 ${done && (all || i + 1 <= current) ? "bg-accent/60" : "bg-line"}`} />}
           </li>
         );
       })}
