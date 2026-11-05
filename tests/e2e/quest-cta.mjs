@@ -19,7 +19,8 @@ const geo = await p.evaluate(() => {
     steps: [...document.querySelectorAll('ol[aria-label^="Provisioning progress"] li')].map((l) => l.getAttribute("aria-label")).join("|") };
 });
 console.log(JSON.stringify(geo));
-ok(geo.h2 < geo.btn && geo.btn < geo.tr && geo.tr < geo.guide, "order heading<button<stepper<guide");
+ok(geo.h2 < geo.btn && geo.btn < geo.tr, "order heading<button<stepper");
+ok(geo.guide == null, "no Onboarding Guide link");
 ok(geo.label === "Play Creator Quest", "label");
 ok(geo.msg === "Your site is getting ready. Explore TopFan while you wait.", "message");
 ok(!geo.wait, "old While you wait line gone");

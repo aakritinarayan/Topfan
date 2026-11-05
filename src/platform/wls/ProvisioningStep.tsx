@@ -10,8 +10,6 @@ import { useQuest } from "../../state/questStore";
 import { PROVISION_ESTIMATE_S, siteAddress, usePlatform } from "../../state/platformStore";
 import { Button, OutlineButton } from "../ui/controls";
 import { OutlinePill } from "../ui/surfaces";
-import { Link } from "../../app/router";
-import { pathFor } from "../../app/routeCatalog";
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
@@ -59,7 +57,7 @@ export function Tracker({ current }: { current: number }) {
                 {step.short}
               </span>
             </span>
-            {i < n - 1 && <span aria-hidden className={`mx-2 h-px flex-1 transition-colors duration-700 ${done && (all || i + 1 <= current) ? "bg-accent/60" : "bg-line"}`} />}
+            {i < n - 1 && <span aria-hidden className="mx-2 flex-1" />}
           </li>
         );
       })}
@@ -261,7 +259,7 @@ export function ProvisioningStep() {
         )}
 
         {/* progress */}
-        <div className="mt-7 w-full border-t border-white/[0.06] pt-6">
+        <div className="mt-7 w-full pt-6">
           <Tracker current={stage >= 3 || (held && resolved) ? TRACKER.length : 2} />
         </div>
 
@@ -270,15 +268,6 @@ export function ProvisioningStep() {
           <div className="mt-4 w-full" data-field="creator-quest">
             <CreatorQuest compact />
           </div>
-        )}
-
-        {showQuest && (
-          <Link
-            to={pathFor("resources-guides")}
-            className="mt-1 text-[13px] text-soft underline-offset-4 hover:text-white hover:underline focus-visible:text-white focus-visible:underline focus-visible:outline-none"
-          >
-            Onboarding Guide
-          </Link>
         )}
 
         {done && !held && stage >= 4 && (
