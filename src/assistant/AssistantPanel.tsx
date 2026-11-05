@@ -536,35 +536,48 @@ function onboardingSteps(s: PlatformState) {
   const at = s.screen === "provisioning" && s.provisionDone ? 3 : order.indexOf(s.screen);
   const status = (i: number, doneAt: number): StepStatus => (at >= doneAt ? "done" : at === i ? "now" : "next");
   return [
-    { label: "Add your domain details", owner: "You", status: status(0, 1) },
-    { label: "Connect your domain", owner: "You", status: status(1, 2) },
-    { label: "TopFan sets up your site", owner: "TopFan", status: status(2, 3) },
-    { label: "Your site address is ready", owner: "TopFan", status: at >= 3 ? ("done" as const) : ("next" as const) },
+    { label: "Add your domain details", owner: "Your action", status: status(0, 1) },
+    { label: "Connect your domain", owner: "Your action", status: status(1, 2) },
+    { label: "TopFan sets up your site", owner: "Handled by TopFan", status: status(2, 3) },
+    { label: "Your site address is ready", owner: "Handled by TopFan", status: at >= 3 ? ("done" as const) : ("next" as const) },
   ];
 }
 
+/** Vertical stepper: numbered stages joined by one line; done = check, the active stage leads, the rest stay quiet. */
 function Checklist({ state }: { state: PlatformState }) {
   const [expanded, setExpanded] = useState(true);
   const steps = onboardingSteps(state);
   const done = steps.filter((s) => s.status === "done").length;
+  const current = steps.findIndex((s) => s.status !== "done");
   return (
-    <div className="rounded-inner bg-surface px-4 py-3">
-      <button onClick={() => setExpanded((e) => !e)} className="flex w-full items-center gap-2 text-left">
+    <div className="rounded-inner bg-surface px-4 py-3" data-testid="setup-stepper">
+      <button onClick={() => setExpanded((e) => !e)} aria-expanded={expanded} className="flex w-full items-center gap-2 text-left">
         {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         <span className="flex-1 text-[13px] font-bold uppercase tracking-caps">Account setup</span>
-        <span className="text-xs text-soft">
-          {done} of {steps.length} done
+        <span className="text-xs text-soft" data-testid="setup-progress">
+          {current < 0 ? `${done} of ${steps.length} complete` : `Step ${current + 1} of ${steps.length}`}
         </span>
       </button>
       {expanded && (
-        <ol className="mt-3 flex flex-col gap-2.5">
-          {steps.map((s) => (
-            <li key={s.label} className="flex items-center gap-3">
-              <StepDot status={s.status} />
-              <span className={`flex-1 text-[13px] ${s.status === "next" ? "text-soft" : "text-white"} ${s.status === "now" ? "font-bold" : ""}`}>
-                {s.label}
+        <ol className="mt-3" aria-label="Account setup steps">
+          {steps.map((s, i) => (
+            <li
+              key={s.label}
+              data-step-status={s.status}
+              aria-current={s.status === "now" ? "step" : undefined}
+              className={`relative flex gap-3 ${i < steps.length - 1 ? "pb-3" : ""}`}
+            >
+              {i < steps.length - 1 && (
+                <span aria-hidden className={`absolute bottom-0 left-[10.5px] top-[22px] w-px ${s.status === "done" ? "bg-accent" : "bg-line"}`} />
+              )}
+              <StepDot status={s.status} n={i + 1} />
+              <span className="min-w-0 flex-1">
+                <span className={`block text-[13px] leading-[22px] ${s.status === "now" ? "font-bold text-white" : s.status === "done" ? "text-soft" : "text-muted"}`}>
+                  {s.label}
+                  <span className="sr-only">, {s.status === "done" ? "completed" : s.status === "now" ? "in progress" : "upcoming"}</span>
+                </span>
+                <span className="block text-[11px] leading-[14px] text-muted">{s.owner}</span>
               </span>
-              <span className="rounded-full bg-bg px-2 py-0.5 text-[11px] font-bold text-soft">{s.owner}</span>
             </li>
           ))}
         </ol>
@@ -573,15 +586,25 @@ function Checklist({ state }: { state: PlatformState }) {
   );
 }
 
-function StepDot({ status }: { status: StepStatus }) {
+function StepDot({ status, n }: { status: StepStatus; n: number }) {
+  const base = "relative z-[1] flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11px] font-bold";
   if (status === "done")
     return (
-      <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-accent">
-        <Check size={11} strokeWidth={3.5} />
+      <span aria-hidden className={`${base} bg-accent`}>
+        <Check size={12} strokeWidth={3.5} />
       </span>
     );
-  if (status === "now") return <span className="h-[18px] w-[18px] shrink-0 rounded-full border-2 border-accent" />;
-  return <span className="h-[18px] w-[18px] shrink-0 rounded-full border border-line" />;
+  if (status === "now")
+    return (
+      <span aria-hidden className={`${base} bg-accent text-white ring-[3px] ring-accent/25`}>
+        {n}
+      </span>
+    );
+  return (
+    <span aria-hidden className={`${base} border border-line bg-surface text-muted`}>
+      {n}
+    </span>
+  );
 }
 
 /* ---------- Messages ---------- */
