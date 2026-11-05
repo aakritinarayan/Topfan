@@ -2,8 +2,8 @@
  * Creator Quest: optional mascot-led mini-games on the provisioning page.
  * Selection → mission → result, all in place (no reload). Never reads or changes provisioning.
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, BookOpen, Check, Play, RotateCcw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, BookOpen, Check, Gamepad2, Play, RotateCcw } from "lucide-react";
 import { useQuest, type MissionResult, type QuestEventType } from "../../../state/questStore";
 import { MISSIONS, missionById, type Mission, type MissionId } from "./missions";
 import { drawGround, drawMascot, drawPlatform, drawToken, newBody, readColors, type IconName } from "./engine";
@@ -28,8 +28,8 @@ const GAMES: Record<MissionId, (p: MissionProps) => React.ReactElement> = {
   insight: InsightExplorer,
 };
 
-/** `compact`: the closed entry is one quiet helper line (provisioning card); the games open full size. */
-export function CreatorQuest({ compact, guide }: { compact?: boolean; guide?: ReactNode } = {}) {
+/** `compact`: the closed entry is the provisioning card's primary action; the games open full size. */
+export function CreatorQuest({ compact }: { compact?: boolean } = {}) {
   const q = useQuest();
   const v = q.view;
   const open = () => {
@@ -39,18 +39,16 @@ export function CreatorQuest({ compact, guide }: { compact?: boolean; guide?: Re
 
   if (v.kind === "closed" && compact)
     return (
-      <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[13px] text-soft" data-quest="entry">
-        <span>While you wait:</span>
-        <button onClick={open} className="inline-flex items-center gap-1.5 font-bold text-accent underline-offset-4 hover:underline">
-          <Play size={11} className="fill-current" /> Play Creator Quest
+      <div className="flex flex-col items-center" data-quest="entry">
+        <p className="text-[13px] text-soft">Your site is getting ready. Explore TopFan while you wait.</p>
+        <button
+          onClick={open}
+          data-quest="play"
+          className="mt-4 inline-flex h-[52px] items-center gap-2.5 rounded-pill bg-accent px-8 text-[14px] font-black uppercase tracking-caps text-white shadow-[0_10px_28px_rgba(0,0,0,0.35)] transition-[filter,transform] duration-200 hover:-translate-y-px hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-[3px] focus-visible:ring-offset-[#141517] active:translate-y-0"
+        >
+          <Gamepad2 size={20} strokeWidth={2.25} aria-hidden /> Play Creator Quest
         </button>
-        {guide && (
-          <>
-            <span aria-hidden className="text-muted">·</span>
-            {guide}
-          </>
-        )}
-      </p>
+      </div>
     );
 
   if (v.kind === "closed")

@@ -209,6 +209,13 @@ export function ProvisioningStep() {
           </motion.div>
         </AnimatePresence>
 
+        {/* primary action while waiting: Creator Quest (never affects provisioning) */}
+        {showQuest && !questOpen && (
+          <div className="mt-6 w-full" data-field="creator-quest">
+            <CreatorQuest compact />
+          </div>
+        )}
+
         {/* Website ready while playing: quiet notice, the creator decides when to leave the game. */}
         {held && (
           <div
@@ -258,18 +265,20 @@ export function ProvisioningStep() {
           <Tracker current={stage >= 3 || (held && resolved) ? TRACKER.length : 2} />
         </div>
 
-        {/* optional while waiting: Creator Quest (never affects provisioning) and the guide */}
-        {showQuest && (
+        {/* games open below the stepper; the closed entry sits under the heading */}
+        {showQuest && questOpen && (
           <div className="mt-4 w-full" data-field="creator-quest">
-            <CreatorQuest
-              compact
-              guide={
-                <Link to={pathFor("resources-guides")} className="font-bold text-accent underline-offset-4 hover:underline">
-                  Onboarding Guide
-                </Link>
-              }
-            />
+            <CreatorQuest compact />
           </div>
+        )}
+
+        {showQuest && (
+          <Link
+            to={pathFor("resources-guides")}
+            className="mt-1 text-[13px] text-soft underline-offset-4 hover:text-white hover:underline focus-visible:text-white focus-visible:underline focus-visible:outline-none"
+          >
+            Onboarding Guide
+          </Link>
         )}
 
         {done && !held && stage >= 4 && (
