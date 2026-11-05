@@ -166,7 +166,7 @@ export function pageActions(path: string, g: Agent): GuideItem[] {
   const content = !inScope("discovery");
   // AI-Assisted Content: the creator's unfinished post, newsletter, experience or week.
   const work = content && contentActions() ? unfinishedWork(d) : null;
-  if (work) out.push({ id: `resume-work-${work.id}`, label: `Continue my ${work.kind === "week" ? "week" : work.label.toLowerCase()}`, run: () => contentActions()?.show(work.id) });
+  if (work) out.push({ id: `resume-work-${work.id}`, label: `Continue my ${work.kind === "week" ? "week" : work.label.toLowerCase().replace(/^my\s+/, "")}`, run: () => contentActions()?.show(work.id) });
   const page = PAGES[pageKey(route.id)];
   const defs = page ? (content ? page.content : page.setup) : [featureForRoute(route.id) ? understand(featureForRoute(route.id)!.id, "Understand this page") : pageHelp];
   const doneSetup = d.account.whiteLabel.status === "active";

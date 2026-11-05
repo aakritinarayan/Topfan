@@ -182,7 +182,7 @@ export function PlatformWelcome() {
     const c = { show: (id: string) => contentActions()?.show(id), plan: () => contentActions()?.plan(), post: () => contentActions()?.post(), newsletter: () => contentActions()?.newsletter(), experience: () => contentActions()?.experience(), week: () => contentActions()?.week() };
     const work = unfinishedWork(getData());
     const ideas = [
-      ...(work ? [{ id: `resume-work-${work.id}`, label: `Continue my ${work.kind === "week" ? "week" : work.label.toLowerCase()}`, run: () => c.show(work.id) }] : []),
+      ...(work ? [{ id: `resume-work-${work.id}`, label: `Continue my ${work.kind === "week" ? "week" : work.label.toLowerCase().replace(/^my\s+/, "")}`, run: () => c.show(work.id) }] : []),
       ...CREATE_ACTIONS.map((x) => ({ id: `create-${x.id}`, label: x.label, run: () => (x.id === "plan" ? c.plan() : c[x.id]()) })),
     ];
     return (
