@@ -16,73 +16,54 @@ import { pathFor } from "../../app/routeCatalog";
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
 const TRACKER = [
-  { short: "Domain submitted", full: "Domain submitted successfully" },
-  { short: "DNS configured", full: "DNS CNAME records configured" },
+  { short: "Domain", full: "Domain submitted successfully" },
+  { short: "DNS", full: "DNS CNAME records configured" },
   { short: "Provisioning", full: "White Label Site Provisioning" },
-  { short: "Site activated", full: "Site Activated" },
+  { short: "Live", full: "Site Activated" },
 ];
 
 /**
- * Quiet dot stepper (tertiary to the timer and the mascot). `current` = index of the in-progress step;
- * earlier steps are done, and current === length means all done. Display only: dots are not clickable.
+ * Labelled stepper (third in the hierarchy, after the timer and the heading). `current` = index of the
+ * in-progress step; earlier steps show a check, and current === length means all done. Display only.
  */
 export function Tracker({ current }: { current: number }) {
   const n = TRACKER.length;
-  const shown = Math.min(current, n - 1);
-  const all = current >= n; // final state: every node completed (accent = completed)
+  const all = current >= n;
   return (
-    <div className="flex flex-col items-center">
-      <ol aria-label={all ? "Provisioning progress: all steps completed" : "Provisioning progress"} className="relative flex h-6 w-[340px] items-center justify-between">
-        {/* 1px rail between dot centers (24px cells). Segments end exactly at each dot or at the active ring's edge. */}
-        {TRACKER.slice(1).map((_, i) => {
-          const from = i === current ? 12 : 4.5;
-          const to = i + 1 === current ? 12 : 4.5;
-          return (
-            <span
-              key={i}
-              aria-hidden
-              className={`absolute top-1/2 h-px -translate-y-1/2 transition-colors duration-700 ${all ? "bg-accent/60" : i < current ? "bg-accent/60" : "bg-line"}`}
-              style={{
-                left: `calc(12px + (100% - 24px) * ${i / (n - 1)} + ${from}px)`,
-                width: `calc((100% - 24px) / ${n - 1} - ${from + to}px)`,
-              }}
-            />
-          );
-        })}
-        {TRACKER.map((step, i) => {
-          const done = i < current;
-          const active = i === current;
-          const state = done ? "completed" : active ? "in progress" : "upcoming";
-          return (
-            <li
-              key={step.full}
-              title={step.full}
-              aria-label={`Step ${i + 1} of ${n}: ${step.full}, ${state}`}
-              aria-current={active ? "step" : undefined}
-              className="relative flex h-6 w-6 items-center justify-center"
-            >
-              {active && (
-                <span aria-hidden className="stepper-ring absolute inset-0 rounded-full border border-accent" />
+    <ol aria-label={all ? "Provisioning progress: all steps completed" : "Provisioning progress"} className="mx-auto flex w-full max-w-[440px] items-start pb-8">
+      {TRACKER.map((step, i) => {
+        const done = all || i < current;
+        const active = !all && i === current;
+        const state = done ? "completed" : active ? "in progress" : "upcoming";
+        return (
+          <li
+            key={step.full}
+            title={step.full}
+            aria-label={`Step ${i + 1} of ${n}: ${step.full}, ${state}`}
+            aria-current={active ? "step" : undefined}
+            className={`flex items-center ${i < n - 1 ? "flex-1" : ""}`}
+          >
+            <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
+              {active && <span aria-hidden className="stepper-ring absolute inset-0 rounded-full border border-accent" />}
+              {done ? (
+                <span aria-hidden className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-accent transition-colors duration-700">
+                  <Check size={11} strokeWidth={3.5} />
+                </span>
+              ) : (
+                <span aria-hidden className={`h-[9px] w-[9px] rounded-full transition-colors duration-700 ${active ? "bg-accent" : "bg-white/20"}`} />
               )}
               <span
                 aria-hidden
-                className={`relative h-[9px] w-[9px] rounded-full transition-colors duration-700 ${all || done || active ? "bg-accent" : "bg-white/20"}`}
-              />
-            </li>
-          );
-        })}
-      </ol>
-      {!all && (
-        <>
-          <p aria-hidden className="mt-4 text-[13px] text-soft">
-            {TRACKER[shown].short}
-          </p>
-          <p aria-hidden className="mt-1 text-[11px] font-bold uppercase tracking-[2px] text-muted">
-            Step {shown + 1} of {n}
-          </p>
-        </>
-      )}
-    </div>
+                className={`absolute left-1/2 top-[30px] -translate-x-1/2 whitespace-nowrap text-[12px] ${active ? "font-bold text-white" : done ? "text-soft" : "text-muted"}`}
+              >
+                {step.short}
+              </span>
+            </span>
+            {i < n - 1 && <span aria-hidden className={`mx-2 h-px flex-1 transition-colors duration-700 ${done && (all || i + 1 <= current) ? "bg-accent/60" : "bg-line"}`} />}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -193,47 +174,45 @@ export function ProvisioningStep() {
   return (
     <>
       <h3 className="mb-6 text-[27.5px] font-medium">Setup Your White Label Site Domain</h3>
-      {/* No surface card: provisioning and completion sit directly in the space backdrop. */}
-      <div className="flex flex-col items-center px-10 pb-10 pt-4 text-center" data-provisioning={resolved ? "complete" : "in-progress"}>
-        {/* A — status + headline (one pill, one heading: the copy resolves in place) */}
+      {/* One centered card holds the whole state; the space backdrop stays outside it. */}
+      <section
+        className="mx-auto flex w-full max-w-[760px] flex-col items-center rounded-[28px] border border-white/[0.06] bg-[#141517]/80 px-8 pb-7 pt-7 text-center shadow-[0_30px_80px_rgba(0,0,0,0.35)] backdrop-blur-md sm:px-12"
+        data-provisioning={resolved ? "complete" : "in-progress"}
+      >
+        {/* status */}
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={resolved ? "pill-done" : "pill"} {...fade()}>
             <OutlinePill className="gap-2 tracking-[1.5px]">
               {resolved && <Check size={15} strokeWidth={3} className="text-accent" />}
-              {resolved ? "White Label Site Activated" : "White Label Site Provisioning In Process"}
+              {resolved ? "Site Activated" : "Provisioning In Process"}
             </OutlinePill>
           </motion.div>
         </AnimatePresence>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={resolved ? "head-done" : "head"} {...fade(0.05)}>
-            <h2 className={resolved ? "mt-7 text-[32px] font-bold leading-tight" : "mt-5 text-[26px] font-bold"}>{resolved ? "Your website is ready!" : "Your White Label Site is Being Provisioned"}</h2>
-            {!resolved && (
-              <p className="mt-2 text-[15px] text-soft">
-                Provisioning can take up to <span className="font-bold text-white">10 minutes</span> to complete globally.
-              </p>
-            )}
-          </motion.div>
-        </AnimatePresence>
 
-        {/* B — the same orbit: countdown while provisioning, check when activated */}
+        {/* the centerpiece: countdown while provisioning, check when activated */}
         <div
-          className={`${resolved ? "mt-9" : "mt-4"} flex items-start justify-center overflow-visible transition-[height] duration-500 ease-out`}
+          className="mt-6 flex items-start justify-center overflow-visible transition-[height] duration-500 ease-out"
           style={{ height: showQuest && questOpen ? 190 : 256 }}
         >
-          <div
-            className="origin-top transition-transform duration-500 ease-out"
-            style={{ transform: `scale(${showQuest && questOpen ? 0.74 : 1})` }}
-          >
+          <div className="origin-top transition-transform duration-500 ease-out" style={{ transform: `scale(${showQuest && questOpen ? 0.74 : 1})` }}>
             <OrbitLoader left={left} overrun={overrun} complete={stage >= 1} animate={animate.current && !reduce} dim={playing && !done} />
           </div>
         </div>
+
+        {/* heading + one line */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={resolved ? "head-done" : "head"} {...fade(0.05)} className="mt-6">
+            <h2 className="text-[28px] font-bold leading-tight">{resolved ? "Your website is ready!" : "Setting up your website"}</h2>
+            {!resolved && <p className="mt-2 text-[15px] text-soft">Usually done within 10 minutes. You can safely leave this page.</p>}
+          </motion.div>
+        </AnimatePresence>
 
         {/* Website ready while playing: quiet notice, the creator decides when to leave the game. */}
         {held && (
           <div
             role="status"
             data-site-ready
-            className="sticky top-4 z-20 mt-4 flex w-full max-w-[760px] items-center gap-3 rounded-pill border border-accent bg-[#1b1c1e]/95 py-2 pl-4 pr-2 text-left shadow-[0_12px_30px_rgba(0,0,0,0.45)]"
+            className="sticky top-4 z-20 mt-6 flex w-full items-center gap-3 rounded-pill border border-accent bg-[#1b1c1e]/95 py-2 pl-4 pr-2 text-left shadow-[0_12px_30px_rgba(0,0,0,0.45)]"
           >
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent">
               <Check size={12} strokeWidth={3.5} />
@@ -250,12 +229,11 @@ export function ProvisioningStep() {
           </div>
         )}
 
-        {/* C — the result: the live address, then what to do with it */}
+        {/* the result: the live address, then what to do with it */}
         {done && !held && stage >= 3 && (
-          <motion.div key="result" {...fade()} className="mt-4 flex w-full max-w-[640px] flex-col items-center" data-site-url>
-            <p className="text-[11px] font-bold uppercase tracking-[2px] text-muted">Your website address</p>
-            <div className="mt-2 flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-2">
-              <span className="min-w-0 break-all text-[24px] font-bold leading-8 text-white" data-url>
+          <motion.div key="result" {...fade()} className="mt-5 flex w-full flex-col items-center" data-site-url>
+            <div className="flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-2">
+              <span className="min-w-0 break-all text-[20px] font-bold leading-8 text-white" data-url>
                 {url}
               </span>
               <CopyUrl url={url} />
@@ -263,96 +241,86 @@ export function ProvisioningStep() {
           </motion.div>
         )}
         {done && !held && stage >= 4 && (
-          <motion.div key="actions" {...fade(0.05)} className="flex w-full max-w-[640px] flex-col items-center">
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
-              <Button onClick={() => go("manage")} className="!h-[44px] px-7">
-                Go to my site
-              </Button>
-              <button onClick={() => setDetailsOpen(true)} className="h-[44px] px-2 text-[13px] font-bold text-soft underline-offset-4 hover:text-white hover:underline">
-                View domain details
-              </button>
-            </div>
+          <motion.div key="actions" {...fade(0.05)} className="mt-7 flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
+            <Button onClick={() => go("manage")} className="!h-[44px] px-7">
+              Go to my site
+            </Button>
+            <button onClick={() => setDetailsOpen(true)} className="h-[44px] px-2 text-[13px] font-bold text-soft underline-offset-4 hover:text-white hover:underline">
+              View domain details
+            </button>
           </motion.div>
         )}
 
-        {/* D — optional Creator Quest (never affects provisioning) */}
-        {showQuest && (
-          <div className="mt-6 w-full max-w-[760px]" data-field="creator-quest">
-            <CreatorQuest />
-          </div>
-        )}
-
-        {/* E — milestones: the same tracker reaches 4 of 4 */}
-        <div className={`${done && !held ? "mt-10" : "mt-12"} w-full max-w-[760px]`}>
+        {/* progress */}
+        <div className="mt-7 w-full border-t border-white/[0.06] pt-6">
           <Tracker current={stage >= 3 || (held && resolved) ? TRACKER.length : 2} />
         </div>
 
-        {/* F — supporting information */}
-        {!done ? (
-          <>
-            <p className="mt-9 text-sm text-soft">You don't need to stay on this page - You can safely navigate away and explore other features.</p>
-            <p className="mt-2 text-sm text-soft">
-              While you wait, we recommend downloading and reviewing our{" "}
-              {/* inferred: the guide's file isn't in the references, so this opens Resources › Guides */}
-              <Link to={pathFor("resources-guides")} className="font-bold text-accent underline">
-                Onboarding Guide.
-              </Link>
-            </p>
-          </>
-        ) : (
-          !held &&
-          stage >= 4 && (
-            <motion.div key="change" {...fade(0.1)} className="mt-9 flex w-full max-w-[640px] flex-col items-center">
-              <button
-                onClick={() => setChangeOpen((o) => !o)}
-                aria-expanded={changeOpen}
-                aria-controls="change-domain"
-                className="inline-flex min-h-[40px] items-center gap-1.5 text-[13px] text-muted hover:text-white"
-              >
-                Need to change your domain later?
-                <ChevronDown size={15} className={`transition-transform duration-300 ${changeOpen ? "rotate-180" : ""}`} />
-              </button>
-              <AnimatePresence initial={false}>
-                {changeOpen && (
-                  <motion.div
-                    id="change-domain"
-                    initial={reduce ? false : { height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3, ease: EASE_OUT }}
-                    className="overflow-hidden"
-                  >
-                    <p className="mt-2 max-w-[560px] text-[13px] leading-5 text-soft">
-                      To change your website's DNS / URL address, open{" "}
-                      <button onClick={() => setDetailsOpen(true)} className="font-bold text-white underline underline-offset-2">
-                        View domain details
-                      </button>{" "}
-                      and use delete at the bottom. If you delete your domain settings, your content and cover pages will remain intact, but you'll
-                      need to set up your domain name and white label site color and logo preferences again.
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          )
-        )}
-
-        {/* Review-only shortcuts; the real screen polls build_status every minute. */}
-        {!done && (
-          <div className="mt-7 flex gap-5 text-xs text-muted">
-            <button
-              disabled={overrun}
-              onClick={() => patch({ provisionStartedAt: Date.now() - PROVISION_ESTIMATE_S * 1000 })}
-              className="underline hover:text-white disabled:no-underline disabled:opacity-50"
-            >
-              Simulate: estimate runs over
-            </button>
-            <button onClick={() => patch({ provisionDone: true })} className="underline hover:text-white">
-              Simulate: finish provisioning
-            </button>
+        {/* optional while waiting: Creator Quest (never affects provisioning) and the guide */}
+        {showQuest && (
+          <div className="mt-4 w-full" data-field="creator-quest">
+            <CreatorQuest
+              compact
+              guide={
+                <Link to={pathFor("resources-guides")} className="font-bold text-accent underline-offset-4 hover:underline">
+                  Onboarding Guide
+                </Link>
+              }
+            />
           </div>
         )}
-      </div>
+
+        {done && !held && stage >= 4 && (
+          <motion.div key="change" {...fade(0.1)} className="mt-6 flex w-full flex-col items-center">
+            <button
+              onClick={() => setChangeOpen((o) => !o)}
+              aria-expanded={changeOpen}
+              aria-controls="change-domain"
+              className="inline-flex min-h-[40px] items-center gap-1.5 text-[13px] text-muted hover:text-white"
+            >
+              Need to change your domain later?
+              <ChevronDown size={15} className={`transition-transform duration-300 ${changeOpen ? "rotate-180" : ""}`} />
+            </button>
+            <AnimatePresence initial={false}>
+              {changeOpen && (
+                <motion.div
+                  id="change-domain"
+                  initial={reduce ? false : { height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: EASE_OUT }}
+                  className="overflow-hidden"
+                >
+                  <p className="mt-2 max-w-[560px] text-[13px] leading-5 text-soft">
+                    To change your website's DNS / URL address, open{" "}
+                    <button onClick={() => setDetailsOpen(true)} className="font-bold text-white underline underline-offset-2">
+                      View domain details
+                    </button>{" "}
+                    and use delete at the bottom. If you delete your domain settings, your content and cover pages will remain intact, but you'll
+                    need to set up your domain name and white label site color and logo preferences again.
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </section>
+
+      {/* Review-only shortcuts, outside the card; the real screen polls build_status every minute. */}
+      {!done && (
+        <div className="mt-3 flex justify-center gap-5 text-[11px] text-muted">
+          <button
+            disabled={overrun}
+            onClick={() => patch({ provisionStartedAt: Date.now() - PROVISION_ESTIMATE_S * 1000 })}
+            className="underline hover:text-white disabled:no-underline disabled:opacity-50"
+          >
+            Simulate: estimate runs over
+          </button>
+          <button onClick={() => patch({ provisionDone: true })} className="underline hover:text-white">
+            Simulate: finish provisioning
+          </button>
+        </div>
+      )}
       <DomainDetailsModal open={detailsOpen} onClose={() => setDetailsOpen(false)} />
     </>
   );

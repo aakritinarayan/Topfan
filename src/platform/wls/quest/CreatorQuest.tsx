@@ -2,7 +2,7 @@
  * Creator Quest: optional mascot-led mini-games on the provisioning page.
  * Selection → mission → result, all in place (no reload). Never reads or changes provisioning.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, BookOpen, Check, Play, RotateCcw } from "lucide-react";
 import { useQuest, type MissionResult, type QuestEventType } from "../../../state/questStore";
 import { MISSIONS, missionById, type Mission, type MissionId } from "./missions";
@@ -28,9 +28,30 @@ const GAMES: Record<MissionId, (p: MissionProps) => React.ReactElement> = {
   insight: InsightExplorer,
 };
 
-export function CreatorQuest() {
+/** `compact`: the closed entry is one quiet helper line (provisioning card); the games open full size. */
+export function CreatorQuest({ compact, guide }: { compact?: boolean; guide?: ReactNode } = {}) {
   const q = useQuest();
   const v = q.view;
+  const open = () => {
+    q.setView({ kind: "select" });
+    q.emit("quest_opened");
+  };
+
+  if (v.kind === "closed" && compact)
+    return (
+      <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[13px] text-soft" data-quest="entry">
+        <span>While you wait:</span>
+        <button onClick={open} className="inline-flex items-center gap-1.5 font-bold text-accent underline-offset-4 hover:underline">
+          <Play size={11} className="fill-current" /> Play Creator Quest
+        </button>
+        {guide && (
+          <>
+            <span aria-hidden className="text-muted">·</span>
+            {guide}
+          </>
+        )}
+      </p>
+    );
 
   if (v.kind === "closed")
     return (
