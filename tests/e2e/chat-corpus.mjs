@@ -65,6 +65,7 @@ async function run(group, start, prompts) {
     p = await ctx.newPage();
     p.on("pageerror", (e) => errors.push(String(e)));
     await p.goto(`${BASE}${start}${start.includes("?") ? "&" : "?"}resetMock=1&noDelay=1`, { waitUntil: "networkidle0" });
+    await p.waitForSelector('[data-testid="ai-panel"], [data-testid="ai-launcher"]', { timeout: 20000 });
     await sleep(800);
     if (!(await p.$('[data-testid="ai-panel"]'))) { await p.click('[data-testid="ai-launcher"]'); await sleep(500); }
     // Setup: get past the intro card so the input is usable.
