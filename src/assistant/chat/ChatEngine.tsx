@@ -20,6 +20,7 @@ import { isOnboarding, usePlatform, type PlatformState } from "../../state/platf
 import { getData } from "../../store/store";
 import { buildPlatformContext } from "../../app/agent-context/agent-context";
 import { getWorkflow } from "../../app/agent-context/workflow-state";
+import { canonicalWords } from "../../app/agent-context/intent";
 import { DRAFT_LABEL, type DraftKind } from "../platform/drafts";
 import { usePlatformAgent } from "../platform/PlatformAgent";
 import { useDomainFinder } from "../../state/domainFinderStore";
@@ -343,11 +344,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const ask = useCallback(
     (raw: string) => {
-      const text = raw.trim();
-      if (!text) return;
+      const said = raw.trim();
+      if (!said) return;
       const { a, messages, platform } = live.current;
       const history = historyOf(messages);
-      a.userSays(text);
+      a.userSays(said);
+      // Routing reads one spelling per word; the chat shows what the creator typed.
+      const text = canonicalWords(said);
       // A workflow from the other demo link: one short answer with a link, never a silent switch.
       const other = otherDemoRequest(text);
       if (other) return sayOtherDemo(a.say, other);

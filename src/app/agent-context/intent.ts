@@ -9,8 +9,11 @@ import { AMBIGUITIES, FEATURES, featureById, type Feature } from "./features";
 import { TASKS, type TaskDef } from "./tasks";
 import { matchEarning, type EarnIntent } from "./earning";
 
+/** Spellings creators use for the same word ("news letter" → "newsletter"), applied before any routing. */
+export const canonicalWords = (s: string) => s.replace(/\bnews[\s-]+letter(s?)\b/gi, (_m, pl: string) => `newsletter${pl}`);
+
 export const normalizeText = (s: string) =>
-  ` ${s
+  ` ${canonicalWords(s)
     .toLowerCase()
     .replace(/[’']/g, "'")
     .replace(/[^a-z0-9:' ]+/g, " ")
