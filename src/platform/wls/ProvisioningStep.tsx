@@ -175,10 +175,12 @@ export function ProvisioningStep() {
     <>
       <h3 className="mb-6 text-[27.5px] font-medium">Setup Your White Label Site Domain</h3>
       {/* One centered card holds the whole state; the space backdrop stays outside it. */}
+      {/* Same content column as the heading (like the Step 1 and 2 cards); the contents keep their centered width. */}
       <section
-        className="mx-auto flex w-full max-w-[760px] flex-col items-center rounded-[28px] border border-white/[0.06] bg-[#141517]/80 px-8 pb-7 pt-7 text-center shadow-[0_30px_80px_rgba(0,0,0,0.35)] backdrop-blur-md sm:px-12"
+        className="w-full rounded-[28px] border border-white/[0.06] bg-[#141517]/80 px-8 pb-7 pt-7 text-center shadow-[0_30px_80px_rgba(0,0,0,0.35)] backdrop-blur-md sm:px-12"
         data-provisioning={resolved ? "complete" : "in-progress"}
       >
+        <div className="mx-auto flex w-full max-w-[664px] flex-col items-center">
         {/* status */}
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={resolved ? "pill-done" : "pill"} {...fade()}>
@@ -304,6 +306,7 @@ export function ProvisioningStep() {
             </AnimatePresence>
           </motion.div>
         )}
+        </div>
       </section>
 
       {/* Review-only shortcuts, outside the card; the real screen polls build_status every minute. */}
