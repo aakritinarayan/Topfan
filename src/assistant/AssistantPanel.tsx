@@ -227,16 +227,6 @@ export function AssistantPanel() {
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
     >
-      {/* Collapse handle: centered on the panel's left edge. */}
-      <button
-        onClick={() => setOpen(false)}
-        aria-label="Collapse assistant"
-        title="Collapse"
-        data-testid="ai-collapse"
-        className="absolute left-0 top-1/2 z-20 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-lg hover:brightness-90"
-      >
-        <ChevronRight size={18} strokeWidth={2.5} />
-      </button>
       {/* Header — same height as the page header */}
       <div className="flex h-[75px] shrink-0 items-center gap-3 border-b border-line px-6">
         {/* Landing spot for the intro mascot (the flight itself does the settle). */}
@@ -264,6 +254,15 @@ export function AssistantPanel() {
             </span>
           </span>
         </motion.div>
+        <button
+          onClick={() => setOpen(false)}
+          aria-label="Close assistant"
+          title="Close"
+          data-testid="ai-collapse"
+          className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-soft transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <X size={20} strokeWidth={2.25} />
+        </button>
       </div>
 
       <motion.div {...reveal(0.15)} className="flex shrink-0 flex-col gap-2 px-6 pb-1 pt-4" inert={waiting}>

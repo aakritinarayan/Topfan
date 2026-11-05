@@ -110,7 +110,7 @@ let pC;
   const p = pC;
   await p.evaluate(() => [...document.querySelectorAll("a, button")].find((x) => x.innerText.trim() === "Feed")?.click());
   await sleep(800);
-  await p.evaluate(() => document.querySelector('[aria-label="Collapse assistant"]')?.click());
+  await p.evaluate(() => document.querySelector('[data-testid="ai-collapse"]')?.click());
   await sleep(400);
   if (!(await p.$('[data-testid="ai-panel"]'))) { await p.click('[data-testid="ai-launcher"]'); await sleep(800); }
   const t = await panel(p);

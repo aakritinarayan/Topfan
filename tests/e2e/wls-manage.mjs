@@ -12,7 +12,7 @@ const store = () => p.evaluate(() => JSON.parse(localStorage.getItem("topfan-moc
 const clickText = (t) => p.evaluate((t) => { const e = [...document.querySelectorAll("button")].find((x) => x.innerText.trim().toLowerCase() === t.toLowerCase()); e?.click(); return !!e; }, t);
 await p.goto(`${BASE}/edit-preference/whitelabel?resetMock=1&noDelay=1`, { waitUntil: "networkidle0" });
 await sleep(800);
-await p.evaluate(() => document.querySelector('[aria-label="Collapse assistant"]')?.click());
+await p.evaluate(() => document.querySelector('[data-testid="ai-collapse"]')?.click());
 
 // Logo font carousel
 const font = () => p.$eval('[data-testid="wls-logo-font"] [data-font]', (e) => e.dataset.font);

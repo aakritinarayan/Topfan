@@ -38,7 +38,7 @@ for (const [w, h, body, gap] of [[1512, 805, 72, 28], [1126, 797, 66, 24], [390,
   await p.setViewport({ width: w, height: h });
   await p.goto(`${BASE}/ajwhite?noDelay=1&resetMock=1`, { waitUntil: "networkidle0" });
   await sleep(400);
-  if (await p.$('[data-testid="ai-panel"]')) { await p.click('[aria-label="Collapse assistant"]'); await sleep(400); }
+  if (await p.$('[data-testid="ai-panel"]')) { await p.click('[data-testid="ai-collapse"]'); await sleep(400); }
   const m = await measure();
   check(`${w}: launcher present, no text`, !!m && m.text === "", JSON.stringify(m));
   if (!m) continue;
@@ -61,7 +61,7 @@ await sleep(600);
 if (!(await p.$('[data-testid="ai-panel"]'))) { await p.click('[data-testid="ai-launcher"]'); await sleep(600); }
 const msgs = () => p.evaluate(() => document.querySelector('[data-testid="ai-panel"]')?.innerText.length ?? 0);
 const before = await msgs();
-await p.click('[aria-label="Collapse assistant"]');
+await p.click('[data-testid="ai-collapse"]');
 await sleep(500);
 check("collapse shows the mascot, no panel", !!(await p.$('[data-testid="ai-launcher"]')) && !(await p.$('[data-testid="ai-panel"]')));
 check("no edge tab left (launcher not vertically centered)", await p.evaluate(() => { const r = document.querySelector('[data-testid="ai-launcher"]').getBoundingClientRect(); return r.bottom > innerHeight - 60; }));
@@ -84,7 +84,7 @@ check("conversation preserved across close/open", (await msgs()) === before, `${
 if (OUT) await p.screenshot({ path: `${OUT}/launcher-open.png` });
 
 // Unread indicator only when there's something unread.
-await p.click('[aria-label="Collapse assistant"]');
+await p.click('[data-testid="ai-collapse"]');
 await sleep(400);
 check("no badge when nothing is unread", !(await p.$('[data-testid="ai-launcher-unread"]')));
 

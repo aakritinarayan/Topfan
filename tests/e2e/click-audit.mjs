@@ -73,7 +73,7 @@ async function open(ctx, path) {
   p.on("pageerror", (e) => (p.__errors ??= []).push(String(e).slice(0, 200)));
   await p.goto(`${BASE}${path}${path.includes("?") ? "&" : "?"}noDelay=1&resetMock=1`, { waitUntil: "networkidle0", timeout: 20000 }).catch(() => {});
   // Collapse the assistant so it doesn't cover the page; it's audited separately.
-  await p.evaluate(() => document.querySelector('[aria-label="Collapse assistant"]')?.click());
+  await p.evaluate(() => document.querySelector('[data-testid="ai-collapse"]')?.click());
   await sleep(350);
   return p;
 }
