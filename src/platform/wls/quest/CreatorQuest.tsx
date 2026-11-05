@@ -3,10 +3,10 @@
  * Selection → mission → result, all in place (no reload). Never reads or changes provisioning.
  */
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, BookOpen, Check, Gamepad2, Play, RotateCcw } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, Clock, Gamepad2, Play, RotateCcw, X } from "lucide-react";
 import { useQuest, type MissionResult, type QuestEventType } from "../../../state/questStore";
 import { MISSIONS, missionById, type Mission, type MissionId } from "./missions";
-import { drawGround, drawMascot, drawPlatform, drawToken, newBody, readColors, type IconName } from "./engine";
+import { drawGround, drawMascot, drawToken, newBody, readColors, type IconName } from "./engine";
 import { RevenueRush } from "./RevenueRush";
 import { SuperfanSignal } from "./SuperfanSignal";
 import { FanHQ } from "./FanHQ";
@@ -110,19 +110,28 @@ function MissionSelect() {
   const [reading, setReading] = useState(false);
   return (
     <div className="quest-enter text-left" data-quest="select">
-      <div className="flex items-center gap-3">
-        <p className="flex-1 text-[11px] font-bold uppercase tracking-[2px] text-muted">Creator Quest · choose a mission</p>
-        <button onClick={() => setReading((r) => !r)} className="inline-flex items-center gap-1.5 text-[12px] font-bold text-soft hover:text-white" aria-pressed={reading}>
-          <BookOpen size={14} /> {reading ? "Show missions" : "Prefer reading?"}
+      <div className="flex items-center gap-1">
+        <h3 className="flex-1 text-[16px] font-bold">Choose a Quest</h3>
+        <button
+          onClick={() => setReading((r) => !r)}
+          aria-pressed={reading}
+          aria-label={reading ? "Show quests" : "Read instead"}
+          title={reading ? "Show quests" : "Read instead"}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent aria-pressed:text-white"
+        >
+          <BookOpen size={15} />
         </button>
-        <button onClick={() => q.setView({ kind: "closed" })} className="text-[12px] font-bold text-soft hover:text-white">
-          Close
+        <button
+          onClick={() => q.setView({ kind: "closed" })}
+          className="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-[12px] font-bold text-soft transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <X size={14} strokeWidth={2.5} /> Close
         </button>
       </div>
       {reading ? (
         <ul className="mt-3 flex flex-col gap-2">
           {MISSIONS.map((m) => (
-            <li key={m.id} className="rounded-[16px] border border-line bg-[#1b1c1e]/70 px-4 py-3">
+            <li key={m.id} className="rounded-[16px] border border-white/[0.06] bg-[#1b1c1e]/70 px-4 py-3">
               <p className="text-[13px] font-bold">
                 {m.name} <span className="font-normal text-muted">· {m.topic}</span>
               </p>
@@ -144,10 +153,10 @@ function MissionSelect() {
 
 function MissionCard({ m, done, onPlay }: { m: Mission; done: boolean; onPlay: () => void }) {
   return (
-    <div data-mission={m.id} className="flex flex-col rounded-[20px] border border-line bg-[#1b1c1e]/70 p-3 transition-colors hover:border-accent/60">
+    <div data-mission={m.id} className="flex flex-col rounded-[18px] border border-white/[0.06] bg-[#1b1c1e]/70 p-3 transition-colors hover:border-white/[0.14] focus-within:border-white/[0.14]">
       <MissionPreview id={m.id} />
       <div className="mt-2 flex items-center gap-2">
-        <p className="flex-1 text-[14px] font-bold">{m.name}</p>
+        <p className="flex-1 text-[14px] font-bold leading-5">{m.name}</p>
         {done && (
           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-white" aria-label="Completed">
             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-accent">
@@ -157,23 +166,29 @@ function MissionCard({ m, done, onPlay }: { m: Mission; done: boolean; onPlay: (
           </span>
         )}
       </div>
-      <p className="text-[11px] font-bold uppercase tracking-[1.5px] text-muted">{m.topic}</p>
-      <p className="mt-1.5 flex-1 text-[12px] leading-[17px] text-soft">{m.objective}</p>
-      <div className="mt-3 flex items-center justify-between">
-        <span className="text-[11px] text-muted">{m.duration}</span>
-        <button onClick={onPlay} aria-label={`Play ${m.name}`} className="inline-flex h-[40px] items-center gap-1.5 rounded-pill bg-accent px-4 text-[12px] font-black uppercase tracking-caps hover:brightness-110">
-          <Play size={12} className="fill-current" /> {done ? "Play again" : "Play"}
+      <p className="mt-0.5 flex-1 text-[12px] leading-[17px] text-soft">{m.tagline}</p>
+      <div className="mt-2.5 flex items-center justify-between">
+        <span className="inline-flex items-center gap-1 text-[11px] text-muted">
+          <Clock size={11} aria-hidden /> {m.duration}
+        </span>
+        <button
+          onClick={onPlay}
+          aria-label={`Play ${m.name}`}
+          className="inline-flex h-[32px] items-center gap-1.5 rounded-pill bg-accent px-3.5 text-[11px] font-black uppercase tracking-caps transition-[filter] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1b1c1e]"
+        >
+          <Play size={10} className="fill-current" /> {done ? "Play again" : "Play"}
         </button>
       </div>
     </div>
   );
 }
 
-const PREVIEW: Record<MissionId, { icons: IconName[]; plats?: boolean }> = {
-  revenue: { icons: ["lock", "tag", "ticket"] },
-  superfan: { icons: ["camera", "live", "mail"], plats: true },
-  hq: { icons: ["play", "chat", "bag"], plats: true },
-  insight: { icons: ["bars", "play", "live"], plats: true },
+/** One token per quest: the thing the game is about. */
+const PREVIEW: Record<MissionId, IconName> = {
+  revenue: "tag",
+  superfan: "chat",
+  hq: "play",
+  insight: "bars",
 };
 
 /** Tiny live preview in the game's own style: same mascot, ground and tokens. */
@@ -196,20 +211,19 @@ function MissionPreview({ id }: { id: MissionId }) {
     const draw = (now: number) => {
       const t = now / 1000;
       ctx.clearRect(0, 0, W, H);
-      const ground = H - 14;
+      const ground = H - 10;
       drawGround(ctx, W, H, ground, still ? 0 : t * 20);
-      if (p.plats) drawPlatform(ctx, W * 0.56, ground - 34, W * 0.3, c, 0.6);
-      p.icons.forEach((ic, i) => drawToken(ctx, W * (0.45 + i * 0.17), ground - (p.plats && i > 0 ? 54 : 26) + (still ? 0 : Math.sin(t * 2 + i) * 2), ic, c, { r: 8 }));
+      drawToken(ctx, W * 0.62, ground - 24 + (still ? 0 : Math.sin(t * 2) * 2), p, c, { r: 9 });
       b.sq = still ? 0 : Math.sin(t * 2.2) * 0.04;
       b.look = 0.6;
       b.blink = !still && t % 3.2 < 0.12 ? 1 : 0;
-      drawMascot(ctx, W * 0.18, ground, b, c, { size: 24, glow: 8 });
+      drawMascot(ctx, W * 0.3, ground, b, c, { size: 22, glow: 6 });
       if (!still) raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
   }, [id]);
-  return <canvas ref={ref} aria-hidden className="h-[72px] w-full" />;
+  return <canvas ref={ref} aria-hidden className="h-[56px] w-full" />;
 }
 
 /* ---------------- result ---------------- */
