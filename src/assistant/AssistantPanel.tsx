@@ -549,39 +549,62 @@ function Checklist({ state }: { state: PlatformState }) {
   const steps = onboardingSteps(state);
   const done = steps.filter((s) => s.status === "done").length;
   const current = steps.findIndex((s) => s.status !== "done");
+  const progress = current < 0 ? `${done} of ${steps.length} complete` : `Step ${current + 1} of ${steps.length}`;
+  // Closed: one slim row that reopens it (same pattern as the task card).
+  if (!expanded)
+    return (
+      <button
+        onClick={() => setExpanded(true)}
+        data-testid="setup-stepper-show"
+        aria-label={`Show account setup, ${progress}`}
+        className="flex w-full items-center gap-2 rounded-inner bg-surface px-4 py-2 text-left text-[12px] hover:bg-surface/80"
+      >
+        <span className="flex-1 font-bold uppercase tracking-caps">Account setup</span>
+        <span className="text-soft" data-testid="setup-progress">
+          {progress}
+        </span>
+        <ChevronDown size={14} className="shrink-0 text-soft" />
+      </button>
+    );
   return (
     <div className="rounded-inner bg-surface px-4 py-3" data-testid="setup-stepper">
-      <button onClick={() => setExpanded((e) => !e)} aria-expanded={expanded} className="flex w-full items-center gap-2 text-left">
-        {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+      <div className="flex items-center gap-2">
         <span className="flex-1 text-[13px] font-bold uppercase tracking-caps">Account setup</span>
         <span className="text-xs text-soft" data-testid="setup-progress">
-          {current < 0 ? `${done} of ${steps.length} complete` : `Step ${current + 1} of ${steps.length}`}
+          {progress}
         </span>
-      </button>
-      {expanded && (
-        <ol className="mt-3" aria-label="Account setup steps">
-          {steps.map((s, i) => (
-            <li
-              key={s.label}
-              data-step-status={s.status}
-              aria-current={s.status === "now" ? "step" : undefined}
-              className={`relative flex gap-3 ${i < steps.length - 1 ? "pb-3" : ""}`}
-            >
-              {i < steps.length - 1 && (
-                <span aria-hidden className={`absolute bottom-0 left-[10.5px] top-[22px] w-px ${s.status === "done" ? "bg-accent" : "bg-line"}`} />
-              )}
-              <StepDot status={s.status} n={i + 1} />
-              <span className="min-w-0 flex-1">
-                <span className={`block text-[13px] leading-[22px] ${s.status === "now" ? "font-bold text-white" : s.status === "done" ? "text-soft" : "text-muted"}`}>
-                  {s.label}
-                  <span className="sr-only">, {s.status === "done" ? "completed" : s.status === "now" ? "in progress" : "upcoming"}</span>
-                </span>
-                <span className="block text-[11px] leading-[14px] text-muted">{s.owner}</span>
+        <button
+          onClick={() => setExpanded(false)}
+          aria-label="Close account setup"
+          title="Close (you can reopen it)"
+          data-testid="setup-stepper-hide"
+          className="-mr-1.5 flex h-7 w-7 items-center justify-center rounded-full text-soft hover:bg-bg hover:text-white"
+        >
+          <X size={15} />
+        </button>
+      </div>
+      <ol className="mt-3" aria-label="Account setup steps">
+        {steps.map((s, i) => (
+          <li
+            key={s.label}
+            data-step-status={s.status}
+            aria-current={s.status === "now" ? "step" : undefined}
+            className={`relative flex gap-3 ${i < steps.length - 1 ? "pb-3" : ""}`}
+          >
+            {i < steps.length - 1 && (
+              <span aria-hidden className={`absolute bottom-0 left-[10.5px] top-[22px] w-px ${s.status === "done" ? "bg-accent" : "bg-line"}`} />
+            )}
+            <StepDot status={s.status} n={i + 1} />
+            <span className="min-w-0 flex-1">
+              <span className={`block text-[13px] leading-[22px] ${s.status === "now" ? "font-bold text-white" : s.status === "done" ? "text-soft" : "text-muted"}`}>
+                {s.label}
+                <span className="sr-only">, {s.status === "done" ? "completed" : s.status === "now" ? "in progress" : "upcoming"}</span>
               </span>
-            </li>
-          ))}
-        </ol>
-      )}
+              <span className="block text-[11px] leading-[14px] text-muted">{s.owner}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

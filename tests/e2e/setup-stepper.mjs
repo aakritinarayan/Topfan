@@ -1,5 +1,5 @@
 // Account Setup stepper in the assistant: numbered, connected stages driven by the real setup state.
-// Every step, provisioning finishing in place, all complete, refresh, collapse/expand, and leaving and coming back.
+// Every step, provisioning finishing in place, all complete, refresh, close (X) and reopen, and leaving and coming back.
 import { freshPage, journey, launch, sleep, BASE } from "./lib/journey.mjs";
 const b = await launch();
 const p = await freshPage(b, "setup-navigation");
@@ -48,13 +48,13 @@ await expect("refresh keeps step 2", "Step 2 of 4", "done,now,next,next", 1);
 await go("/edit-preference/whitelabel/setup/provisioning");
 await expect("step 3 (provisioning): not complete while it runs", "Step 3 of 4", "done,done,now,next", 2);
 await shot(3);
-// collapse and expand keep working
-await p.click('[data-testid="setup-stepper"] button');
+// the X closes it to one slim row (progress still shown); the row reopens it
+await p.click('[data-testid="setup-stepper-hide"]');
 await sleep(300);
-j.check("collapses", (await p.$$('[data-testid="setup-stepper"] li')).length === 0 && (await read()).progress === "Step 3 of 4");
-await p.click('[data-testid="setup-stepper"] button');
+j.check("X closes to a slim row", !(await p.$('[data-testid="setup-stepper"]')) && /Step 3 of 4/.test(await j.text('[data-testid="setup-stepper-show"]')));
+await p.click('[data-testid="setup-stepper-show"]');
 await sleep(300);
-j.check("expands", (await p.$$('[data-testid="setup-stepper"] li')).length === 4);
+j.check("row reopens it", (await p.$$('[data-testid="setup-stepper"] li')).length === 4);
 // leave and come back: state resumes where it was
 await go("/edit-preference/whitelabel/setup/dns");
 await go("/edit-preference/whitelabel/setup/provisioning");
