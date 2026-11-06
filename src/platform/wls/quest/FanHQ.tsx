@@ -6,6 +6,7 @@
 import { useEffect } from "react";
 import { PHYS, drawGround, drawMascot, drawPlatform, drawRock, drawToken, hitsRock, jump, makeRock, newBody, react, rng, stepBody, type Body, type IconName, type Plat, type Rock } from "./engine";
 import { GameFrame, GameOverlay, useGame, type GameDef } from "./useGame";
+import { drawFx, fxCollect, fxHit, fxMilestone, fxToast, fxWin, newFx, shakeOffset, stepFx, type Fx } from "./fx";
 import type { MissionProps } from "./CreatorQuest";
 
 const LW = 1500;
@@ -43,6 +44,7 @@ interface S {
   near: Act | null;
   msg: { text: string; t: number } | null;
   events: string[];
+  fx: Fx;
 }
 
 function init(seed: number): S {
@@ -58,8 +60,9 @@ function init(seed: number): S {
     rocks: [380, 960, 1080].map((x) => ({ x: x + R.range(-20, 20), rock: makeRock(0, R.range(30, 40), R.range(13, 18), R.next), hitT: -9 })),
     stumbles: 0,
     near: null,
-    msg: { text: "Visit each activity and press E to link it to your hub.", t: 0 },
+    msg: null,
     events: [],
+    fx: newFx(),
   };
 }
 
@@ -67,21 +70,29 @@ const platsOf = (s: S): Plat[] => [...BASE, ...(s.storeAt ? [STORE] : []), ...(s
 const count = (s: S) => Object.keys(s.active).length;
 export const hqScore = (s: Pick<S, "active" | "hubAt" | "stumbles">) => Math.max(0, Object.keys(s.active).length * 100 + (s.hubAt ? 200 : 0) - s.stumbles * 10);
 
-const def: GameDef<S, { n: number; near: Act | null; msg: string | null; hub: boolean; state: string; score: number; store: boolean; steps: boolean }> = {
+const CELEBRATE_S = 1.4;
+
+const def: GameDef<S, { n: number; near: Act | null; msg: string | null; hub: boolean; state: string; score: number; store: boolean; steps: boolean; toast: Fx["toast"]; pop: number }> = {
   init,
   step(s, dt, input, env) {
     s.t += dt;
+    s.fx.reduced = env.reduced;
+    stepFx(s.fx, dt);
     const b = s.body;
     if (!s.hubAt && input.jump) jump(b);
     stepBody(b, dt, { move: s.hubAt ? 0 : (input.right ? 1 : 0) - (input.left ? 1 : 0), platforms: platsOf(s), minX: 0, maxX: LW, reduced: env.reduced });
     for (const r of s.rocks) {
+      // 1s of protection per rock after a bump, so one stumble never counts twice.
       if (s.t - r.hitT > 1 && hitsRock(b, r.x, 0, r.rock)) {
         r.hitT = s.t;
         s.stumbles += 1;
         react(b, "hit");
+        fxHit(s.fx, r.x + r.rock.w / 2, r.rock.h * 0.6, 10);
         b.vx = -b.face * 120;
       }
     }
+    const danger = s.rocks.find((r) => s.t - r.hitT > 1 && b.grounded && Math.sign(r.x + r.rock.w / 2 - b.x) === Math.sign(b.vx) && Math.abs(r.x + r.rock.w / 2 - b.x) < 70 && Math.abs(b.vx) > 60);
+    if (danger && b.y < 4) react(b, "alert");
     const here = [...BASE, ...(s.storeAt ? [STORE] : [])].find((p) => p.act && b.grounded && b.on === p);
     s.near = here?.act ?? null;
     if (input.interact && here?.act) {
@@ -90,16 +101,20 @@ const def: GameDef<S, { n: number; near: Act | null; msg: string | null; hub: bo
       else {
         s.active[act] = s.t;
         react(b, "interact");
+        fxCollect(s.fx, here.x + here.w / 2, here.h + 26, 100, ACTS[act].icon);
         s.events.push(`token_collected:${ACTS[act].label} linked`);
         s.msg = { text: `${ACTS[act].label} linked to your hub.`, t: s.t };
         if (act === "experiences" && !s.storeAt) {
           s.storeAt = s.t;
           s.msg = { text: "Fan experiences linked. A path to your Store appeared.", t: s.t };
+          fxToast(s.fx, "New path unlocked!");
         }
         if (count(s) === 4) {
           s.stepsAt = s.t;
           s.events.push("checkpoint_reached:All activities linked; path to the hub opened");
           s.msg = { text: "Everything is linked. Climb to your fan HQ.", t: s.t };
+          react(b, "yay");
+          fxMilestone(s.fx, b.x, b.y, "Path to your HQ opened!");
         }
       }
     }
@@ -107,6 +122,8 @@ const def: GameDef<S, { n: number; near: Act | null; msg: string | null; hub: bo
       s.hubAt = s.t;
       b.celebrate = true;
       react(b, "yay");
+      fxWin(s.fx, b.x, b.y);
+      fxCollect(s.fx, b.x + 40, b.y + 30, 200, "star");
       s.events.push("decision_made:Reached the fan HQ");
     }
     if (s.hubAt && b.grounded && b.crouch <= 0 && s.t - s.hubAt < 1.6) jump(b);
@@ -120,6 +137,9 @@ const def: GameDef<S, { n: number; near: Act | null; msg: string | null; hub: bo
     const ground = H - 40;
     const X = (x: number) => x - s.cam;
     const Y = (h: number) => ground - h;
+    const [kx, ky] = shakeOffset(s.fx);
+    ctx.save();
+    ctx.translate(kx, ky);
     drawGround(ctx, W, H, ground, s.cam);
 
     // Rails: each linked activity draws a dashed rail to the hub, filling in over 0.8s.
@@ -224,8 +244,21 @@ const def: GameDef<S, { n: number; near: Act | null; msg: string | null; hub: bo
       ctx.fillText("E · link to hub", X(b.x), Y(b.y) - PHYS.SIZE - 12);
       ctx.restore();
     }
+    ctx.restore();
+    drawFx(ctx, s.fx, X, Y, W, c);
   },
-  ui: (s) => ({ n: count(s), near: s.near, msg: s.msg?.text ?? null, hub: !!s.hubAt, state: s.body.state, score: hqScore(s), store: !!s.storeAt, steps: !!s.stepsAt }),
+  ui: (s) => ({
+    n: count(s),
+    near: s.near,
+    msg: s.msg?.text ?? null,
+    hub: !!s.hubAt && s.t - s.hubAt > CELEBRATE_S,
+    state: s.body.state,
+    score: hqScore(s),
+    store: !!s.storeAt,
+    steps: !!s.stepsAt,
+    toast: s.fx.toast,
+    pop: s.fx.scorePop,
+  }),
 };
 
 export function FanHQ({ run, onComplete, onExit, onEvent, setStage }: MissionProps) {
@@ -248,6 +281,9 @@ export function FanHQ({ run, onComplete, onExit, onEvent, setStage }: MissionPro
       title="Build Your Fan HQ"
       controls="platform"
       hint="←/→ or A/D to move, Space to jump, E to link an activity. Explore left and right."
+      intro="Link all four activities to your hub (press E on each), then climb to your fan HQ. Mind the rocks."
+      toast={ui.toast}
+      pop={ui.pop}
       score={ui.score}
       height={380}
       mascotState={game.paused ? "paused" : ui.state}
@@ -281,7 +317,14 @@ export function FanHQ({ run, onComplete, onExit, onEvent, setStage }: MissionPro
           </div>
           <p className="mt-4 text-[13px] leading-[19px] text-soft">Your posts, community, experiences and store, together under your own domain.</p>
           <button
-            onClick={() => onComplete({ score: ui.score, achievement: "Fan HQ activated", outcome: "Linked content, community, experiences and store to one hub" })}
+            onClick={() =>
+              onComplete({
+                score: ui.score,
+                achievement: "Fan HQ Builder",
+                outcome: "Linked content, community, experiences and store to one hub",
+                objectives: ["4 of 4 activities linked", "Reached your fan HQ"],
+              })
+            }
             className="mt-4 h-[44px] rounded-pill bg-accent px-5 text-[13px] font-black uppercase tracking-caps hover:brightness-110"
           >
             Finish mission

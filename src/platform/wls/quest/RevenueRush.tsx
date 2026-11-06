@@ -5,6 +5,7 @@
 import { useEffect } from "react";
 import { Lock, Tag, Ticket } from "lucide-react";
 import { PHYS, drawGround, drawMascot, drawRock, drawToken, hitsRock, jump, makeRock, newBody, react, rng, stepBody, type Body, type IconName, type Rock } from "./engine";
+import { drawFx, fxCollect, fxHit, fxMilestone, fxToast, fxWin, newFx, shakeOffset, stepFx, type Fx } from "./fx";
 import { GameFrame, GameOverlay, useGame, type GameDef } from "./useGame";
 import type { MissionProps } from "./CreatorQuest";
 import { spaceMotion } from "../SpaceBackdrop";
@@ -40,6 +41,7 @@ interface S {
   hits: number;
   choice: Cat | null;
   events: string[];
+  fx: Fx;
 }
 
 function init(seed: number): S {
@@ -74,6 +76,7 @@ function init(seed: number): S {
     hits: 0,
     choice: null,
     events: [],
+    fx: newFx(),
   };
 }
 
@@ -83,10 +86,14 @@ export const scoreOf = (s: Pick<S, "inv" | "hits" | "choice" | "scenario">) => {
   return Math.max(0, tokens * 10 + fit - s.hits * 5);
 };
 
-const def: GameDef<S, { phase: S["phase"]; inv: S["inv"]; score: number; state: string; scenario: number; choice: Cat | null }> = {
+const MILESTONE = 5; // offer ideas per milestone
+
+const def: GameDef<S, { phase: S["phase"]; inv: S["inv"]; score: number; state: string; scenario: number; choice: Cat | null; toast: Fx["toast"]; pop: number }> = {
   init,
   step(s, dt, input, env) {
     s.t += dt;
+    s.fx.reduced = env.reduced;
+    stepFx(s.fx, dt);
     const b = s.body;
     if (input.jump && (s.phase === "run" || s.phase === "ready")) {
       if (s.phase === "ready") s.phase = "run";
@@ -105,6 +112,8 @@ const def: GameDef<S, { phase: S["phase"]; inv: S["inv"]; score: number; state: 
         s.phase = "station";
         s.t = 0;
         s.events.push("checkpoint_reached");
+        react(b, "yay");
+        fxMilestone(s.fx, b.x, 0, "Checkpoint reached!");
       }
     }
     if (s.phase === "station" && s.t > 0.7) s.phase = "decide";
@@ -117,12 +126,17 @@ const def: GameDef<S, { phase: S["phase"]; inv: S["inv"]; score: number; state: 
 
     if (s.phase === "run") {
       for (const r of s.rocks) {
+        // Each rock can only cost points once; the stumble slows the run and gives a moment to recover.
         if (!r.hit && hitsRock(b, r.x, 0, r.rock)) {
           r.hit = true;
           s.hits += 1;
           react(b, "hit");
+          fxHit(s.fx, r.x + r.rock.w / 2, r.rock.h * 0.6, 5);
         }
       }
+      // A rock just ahead while on the ground: a quick "!" of anticipation.
+      const ahead = s.rocks.find((r) => !r.hit && r.x - b.x > 20 && r.x - b.x < 130);
+      if (ahead && b.grounded && b.stumble <= 0) react(b, "alert");
       for (const tk of s.tokens) {
         if (tk.got) continue;
         const dx = tk.x - b.x;
@@ -131,7 +145,13 @@ const def: GameDef<S, { phase: S["phase"]; inv: S["inv"]; score: number; state: 
           tk.got = s.t + 0.0001;
           s.inv[tk.cat] += 1;
           react(b, "collect");
+          fxCollect(s.fx, tk.x, tk.h, 10, CATS[tk.cat].icon);
           s.events.push(`token_collected:${tk.cat}`);
+          const n = s.inv.exclusive + s.inv.merch + s.inv.experience;
+          if (n % MILESTONE === 0) {
+            react(b, "yay");
+            fxMilestone(s.fx, b.x, b.y, `${n} offer ideas!`);
+          }
         }
       }
     }
@@ -140,18 +160,17 @@ const def: GameDef<S, { phase: S["phase"]; inv: S["inv"]; score: number; state: 
   },
   draw(ctx, s, W, H, c) {
     const ground = H - 40;
+    const [kx, ky] = shakeOffset(s.fx);
+    ctx.save();
+    ctx.translate(kx, ky);
     drawGround(ctx, W, H, ground, s.dist);
     const sx = (x: number) => x - s.dist;
     for (const r of s.rocks) if (sx(r.x) > -60 && sx(r.x) < W + 60) drawRock(ctx, sx(r.x), ground, r.rock, c);
     for (const tk of s.tokens) {
       const x = sx(tk.x);
       if (x < -30 || x > W + 30) continue;
-      if (tk.got) {
-        // quick pop toward the inventory
-        const a = Math.min(1, (s.t - tk.got) / 0.35);
-        if (a >= 1 || s.t < tk.got) continue;
-        drawToken(ctx, x + a * 30, ground - tk.h - a * 40, CATS[tk.cat].icon, c, { dim: a, r: 11 * (1 - a * 0.4) });
-      } else {
+      if (tk.got) continue; // the feedback layer flies it to the score
+      else {
         const bob = Math.sin(s.t * 3 + tk.x) * 2;
         drawToken(ctx, x, ground - tk.h + bob, CATS[tk.cat].icon, c);
       }
@@ -189,8 +208,10 @@ const def: GameDef<S, { phase: S["phase"]; inv: S["inv"]; score: number; state: 
     }
     const b = s.body;
     drawMascot(ctx, PLAYER_X, ground - b.y, b, c, { lean: s.phase === "run" ? Math.min(1, s.speed / 380) * 0.6 : 0 });
+    ctx.restore();
+    drawFx(ctx, s.fx, sx, (h) => ground - h, W, c);
   },
-  ui: (s) => ({ phase: s.phase, inv: s.inv, score: scoreOf(s), state: s.body.state, scenario: s.scenario, choice: s.choice }),
+  ui: (s) => ({ phase: s.phase, inv: s.inv, score: scoreOf(s), state: s.body.state, scenario: s.scenario, choice: s.choice, toast: s.fx.toast, pop: s.fx.scorePop }),
 };
 
 export function RevenueRush({ run, onComplete, onExit, onEvent, setStage }: MissionProps) {
@@ -226,6 +247,8 @@ export function RevenueRush({ run, onComplete, onExit, onEvent, setStage }: Miss
     const match = cat === SCENARIOS[s.scenario].best;
     s.body.celebrate = match;
     react(s.body, match ? "yay" : "interact");
+    if (match) fxWin(s.fx, s.body.x, 0);
+    else fxToast(s.fx, "Offer launched");
     onEvent("decision_made", `${CATS[cat].label} for "${SCENARIOS[s.scenario].request}" (${match ? "strong match" : "weaker match"})`);
   };
   const restart = () => game.restart(run + Math.floor(Math.random() * 1000) * 3);
@@ -237,6 +260,9 @@ export function RevenueRush({ run, onComplete, onExit, onEvent, setStage }: Miss
       title="Fan Revenue Rush"
       controls="runner"
       hint="Space, ↑ or tap to jump. Collect offer ideas and hop over rocks."
+      intro="Collect offer ideas and jump the rocks. At the station, launch the offer your fans want."
+      toast={ui.toast}
+      pop={ui.pop}
       score={ui.score}
       scoreLabel="Opportunity"
       mascotState={game.paused ? "paused" : ui.state}
@@ -259,9 +285,6 @@ export function RevenueRush({ run, onComplete, onExit, onEvent, setStage }: Miss
         </span>
       }
     >
-      {ui.phase === "ready" && (
-        <div className="pointer-events-none absolute inset-x-0 top-[34%] text-center text-[13px] text-soft">Collect offer ideas on the way. Space or tap to jump.</div>
-      )}
       {ui.phase === "decide" && !game.paused && (
         <GameOverlay label="Fan request">
           <p className="text-[11px] font-bold uppercase tracking-[2px] text-muted">Fan signal · fictional</p>
@@ -307,8 +330,13 @@ export function RevenueRush({ run, onComplete, onExit, onEvent, setStage }: Miss
             onClick={() =>
               onComplete({
                 score: ui.score,
-                achievement: match ? "Offer matched to fan demand" : "Offer launched",
+                achievement: "Revenue Explorer",
                 outcome: `${CATS[ui.choice!].label} for a fan request about ${CATS[sc.best].label.toLowerCase()} (${match ? "strong" : "weaker"} match)`,
+                objectives: [
+                  `${ui.inv.exclusive + ui.inv.merch + ui.inv.experience} offer ideas collected`,
+                  "Reached the fan request",
+                  match ? "Launched the offer fans asked for" : "Launched an offer",
+                ],
               })
             }
             className="mt-4 h-[44px] rounded-pill bg-accent px-5 text-[13px] font-black uppercase tracking-caps hover:brightness-110"

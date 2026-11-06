@@ -10,6 +10,9 @@ export interface Mission {
   name: string;
   topic: string;
   objective: string;
+  /** earned on completing the mission's objective */
+  achievement: string;
+  achievementLine: string;
   /** one-line card description on the quest picker */
   tagline: string;
   duration: string;
@@ -26,6 +29,8 @@ export const MISSIONS: Mission[] = [
     name: "Fan Revenue Rush",
     topic: "Monetization",
     objective: "Collect offer ideas, then launch the one your fans are asking for.",
+    achievement: "Revenue Explorer",
+    achievementLine: "You've explored ways to earn from your fans.",
     tagline: "Discover ways to earn from your fans.",
     duration: "1 min",
     takeaway: "Different fans value different things. TopFan helps creators offer content and experiences their communities care about.",
@@ -37,6 +42,8 @@ export const MISSIONS: Mission[] = [
     name: "Superfan Signal",
     topic: "Community Engagement",
     objective: "Carry each fan signal to the group that cares about it.",
+    achievement: "Community Connector",
+    achievementLine: "You've connected every fan group with what it cares about.",
     tagline: "Learn how to engage your community.",
     duration: "2 min",
     takeaway: "Strong fan communities grow through meaningful, relevant interactions — not just follower counts.",
@@ -48,6 +55,8 @@ export const MISSIONS: Mission[] = [
     name: "Build Your Fan HQ",
     topic: "Brand Ownership",
     objective: "Connect your content, community, experiences and store to one home.",
+    achievement: "Fan HQ Builder",
+    achievementLine: "You've brought your content and community together.",
     tagline: "Bring your content and community together.",
     duration: "2 min",
     takeaway:
@@ -60,6 +69,8 @@ export const MISSIONS: Mission[] = [
     name: "Fan Insight Explorer",
     topic: "Audience Insights",
     objective: "Find fan signals, spot the pattern, and decide what to make next.",
+    achievement: "Insight Hunter",
+    achievementLine: "You've turned fan signals into your next move.",
     tagline: "Understand your fans and their interests.",
     duration: "2 min",
     takeaway: "Understanding what your fans engage with can help you choose what to create next.",

@@ -21,7 +21,7 @@ export const PHYS = {
   AIR_CONTROL: 0.55,
 };
 
-export type Mood = "happy" | "jump" | "hit" | "yay" | "collect";
+export type Mood = "happy" | "jump" | "hit" | "yay" | "collect" | "alert" | "sad";
 
 export type MascotState =
   | "idle"
@@ -68,6 +68,10 @@ export interface Body {
   interactT: number;
   celebrate: boolean;
   state: MascotState;
+  /** seconds alive (idle breathing) */
+  life: number;
+  /** pickup glow left (seconds) */
+  glowT: number;
 }
 
 /* ---------------- seeded randomness (stable scenarios, testable) ---------------- */
@@ -108,6 +112,8 @@ export function newBody(x: number, y = 0): Body {
     interactT: 0,
     celebrate: false,
     state: "idle",
+    life: 0,
+    glowT: 0,
   };
 }
 
@@ -119,11 +125,26 @@ export function jump(b: Body) {
   return true;
 }
 
-export function react(b: Body, kind: "collect" | "hit" | "yay" | "interact") {
+export function react(b: Body, kind: "collect" | "hit" | "yay" | "interact" | "alert" | "sad") {
+  if (kind === "alert") {
+    // Anticipation only: never overrides a stronger reaction.
+    if (b.mood === "happy" || b.mood === "alert") {
+      b.mood = "alert";
+      b.moodT = 0.18;
+    }
+    return;
+  }
+  if (kind === "sad") {
+    b.mood = "sad";
+    b.moodT = 0.8;
+    b.sqv -= 2;
+    return;
+  }
   if (kind === "collect") {
     b.mood = "collect";
     b.moodT = 0.4;
     b.sqv += 3.2;
+    b.glowT = 0.3;
   } else if (kind === "hit") {
     b.mood = "hit";
     b.moodT = 0.7;
@@ -177,12 +198,16 @@ export function stepBody(b: Body, dt: number, o: StepOpts = {}) {
     b.moodT -= dt;
     if (b.moodT <= 0) b.mood = b.celebrate ? "yay" : "happy";
   }
+  b.life += dt;
+  b.glowT = Math.max(0, b.glowT - dt);
   b.landT = Math.max(0, b.landT - dt);
   b.interactT = Math.max(0, b.interactT - dt);
   b.stumble = Math.max(0, b.stumble - dt);
 
   // Jelly spring around a small pose target: stretch rising, slight squash falling.
-  const target = b.grounded ? 0 : b.vy > 0 ? 0.06 : -0.04;
+  // Standing still: a slow breathing pulse.
+  const breathe = b.grounded && !o.auto && Math.abs(b.vx) < 20 && b.stumble <= 0 ? Math.sin(b.life * 2.4) * 0.03 : 0;
+  const target = b.grounded ? breathe : b.vy > 0 ? 0.06 : -0.04;
   const acc = -PHYS.SPRING_K * (b.sq - target) - PHYS.SPRING_C * b.sqv;
   b.sqv += acc * dt;
   b.sq += b.sqv * dt;
@@ -317,7 +342,7 @@ export function drawMascot(
   ctx: CanvasRenderingContext2D,
   cx: number,
   bottom: number,
-  b: Pick<Body, "sq" | "look" | "blink" | "mood" | "face">,
+  b: Pick<Body, "sq" | "look" | "blink" | "mood" | "face"> & Partial<Pick<Body, "glowT" | "stumble" | "life">>,
   c: Colors,
   opts: { glow?: number; lean?: number; size?: number } = {},
 ) {
@@ -340,7 +365,7 @@ export function drawMascot(
 
   ctx.save();
   ctx.shadowColor = `rgba(${c.accentRgb},0.55)`;
-  ctx.shadowBlur = opts.glow ?? 12;
+  ctx.shadowBlur = (opts.glow ?? 12) + (b.glowT ? b.glowT * 60 : 0);
   ctx.fillStyle = c.accent;
   roundRect(ctx, x, y, wd, h, rad);
   ctx.fill();
@@ -371,6 +396,14 @@ export function drawMascot(
       ctx.beginPath();
       ctx.arc(ex, eyeY + 1.5 * k, 2.6 * k, Math.PI * 1.1, Math.PI * 1.9);
       ctx.stroke();
+    } else if (mood === "sad") {
+      ctx.beginPath();
+      ctx.arc(ex, eyeY - 1.2 * k, 2.4 * k, Math.PI * 0.15, Math.PI * 0.85);
+      ctx.stroke();
+    } else if (mood === "alert") {
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY - 0.5 * k, 2.7 * k, 3.6 * k, 0, 0, Math.PI * 2);
+      ctx.fill();
     } else if (b.blink > 0) {
       ctx.fillRect(ex - 2.4 * k, eyeY - 0.6 * k, 4.8 * k, 1.4 * k);
     } else {
@@ -386,13 +419,37 @@ export function drawMascot(
   if (mood === "jump" || mood === "collect") {
     ctx.ellipse(mx, my, (mood === "collect" ? 1.8 : 2.2) * k, (mood === "collect" ? 2.1 : 2.6) * k, 0, 0, Math.PI * 2);
     ctx.fill();
-  } else if (mood === "hit") {
+  } else if (mood === "hit" || mood === "sad") {
     ctx.arc(mx, my + 3.5 * k, 3.5 * k, Math.PI * 1.2, Math.PI * 1.8);
+    ctx.stroke();
+  } else if (mood === "alert") {
+    ctx.arc(mx, my, 1.6 * k, 0, Math.PI * 2);
     ctx.stroke();
   } else {
     const big = (mood === "yay" ? 4.6 : 3.4) * k;
     ctx.arc(mx, my - big * 0.6, big, Math.PI * 0.2, Math.PI * 0.8);
     ctx.stroke();
+  }
+  // Dizzy after a bump: three little stars circling the head.
+  if (mood === "hit" && (b.stumble ?? 0) > 0) {
+    const t = (b.life ?? 0) * 7;
+    ctx.fillStyle = "#fff";
+    for (let i = 0; i < 3; i++) {
+      const a = t + (i * Math.PI * 2) / 3;
+      const sx = cx + Math.cos(a) * wd * 0.42;
+      const sy = y - 5 * k + Math.sin(a) * 3 * k;
+      ctx.globalAlpha = 0.55 + 0.45 * Math.sin(a);
+      ctx.beginPath();
+      ctx.arc(sx, sy, 1.5 * k, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  // Alert: a small "!" above the head.
+  if (mood === "alert") {
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(cx - 1 * k, y - 13 * k, 2 * k, 6 * k);
+    ctx.fillRect(cx - 1 * k, y - 5.5 * k, 2 * k, 2 * k);
   }
   ctx.restore();
 }

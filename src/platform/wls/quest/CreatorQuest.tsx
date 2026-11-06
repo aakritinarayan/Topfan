@@ -3,7 +3,7 @@
  * Selection → mission → result, all in place (no reload). Never reads or changes provisioning.
  */
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, BookOpen, Check, Clock, Gamepad2, Play, RotateCcw, X } from "lucide-react";
+import { ArrowRight, BookOpen, Check, Clock, Gamepad2, Play, RotateCcw, Trophy, X } from "lucide-react";
 import { useQuest, type MissionResult, type QuestEventType } from "../../../state/questStore";
 import { MISSIONS, missionById, type Mission, type MissionId } from "./missions";
 import { drawGround, drawMascot, drawToken, newBody, readColors, type IconName } from "./engine";
@@ -12,6 +12,7 @@ import { SuperfanSignal } from "./SuperfanSignal";
 import { FanHQ } from "./FanHQ";
 import { InsightExplorer } from "./InsightExplorer";
 import { reducedMotion } from "./useGame";
+import { drawFx, fxWin, newFx, sfx, stepFx } from "./fx";
 
 export interface MissionProps {
   run: number;
@@ -128,6 +129,7 @@ function MissionSelect() {
           <X size={14} strokeWidth={2.5} /> Close
         </button>
       </div>
+      <QuestProgress />
       {reading ? (
         <ul className="mt-3 flex flex-col gap-2">
           {MISSIONS.map((m) => (
@@ -143,7 +145,7 @@ function MissionSelect() {
       ) : (
         <div className="mt-3 grid grid-cols-2 gap-3">
           {MISSIONS.map((m) => (
-            <MissionCard key={m.id} m={m} done={!!q.results[m.id]} onPlay={() => startMission(q, m.id)} />
+            <MissionCard key={m.id} m={m} done={!!q.results[m.id]} best={q.results[m.id]?.score} onPlay={() => startMission(q, m.id)} />
           ))}
         </div>
       )}
@@ -151,7 +153,7 @@ function MissionSelect() {
   );
 }
 
-function MissionCard({ m, done, onPlay }: { m: Mission; done: boolean; onPlay: () => void }) {
+function MissionCard({ m, done, best, onPlay }: { m: Mission; done: boolean; best?: number; onPlay: () => void }) {
   return (
     <div data-mission={m.id} className="flex flex-col rounded-[18px] border border-white/[0.06] bg-[#1b1c1e]/70 p-3 transition-colors hover:border-white/[0.14] focus-within:border-white/[0.14]">
       <MissionPreview id={m.id} />
@@ -167,10 +169,19 @@ function MissionCard({ m, done, onPlay }: { m: Mission; done: boolean; onPlay: (
         )}
       </div>
       <p className="mt-0.5 flex-1 text-[12px] leading-[17px] text-soft">{m.tagline}</p>
-      <div className="mt-2.5 flex items-center justify-between">
-        <span className="inline-flex items-center gap-1 text-[11px] text-muted">
-          <Clock size={11} aria-hidden /> {m.duration}
-        </span>
+      <div className="mt-2.5 flex items-center justify-between gap-2">
+        {best != null ? (
+          <span className="inline-flex min-w-0 items-center gap-1 text-[11px] text-soft" data-achievement>
+            <Trophy size={11} className="shrink-0 text-accent" aria-hidden />
+            <span className="truncate">
+              {m.achievement} · Best <span className="font-bold text-white">{best}</span>
+            </span>
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted">
+            <Clock size={11} aria-hidden /> {m.duration}
+          </span>
+        )}
         <button
           onClick={onPlay}
           aria-label={`Play ${m.name}`}
@@ -228,11 +239,42 @@ function MissionPreview({ id }: { id: MissionId }) {
 
 /* ---------------- result ---------------- */
 
+/** Picker header line: achievements earned so far, or the champion strip once all four are done. */
+function QuestProgress() {
+  const q = useQuest();
+  const n = MISSIONS.filter((m) => q.results[m.id]).length;
+  if (!n) return null;
+  if (n === MISSIONS.length)
+    return (
+      <div data-quest-champion className="mt-3 flex items-center gap-3 rounded-[16px] border border-white/[0.06] bg-[#1b1c1e]/70 px-4 py-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent">
+          <Trophy size={15} />
+        </span>
+        <span className="text-[13px]">
+          <b>Creator Quest Champion</b> <span className="text-soft">· You've completed all four missions.</span>
+        </span>
+      </div>
+    );
+  return (
+    <p className="mt-1 text-[12px] text-soft" data-quest-progress>
+      {n} of {MISSIONS.length} achievements earned
+    </p>
+  );
+}
+
+const nextQuest = (id: MissionId, done: (m: MissionId) => boolean) => {
+  const i = MISSIONS.findIndex((m) => m.id === id);
+  const order = [...MISSIONS.slice(i + 1), ...MISSIONS.slice(0, i)];
+  return (order.find((m) => !done(m.id)) ?? order[0]).id;
+};
+
 function MissionResultView({ id }: { id: MissionId }) {
   const q = useQuest();
   const m = missionById(id);
   const r = q.results[id];
   const saved = q.interests.includes(id);
+  const allDone = MISSIONS.every((x) => q.results[x.id]);
+  const next = missionById(nextQuest(id, (x) => !!q.results[x]));
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current!;
@@ -247,58 +289,101 @@ function MissionResultView({ id }: { id: MissionId }) {
     const b = newBody(0);
     b.mood = "yay";
     const still = reducedMotion();
+    const fx = newFx();
+    fx.reduced = still;
+    const ground = H - 12;
+    fxWin(fx, W / 2, 20, false);
+    sfx("milestone"); // the in-game win already played the bigger fanfare
     let raf = 0;
-    const t0 = performance.now();
+    let last = performance.now();
+    const t0 = last;
     const draw = (now: number) => {
       const t = (now - t0) / 1000;
+      stepFx(fx, Math.min(0.033, (now - last) / 1000));
+      last = now;
       ctx.clearRect(0, 0, W, H);
-      const ground = H - 10;
-      // Two joyful hops, then a calm breathing idle.
-      const hop = !still && t < 1.3 ? Math.abs(Math.sin((t / 0.65) * Math.PI)) * 22 : 0;
+      // Victory: three joyful hops, then a calm breathing idle.
+      const hop = !still && t < 1.95 ? Math.abs(Math.sin((t / 0.65) * Math.PI)) * 26 : 0;
       b.sq = still ? 0 : hop > 2 ? 0.08 : Math.sin(t * 2.2) * 0.035;
       b.look = 0;
-      b.mood = t < 2.2 ? "yay" : "happy";
+      b.mood = t < 2.4 ? "yay" : "happy";
       ctx.save();
       ctx.fillStyle = "rgba(255,255,255,0.18)";
       ctx.fillRect(W / 2 - 40, ground, 80, 1);
       ctx.restore();
       drawMascot(ctx, W / 2, ground - hop, b, c, { size: 34 });
-      if (!still) raf = requestAnimationFrame(draw);
+      drawFx(ctx, fx, (x) => x, (h) => ground - h, W, c);
+      if (!still || fx.parts.length) raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
   }, []);
+  const lastScore = r?.last ?? r?.score;
   return (
     <div className="quest-enter flex flex-col items-center text-center" data-quest="result">
-      <canvas ref={ref} aria-hidden className="h-[64px] w-[160px]" />
-      <p className="mt-1 text-[11px] font-bold uppercase tracking-[2px] text-muted">{m.name}</p>
-      <p className="mt-1 text-[20px] font-bold">Mission completed</p>
+      <canvas ref={ref} aria-hidden className="h-[110px] w-full max-w-[420px]" />
+      <p className="text-[22px] font-bold" data-quest-complete>
+        Quest Complete!
+      </p>
+      <div className="quest-badge mt-4 flex items-center gap-3 rounded-pill border border-white/[0.08] bg-[#1b1c1e]/80 py-2 pl-2 pr-5 text-left" data-achievement-unlocked>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent shadow-[0_0_20px_rgb(var(--configThemeColorRgb)/0.45)]">
+          <Trophy size={18} />
+        </span>
+        <span>
+          <span className="block text-[10px] font-bold uppercase tracking-[2px] text-muted">Achievement unlocked</span>
+          <span className="block text-[15px] font-bold leading-5">{m.achievement}</span>
+        </span>
+      </div>
+      <p className="mt-3 text-[14px] text-soft">{m.achievementLine}</p>
       {r && (
-        <p className="mt-1 text-[13px] text-soft">
-          {r.achievement} · Score <span className="font-bold text-white">{r.score}</span>
+        <p className="mt-3 text-[13px] text-soft" data-final-score>
+          Score <span className="text-[18px] font-bold text-white">{lastScore}</span>
+          {r.score > (lastScore ?? 0) && <span className="text-muted"> · Best {r.score}</span>}
+          <span className="text-muted"> · Creator Quest points</span>
         </p>
       )}
-      <p className="mt-4 max-w-[520px] text-[15px] leading-[22px]">{m.takeaway}</p>
-      <p className="mt-2 text-[12px] text-muted">In TopFan: {m.feature.where}</p>
-      <button
-        onClick={() => q.toggleInterest(id)}
-        aria-pressed={saved}
-        className={`mt-4 inline-flex h-[40px] items-center gap-2 rounded-pill border border-accent px-4 text-[12px] font-bold ${saved ? "bg-accent" : "hover:bg-accent-tint"}`}
-      >
-        {saved && <Check size={13} strokeWidth={3} />}
-        {saved ? "Saved for after launch" : "Explore this after launch"}
-      </button>
+      {r?.objectives?.length ? (
+        <ul className="mt-3 flex flex-col items-start gap-1 text-left text-[13px]" aria-label="Objectives completed">
+          {r.objectives.map((o) => (
+            <li key={o} className="flex items-center gap-2">
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent">
+                <Check size={10} strokeWidth={3.5} />
+              </span>
+              {o}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {allDone && (
+        <div data-quest-champion className="mt-4 flex items-center gap-3 rounded-[16px] border border-accent/40 bg-accent-tint px-4 py-2.5 text-left">
+          <Trophy size={18} className="shrink-0 text-accent" />
+          <span className="text-[13px]">
+            <b>Creator Quest Champion</b>
+            <span className="block text-soft">You've completed all four missions.</span>
+          </span>
+        </div>
+      )}
       <div className="mt-5 flex flex-wrap justify-center gap-2">
+        {allDone ? (
+          <button onClick={() => q.setView({ kind: "closed" })} className="inline-flex h-[44px] items-center gap-1.5 rounded-pill bg-accent px-5 text-[12px] font-black uppercase tracking-caps hover:brightness-110">
+            Continue setup <ArrowRight size={14} />
+          </button>
+        ) : (
+          <button onClick={() => startMission(q, next.id)} aria-label={`Play next quest: ${next.name}`} className="inline-flex h-[44px] items-center gap-1.5 rounded-pill bg-accent px-5 text-[12px] font-black uppercase tracking-caps hover:brightness-110">
+            <Play size={12} className="fill-current" /> Play next quest
+          </button>
+        )}
         <button onClick={() => startMission(q, id)} className="inline-flex h-[44px] items-center gap-1.5 rounded-pill border border-line px-4 text-[12px] font-black uppercase tracking-caps hover:border-accent">
-          <RotateCcw size={13} /> Play again
+          <RotateCcw size={13} /> Replay
         </button>
-        <button onClick={() => q.setView({ kind: "select" })} className="inline-flex h-[44px] items-center gap-1.5 rounded-pill bg-accent px-4 text-[12px] font-black uppercase tracking-caps hover:brightness-110">
-          Explore another mission
-        </button>
-        <button onClick={() => q.setView({ kind: "closed" })} className="inline-flex h-[44px] items-center gap-1.5 rounded-pill px-3 text-[12px] font-bold text-soft hover:text-white">
-          <ArrowLeft size={13} /> Return to provisioning
+        <button onClick={() => q.setView({ kind: "select" })} className="inline-flex h-[44px] items-center gap-1.5 rounded-pill px-3 text-[12px] font-bold text-soft hover:text-white">
+          Back to quests
         </button>
       </div>
+      <button onClick={() => q.toggleInterest(id)} aria-pressed={saved} className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-muted hover:text-white">
+        {saved && <Check size={12} strokeWidth={3} className="text-accent" />}
+        {saved ? `Saved: explore ${m.feature.label} after launch` : `Explore ${m.feature.label} after launch`}
+      </button>
     </div>
   );
 }

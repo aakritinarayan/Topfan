@@ -116,8 +116,20 @@ body {
 .quest-enter { animation: quest-enter 320ms ease-out both; }
 @keyframes quest-meter { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .quest-meter { transform-origin: left; animation: quest-meter 900ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+/* Creator Quest feedback: score pop, milestone toast, HUD flash, start instruction. */
+@keyframes quest-pop { 0% { transform: scale(1); } 35% { transform: scale(1.45); color: var(--accent); } 100% { transform: scale(1); } }
+.quest-pop { animation: quest-pop 260ms ease-out; }
+@keyframes quest-toast { 0% { opacity: 0; transform: translateY(-6px) scale(0.92); } 15% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-4px); } }
+.quest-toast { animation: quest-toast 1800ms ease-out both; }
+@keyframes quest-hud-flash { 0%, 100% { color: inherit; } 30% { color: #fff; } }
+.quest-hud-flash { animation: quest-hud-flash 900ms ease-out; }
+@keyframes quest-intro { 0% { opacity: 0; } 10%, 85% { opacity: 1; } 100% { opacity: 0; } }
+.quest-intro { animation: quest-intro 3600ms ease-out both; }
+@keyframes quest-badge { 0% { opacity: 0; transform: scale(0.6) rotate(-8deg); } 60% { opacity: 1; transform: scale(1.08) rotate(2deg); } 100% { transform: none; } }
+.quest-badge { animation: quest-badge 700ms cubic-bezier(0.22, 1, 0.36, 1) 250ms both; }
 @media (prefers-reduced-motion: reduce) {
-  .quest-enter, .quest-meter { animation: none; }
+  .quest-enter, .quest-meter, .quest-pop, .quest-hud-flash, .quest-badge { animation: none; }
+  .quest-toast { animation: quest-intro 1800ms linear both; }
 }
 
 /* Fan-site preview (White Label Site): a thin, quiet scrollbar inside the phone card. */

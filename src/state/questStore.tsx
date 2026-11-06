@@ -2,8 +2,27 @@
  * Creator Quest progress. Lives above the layouts so progress survives navigation; it never touches
  * provisioning or setup state. Game events are kept (last few) as context for the assistant.
  */
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { MissionId } from "../platform/wls/quest/missions";
+import { storageKey } from "../app/demo";
+
+/** Completed quests, best scores and saved interests persist per browser; ?resetMock=1 clears them. */
+const KEY = storageKey("topfan-quest-v1");
+type Saved = { results: Partial<Record<MissionId, MissionResult>>; interests: MissionId[] };
+function load(): Saved {
+  const empty: Saved = { results: {}, interests: [] };
+  try {
+    if (new URLSearchParams(window.location.search).get("resetMock") === "1") {
+      localStorage.removeItem(KEY);
+      return empty;
+    }
+    const s = JSON.parse(localStorage.getItem(KEY) ?? "null") as Saved | null;
+    if (!s || typeof s !== "object" || typeof s.results !== "object" || !Array.isArray(s.interests)) return empty;
+    return { results: s.results ?? {}, interests: s.interests };
+  } catch {
+    return empty;
+  }
+}
 
 export type QuestView = { kind: "closed" } | { kind: "select" } | { kind: "play"; id: MissionId; run: number } | { kind: "result"; id: MissionId };
 
@@ -20,6 +39,10 @@ export interface MissionResult {
   achievement: string;
   /** decision outcome, in words (for the result screen and the assistant) */
   outcome: string;
+  /** objectives completed in this run, shown on the completion screen */
+  objectives?: string[];
+  /** this run's score (`score` is the best) */
+  last?: number;
   at: number;
 }
 
@@ -43,8 +66,16 @@ const QuestContext = createContext<Ctx | null>(null);
 
 export function QuestProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState<QuestView>({ kind: "closed" });
-  const [results, setResults] = useState<Ctx["results"]>({});
-  const [interests, setInterests] = useState<MissionId[]>([]);
+  const [saved] = useState(load);
+  const [results, setResults] = useState<Ctx["results"]>(saved.results);
+  const [interests, setInterests] = useState<MissionId[]>(saved.interests);
+  useEffect(() => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ results, interests }));
+    } catch {
+      /* storage unavailable: progress lasts for this visit */
+    }
+  }, [results, interests]);
   const [events, setEvents] = useState<QuestEvent[]>([]);
   const [stage, setStage] = useState<string | null>(null);
   const lastCollect = useRef(0);
@@ -59,7 +90,8 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     setEvents((es) => [...es.slice(-11), { type, mission, detail, at: Date.now() }]);
   }, []);
   const complete = useCallback((id: MissionId, r: Omit<MissionResult, "at">) => {
-    setResults((rs) => ({ ...rs, [id]: { ...r, score: Math.max(r.score, rs[id]?.score ?? 0), at: Date.now() } }));
+    // Best score is kept across replays; the latest run's outcome and objectives are shown.
+    setResults((rs) => ({ ...rs, [id]: { ...r, score: Math.max(r.score, rs[id]?.score ?? 0), last: r.score, at: Date.now() } }));
   }, []);
   const toggleInterest = useCallback((id: MissionId) => setInterests((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id])), []);
   const reset = useCallback(() => {

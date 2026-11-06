@@ -4,8 +4,9 @@
  * keyboard + touch input and a cheap React snapshot for overlays (updated only when it changes).
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { ChevronLeft, ChevronRight, ArrowUp, Hand, Pause, Play, RotateCcw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowUp, Hand, Pause, Play, RotateCcw, Volume2, VolumeX, X } from "lucide-react";
 import { readColors, type Colors } from "./engine";
+import { setSoundOn, soundOn } from "./fx";
 
 export interface Input {
   left: boolean;
@@ -176,6 +177,9 @@ export function GameFrame({
   height = 340,
   children,
   hud,
+  intro,
+  toast,
+  pop = 0,
 }: {
   game: { canvasRef: RefObject<HTMLCanvasElement | null>; wrapRef: RefObject<HTMLDivElement | null>; input: RefObject<Input>; paused: boolean; setPaused: (p: boolean) => void; focus: () => void };
   title: string;
@@ -189,7 +193,20 @@ export function GameFrame({
   height?: number;
   children?: ReactNode;
   hud?: ReactNode;
+  /** one or two short lines shown as the game starts (objective, what to collect or avoid) */
+  intro?: string;
+  /** milestone message from the game's feedback layer */
+  toast?: { text: string; id: number } | null;
+  /** increments whenever the score should pop */
+  pop?: number;
 }) {
+  const [sound, setSound] = useState(soundOn);
+  const [showIntro, setShowIntro] = useState(!!intro);
+  useEffect(() => {
+    if (!intro) return;
+    const t = setTimeout(() => setShowIntro(false), 3600);
+    return () => clearTimeout(t);
+  }, [intro]);
   const press = (k: keyof Input, v: boolean) => {
     if (game.paused) return;
     const i = game.input.current!;
@@ -243,14 +260,33 @@ export function GameFrame({
           <HudButton label="Back to missions" onClick={onExit}>
             <X size={14} />
           </HudButton>
+          <HudButton label={sound ? "Mute sound" : "Turn sound on"} onClick={() => (setSoundOn(!sound), setSound(!sound), game.focus())}>
+            {sound ? <Volume2 size={14} /> : <VolumeX size={14} />}
+          </HudButton>
           <span className="ml-2 text-[11px] font-bold uppercase tracking-[2px] text-muted">{title}</span>
         </div>
-        <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-4 text-[11px] font-bold uppercase tracking-[2px] text-muted tabular-nums">
+        <div
+          key={`hud-${toast?.id ?? 0}`}
+          className={`pointer-events-none absolute right-3 top-3 flex items-center gap-4 text-[11px] font-bold uppercase tracking-[2px] text-muted tabular-nums ${toast ? "quest-hud-flash" : ""}`}
+        >
           {hud}
           <span>
-            {scoreLabel} <span className="text-white" data-quest-score>{score}</span>
+            {scoreLabel}{" "}
+            <span key={pop} className={`inline-block text-white ${pop ? "quest-pop" : ""}`} data-quest-score>
+              {score}
+            </span>
           </span>
         </div>
+        {toast && (
+          <div key={`toast-${toast.id}`} role="status" data-quest-toast className="quest-toast pointer-events-none absolute inset-x-0 top-14 flex justify-center">
+            <span className="rounded-pill bg-accent px-4 py-1.5 text-[12px] font-black uppercase tracking-caps text-white shadow-[0_8px_24px_rgba(0,0,0,0.4)]">{toast.text}</span>
+          </div>
+        )}
+        {showIntro && intro && !game.paused && (
+          <div data-quest-intro className="quest-intro pointer-events-none absolute inset-x-0 top-[30%] flex justify-center px-6">
+            <p className="max-w-[420px] rounded-[16px] bg-bg/70 px-4 py-2.5 text-center text-[13px] leading-[19px] text-white backdrop-blur-sm">{intro}</p>
+          </div>
+        )}
         {game.paused && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-bg/40">
             <span className="text-[15px] font-bold">Paused</span>

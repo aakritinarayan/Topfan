@@ -5,6 +5,7 @@
 import { useEffect } from "react";
 import { PHYS, drawGround, drawMascot, drawPlatform, drawToken, jump, newBody, react, stepBody, type Body, type IconName, type Plat } from "./engine";
 import { GameFrame, GameOverlay, useGame, type GameDef } from "./useGame";
+import { drawFx, fxCollect, fxMilestone, fxMiss, fxWin, newFx, stepFx, type Fx } from "./fx";
 import type { MissionProps } from "./CreatorQuest";
 
 type Kind = "bts" | "live" | "updates";
@@ -65,6 +66,7 @@ interface S {
   msg: { text: string; t: number } | null;
   done: number; // time of completion, 0 = not done
   events: string[];
+  fx: Fx;
 }
 
 function spawn(s: S) {
@@ -91,6 +93,7 @@ function init(seed: number): S {
     msg: null,
     done: 0,
     events: [],
+    fx: newFx(),
   };
   spawn(s);
   return s;
@@ -98,10 +101,15 @@ function init(seed: number): S {
 
 export const superfanScore = (s: Pick<S, "made" | "wrong">) => Math.max(0, s.made * 100 - s.wrong * 10);
 
-const def: GameDef<S, { made: number; wrong: number; carry: Kind | null; near: Kind | null; msg: string | null; done: boolean; state: string; score: number }> = {
+/** The win celebration plays in the level before the result card appears. */
+const CELEBRATE_S = 1.4;
+
+const def: GameDef<S, { made: number; wrong: number; carry: Kind | null; near: Kind | null; msg: string | null; done: boolean; state: string; score: number; toast: Fx["toast"]; pop: number }> = {
   init,
   step(s, dt, input, env) {
     s.t += dt;
+    s.fx.reduced = env.reduced;
+    stepFx(s.fx, dt);
     const b = s.body;
     if (!s.done && input.jump) jump(b);
     stepBody(b, dt, { move: s.done ? 0 : (input.right ? 1 : 0) - (input.left ? 1 : 0), platforms: PLATS, minX: 0, maxX: LW, reduced: env.reduced });
@@ -111,8 +119,9 @@ const def: GameDef<S, { made: number; wrong: number; carry: Kind | null; near: K
       const i = s.signals.findIndex((g) => Math.hypot(g.x - b.x, g.h - (b.y + PHYS.SIZE / 2)) < 24);
       if (i >= 0) {
         s.carry = s.signals[i].kind;
-        s.signals.splice(i, 1);
+        const g = s.signals.splice(i, 1)[0];
         react(b, "collect");
+        fxCollect(s.fx, g.x, g.h, 0, KINDS[g.kind].icon); // points come on delivery
         s.events.push(`token_collected:${KINDS[s.carry].label} signal`);
       }
     }
@@ -121,10 +130,12 @@ const def: GameDef<S, { made: number; wrong: number; carry: Kind | null; near: K
     s.near = st?.kind ?? null;
     if (input.interact && st && s.carry && !s.done) {
       if (st.kind === s.carry) {
+        const first = s.matches[st.kind] === 0;
         s.matches[st.kind] += 1;
         s.made += 1;
         s.carry = null;
         react(b, "interact");
+        fxCollect(s.fx, st.x, st.h + 34, 100, KINDS[st.kind].icon);
         s.msg = { text: `Connected: ${KINDS[st.kind].label.toLowerCase()} fans`, t: s.t };
         s.events.push(`decision_made:Matched a ${KINDS[st.kind].label} signal (correct)`);
         spawn(s);
@@ -132,12 +143,20 @@ const def: GameDef<S, { made: number; wrong: number; carry: Kind | null; near: K
           s.done = s.t;
           b.celebrate = true;
           react(b, "yay");
+          fxWin(s.fx, b.x, b.y);
+        } else if (s.made === TOTAL / 2) {
+          react(b, "yay");
+          fxMilestone(s.fx, b.x, b.y, "Halfway there!");
+        } else if (first) {
+          react(b, "yay");
+          fxMilestone(s.fx, st.x, st.h, "Fan group connected!");
         }
       } else {
         s.wrong += 1;
         s.shake = { kind: st.kind, t: s.t };
         s.msg = { text: `These fans want ${KINDS[st.kind].label.toLowerCase()}. Try another group.`, t: s.t };
-        b.sqv -= 3;
+        react(b, "sad");
+        fxMiss(s.fx, st.x, st.h + 34, 10);
         s.events.push(`decision_made:Tried a ${KINDS[s.carry].label} signal at the ${KINDS[st.kind].label} group (not a match)`);
       }
     } else if (input.interact && st && !s.carry && !s.done) {
@@ -222,6 +241,7 @@ const def: GameDef<S, { made: number; wrong: number; carry: Kind | null; near: K
 
     const b = s.body;
     drawMascot(ctx, X(b.x), Y(b.y), b, c, { lean: (b.vx / PHYS.MAX_VX) * 0.5 });
+    drawFx(ctx, s.fx, X, Y, W, c);
     if (s.carry) {
       const k = 0.5 + 0.5 * Math.sin(s.t * 4);
       drawToken(ctx, X(b.x), Y(b.y) - PHYS.SIZE - 16 - k * 2, KINDS[s.carry].icon, c, { r: 9, glow: k });
@@ -235,7 +255,18 @@ const def: GameDef<S, { made: number; wrong: number; carry: Kind | null; near: K
       ctx.restore();
     }
   },
-  ui: (s) => ({ made: s.made, wrong: s.wrong, carry: s.carry, near: s.near, msg: s.msg?.text ?? null, done: !!s.done, state: s.body.state, score: superfanScore(s) }),
+  ui: (s) => ({
+    made: s.made,
+    wrong: s.wrong,
+    carry: s.carry,
+    near: s.near,
+    msg: s.msg?.text ?? null,
+    done: !!s.done && s.t - s.done > CELEBRATE_S,
+    state: s.body.state,
+    score: superfanScore(s),
+    toast: s.fx.toast,
+    pop: s.fx.scorePop,
+  }),
 };
 
 export function SuperfanSignal({ run, onComplete, onExit, onEvent, setStage }: MissionProps) {
@@ -259,6 +290,9 @@ export function SuperfanSignal({ run, onComplete, onExit, onEvent, setStage }: M
       title="Superfan Signal"
       controls="platform"
       hint="←/→ or A/D to move, Space to jump, E to connect at a fan group."
+      intro="Pick up each fan signal and carry it to the fan group that wants it. Press E to connect."
+      toast={ui.toast}
+      pop={ui.pop}
       score={ui.score}
       mascotState={game.paused ? "paused" : ui.state}
       height={380}
@@ -292,8 +326,9 @@ export function SuperfanSignal({ run, onComplete, onExit, onEvent, setStage }: M
             onClick={() =>
               onComplete({
                 score: ui.score,
-                achievement: ui.wrong === 0 ? "Every signal matched first try" : "All fan groups connected",
+                achievement: "Community Connector",
                 outcome: `${ui.made} relevant connections, ${ui.wrong} mismatched tries`,
+                objectives: ["All 3 fan groups reached", `${ui.made} signals delivered`, ui.wrong === 0 ? "Every signal matched first try" : `${ui.wrong} mismatched ${ui.wrong === 1 ? "try" : "tries"}`],
               })
             }
             className="mt-4 h-[44px] rounded-pill bg-accent px-5 text-[13px] font-black uppercase tracking-caps hover:brightness-110"

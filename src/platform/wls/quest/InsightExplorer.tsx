@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { PHYS, drawGround, drawMascot, drawPlatform, drawToken, jump, newBody, react, stepBody, type Body, type IconName, type Plat } from "./engine";
 import { GameFrame, GameOverlay, useGame, type GameDef } from "./useGame";
+import { drawFx, fxCollect, fxMilestone, fxMiss, fxWin, newFx, stepFx, type Fx } from "./fx";
 import type { MissionProps } from "./CreatorQuest";
 
 const LW = 1600;
@@ -65,6 +66,9 @@ interface S {
   phase: "explore" | "review" | "decided";
   choice: string | null;
   events: string[];
+  fx: Fx;
+  /** all signals found: the pattern opens after a short celebration */
+  reviewAt: number;
 }
 
 function init(seed: number): S {
@@ -78,6 +82,8 @@ function init(seed: number): S {
     phase: "explore",
     choice: null,
     events: [],
+    fx: newFx(),
+    reviewAt: 0,
   };
 }
 
@@ -85,10 +91,13 @@ const got = (s: S) => s.signals.filter((g) => g.got);
 export const insightScore = (s: Pick<S, "signals" | "choice">) =>
   s.signals.filter((g) => g.got).length * 40 + (s.choice ? (ACTIONS.find((a) => a.id === s.choice)!.fits ? 120 : 30) : 0);
 
-const def: GameDef<S, { n: number; phase: S["phase"]; last: string | null; totals: Record<Topic, number>; state: string; score: number; choice: string | null }> = {
+const def: GameDef<S, { n: number; phase: S["phase"]; last: string | null; totals: Record<Topic, number>; state: string; score: number; choice: string | null; toast: Fx["toast"]; pop: number }> = {
   init,
   step(s, dt, input, env) {
     s.t += dt;
+    s.fx.reduced = env.reduced;
+    stepFx(s.fx, dt);
+    if (s.reviewAt && s.phase === "explore" && s.t - s.reviewAt > 1.2) s.phase = "review";
     const b = s.body;
     const free = s.phase === "explore";
     if (free && input.jump) jump(b);
@@ -100,10 +109,17 @@ const def: GameDef<S, { n: number; phase: S["phase"]; last: string | null; total
           g.got = s.t;
           s.last = g;
           react(b, "collect");
+          fxCollect(s.fx, g.x, g.h, 40, TOPICS[g.topic].icon);
           s.events.push(`token_collected:${g.n} sampled interactions with ${TOPICS[g.topic].label.toLowerCase()} (game data)`);
-          if (got(s).length === s.signals.length) {
-            s.phase = "review";
+          const n = got(s).length;
+          if (n === s.signals.length) {
+            s.reviewAt = s.t;
+            react(b, "yay");
+            fxMilestone(s.fx, b.x, b.y, "All signals found!");
             s.events.push("checkpoint_reached:All signals found; reviewing the pattern");
+          } else if (n === NEED) {
+            react(b, "yay");
+            fxMilestone(s.fx, b.x, b.y, "Pattern unlocked!");
           }
         }
       }
@@ -139,6 +155,7 @@ const def: GameDef<S, { n: number; phase: S["phase"]; last: string | null; total
       if (reveal > 0) drawToken(ctx, x, y, TOPICS[g.topic].icon, c, { r: 10, dim: 1 - reveal, glow: reveal });
     }
     drawMascot(ctx, X(b.x), Y(b.y), b, c, { lean: (b.vx / PHYS.MAX_VX) * 0.5 });
+    drawFx(ctx, s.fx, X, Y, W, c);
   },
   ui: (s) => {
     const totals = { tutorial: 0, live: 0, merch: 0 };
@@ -151,6 +168,8 @@ const def: GameDef<S, { n: number; phase: S["phase"]; last: string | null; total
       state: s.body.state,
       score: insightScore(s),
       choice: s.choice,
+      toast: s.fx.toast,
+      pop: s.fx.scorePop,
     };
   },
 };
@@ -184,7 +203,10 @@ export function InsightExplorer({ run, onComplete, onExit, onEvent, setStage }: 
     s.phase = "decided";
     const a = ACTIONS.find((x) => x.id === id)!;
     s.body.celebrate = a.fits;
-    react(s.body, a.fits ? "yay" : "interact");
+    react(s.body, a.fits ? "yay" : "sad");
+    if (a.fits) fxWin(s.fx, s.body.x, s.body.y);
+    else fxMiss(s.fx, s.body.x, s.body.y, 0);
+    s.fx.scorePop += 1;
     onEvent("decision_made", `${a.label} (${a.fits ? "fits the evidence" : "doesn't fit the evidence"})`);
   };
   const chosen = ACTIONS.find((a) => a.id === ui.choice);
@@ -195,6 +217,9 @@ export function InsightExplorer({ run, onComplete, onExit, onEvent, setStage }: 
       title="Fan Insight Explorer"
       controls="platform"
       hint={`←/→ or A/D to move, Space to jump. Get close to find hidden signals (${NEED}+ to review the pattern).`}
+      intro={`Explore and find hidden fan signals: they glow when you're close. Find ${NEED} to read the pattern.`}
+      toast={ui.toast}
+      pop={ui.pop}
       score={ui.score}
       height={380}
       mascotState={game.paused ? "paused" : ui.state}
@@ -256,7 +281,12 @@ export function InsightExplorer({ run, onComplete, onExit, onEvent, setStage }: 
               <p className="mt-1 text-[13px] leading-[19px] text-soft">{chosen.why}</p>
               <button
                 onClick={() =>
-                  onComplete({ score: ui.score, achievement: chosen.fits ? "Decision backed by evidence" : "Pattern reviewed", outcome: `${chosen.label} (${chosen.fits ? "fits" : "doesn't fit"} the game data)` })
+                  onComplete({
+                    score: ui.score,
+                    achievement: "Insight Hunter",
+                    outcome: `${chosen.label} (${chosen.fits ? "fits" : "doesn't fit"} the game data)`,
+                    objectives: [`${ui.n} of 7 signals found`, "Read the fan pattern", chosen.fits ? "Chose what fits the evidence" : "Made a call (not the best fit)"],
+                  })
                 }
                 className="mt-4 h-[44px] rounded-pill bg-accent px-5 text-[13px] font-black uppercase tracking-caps hover:brightness-110"
               >
