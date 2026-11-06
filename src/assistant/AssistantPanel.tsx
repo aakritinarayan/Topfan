@@ -742,11 +742,17 @@ function MessageView({ m }: { m: Msg }) {
   if (m.from === "user")
     return (
       <motion.div data-msg="user" data-mid={m.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
-        <span className="max-w-[85%] rounded-[20px] rounded-br-md bg-accent px-4 py-2.5 text-sm">{m.text}</span>
+        <span className="relative max-w-[85%] rounded-[20px] rounded-br-none bg-accent px-4 py-2.5 text-sm">
+          <BubbleTail side="right" className="text-accent" />
+          {m.text}
+        </span>
       </motion.div>
     );
   return (
-    <motion.div data-msg="assistant" data-mid={m.id} data-status={m.status ?? ""} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="relative min-w-0 break-words rounded-[20px] bg-surface p-4 text-sm leading-5">
+    <motion.div data-msg="assistant" data-mid={m.id} data-status={m.status ?? ""} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex min-w-0 justify-start">
+      {/* Bubble: structured content (drafts, plans, lists) gets the full bubble width; plain replies hug their text. */}
+      <div className={`relative min-w-0 break-words rounded-[20px] rounded-bl-none bg-surface p-4 text-sm leading-5 ${m.body ? "w-[94%]" : "max-w-[94%]"}`}>
+      <BubbleTail side="left" className="text-surface" />
       {m.dismissible && !m.resolved && (
         <button
           onClick={() => dismiss(m.id)}
@@ -803,7 +809,23 @@ function MessageView({ m }: { m: Msg }) {
           ))}
         </div>
       )}
+      </div>
     </motion.div>
+  );
+}
+
+/** Small curved tail on a bubble's bottom corner (left = TopFan AI, right = you). Fill comes from the text color. */
+function BubbleTail({ side, className = "" }: { side: "left" | "right"; className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      width="9"
+      height="14"
+      viewBox="0 0 9 14"
+      className={`pointer-events-none absolute bottom-0 ${side === "left" ? "-left-[8px]" : "-right-[8px] -scale-x-100"} ${className}`}
+    >
+      <path d="M9 0C9 7.5 6 11.8 0 14H9Z" fill="currentColor" />
+    </svg>
   );
 }
 
